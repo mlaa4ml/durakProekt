@@ -1,0 +1,15 @@
+{
+  "name": "durak-perevodnoy-engine",
+  "version": "0.2.0",
+  "description": "Движок игры 'переводной дурак' + WS-сервер для мультиплеера",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "play": "node src/cli/playVerbose.js 2 24",
+    "simulate": "node src/cli/simulate.js 1000 2 24",
+    "server": "node server/index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
