@@ -32,19 +32,58 @@
 // подключении — это то, что позволяет вернуться в ту же партию после разрыва связи.
 
 import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
 import { RoomManager } from './rooms.js';
 
 const PORT = process.env.PORT || 8080;
 const manager = new RoomManager();
 
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Немного статики поверх того же порта: в GitHub Codespaces это важно —
+// пробрасывать нужно ровно один порт, и по нему доступны и WebSocket,
+// и тестовый клиент, и офлайн-визуализация.
+const STATIC_ROUTES = {
+  '/': 'server/test-client.html',
+  '/test-client.html': 'server/test-client.html',
+  '/visual': 'docs/index.html',
+  '/visual/': 'docs/index.html',
+};
+
 // Сокеты, которые сейчас не сидят ни в одной комнате — им рассылаем
 // обновления списка комнат (лобби).
 const lobbySockets = new Set();
 
-const httpServer = createServer((req, res) => {
-  res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
-  res.end('Durak multiplayer server работает. Подключайтесь по WebSocket.');
+const httpServer = createServer(async (req, res) => {
+  let pathname = '/';
+  try {
+    pathname = normalize(new URL(req.url, `http://${req.headers.host || 'localhost'}`).pathname);
+  } catch {
+    pathname = '/';
+  }
+
+  if (pathname === '/health') {
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+    return res.end(JSON.stringify({ ok: true, rooms: manager.listOpen().length }));
+  }
+
+  const route = STATIC_ROUTES[pathname];
+  if (route) {
+    try {
+      const body = await readFile(join(ROOT, route));
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      return res.end(body);
+    } catch (e) {
+      res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+      return res.end(`Не удалось прочитать ${route}: ${e.message}`);
+    }
+  }
+
+  res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+  res.end('Durak multiplayer server работает. Тестовый клиент — на "/", визуализация — на "/visual".');
 });
 
 const wss = new WebSocketServer({ server: httpServer });
