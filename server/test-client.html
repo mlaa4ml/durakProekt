@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Тестовый клиент — Durak multiplayer</title>
+<style>
+  body{font-family:system-ui,sans-serif; max-width:900px; margin:20px auto; padding:0 16px; background:#1a1a1a; color:#eee;}
+  h1{font-size:18px;} h2{font-size:15px; margin-top:28px; border-bottom:1px solid #444; padding-bottom:4px;}
+  input,select,button{font-family:inherit; font-size:13px; padding:5px 8px; margin:2px 4px 2px 0; background:#2a2a2a; color:#eee; border:1px solid #555; border-radius:4px;}
+  button{cursor:pointer;} button:hover{background:#3a3a3a;}
+  button.legal{background:#2d5a2d; border-color:#4a8a4a;}
+  table{border-collapse:collapse; width:100%; font-size:13px;}
+  td,th{border:1px solid #444; padding:4px 8px; text-align:left;}
+  #log{white-space:pre-wrap; background:#111; padding:8px; font-family:monospace; font-size:12px; max-height:200px; overflow-y:auto; border:1px solid #444;}
+  .card{display:inline-block; min-width:28px; text-align:center;}
+  .status{font-size:13px; color:#9cf;}
+  .err{color:#f88;}
+  .muted{color:#888; font-size:12px;}
+  fieldset{border:1px solid #444; border-radius:6px;}
+</style>
+</head>
+<body>
+
+<h1>Тестовый клиент — Durak multiplayer (не финальный UI, только для проверки сервера)</h1>
+
+<fieldset>
+  <legend>Подключение</legend>
+  <input id="wsUrl" size="40" placeholder="ws://localhost:8080" />
+  <button id="connectBtn">Подключиться</button>
+  <span id="connStatus" class="status">не подключено</span>
+</fieldset>
+
+<h2>Лобби</h2>
+<button id="refreshRoomsBtn">Обновить список</button>
+<span class="muted">(список также обновляется сам при любых изменениях)</span>
+<table id="roomsTable"><thead><tr><th>Код</th><th>Название</th><th>Игроков</th><th>Правила</th><th></th></tr></thead><tbody></tbody></table>
+
+<fieldset>
+  <legend>Создать комнату</legend>
+  <input id="createLabel" placeholder="название комнаты" />
+  <input id="createName" placeholder="ваше имя" />
+  <select id="createNumPlayers"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+  <select id="createDeckSize"><option>24</option><option>36</option><option>52</option></select>
+  <select id="createThrowIn"><option value="all">все игроки</option><option value="neighbors">соседи</option><option value="attackerOnly">только атакующий</option></select>
+  <button id="createRoomBtn">Создать</button>
+</fieldset>
+
+<fieldset>
+  <legend>Присоединиться по коду</legend>
+  <input id="joinRoomId" placeholder="код комнаты" style="text-transform:uppercase" />
+  <input id="joinName" placeholder="ваше имя" />
+  <button id="joinRoomBtn">Войти</button>
+</fieldset>
+
+<fieldset>
+  <legend>Сессия (для проверки реконнекта)</legend>
+  <div id="sessionInfo" class="muted">нет сохранённой сессии</div>
+  <button id="rejoinBtn" disabled>Переподключиться (rejoin)</button>
+  <button id="leaveBtn" disabled>Выйти из комнаты (leave)</button>
+  <button id="dropBtn" disabled>Оборвать соединение (имитация разрыва сети)</button>
+  <button id="forgetBtn">Забыть сохранённую сессию</button>
+</fieldset>
+
+<h2>Партия</h2>
+<div id="gameStatus" class="status">не в комнате</div>
+<div id="playersBox"></div>
+<div><b>Стол:</b> <span id="tableBox">—</span></div>
+<div><b>Ваша рука:</b></div>
+<div id="handBox"></div>
+<div id="actionBar"></div>
+
+<h2>Лог</h2>
+<div id="log"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+let ws = null;
+let myPlayerId = null;
+let myRoomId = null;
+let lastState = null;
+let lastLegal = [];
+let lastPlayers = [];
+
+const RANK_NAMES = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
+function cardStr(c) { return `${RANK_NAMES[c.rank] || c.rank}${c.suit}`; }
+function cardKey(c) { return `${c.suit}${c.rank}`; }
+function actionCardKey(a) { return a.card ? cardKey(a.card) : null; }
+
+function logLine(text) {
+  const box = $('log');
+  const time = new Date().toLocaleTimeString();
+  box.textContent += `[${time}] ${text}\n`;
+  box.scrollTop = box.scrollHeight;
+}
+
+function saveSession() {
+  if (myRoomId && myPlayerId) {
+    localStorage.setItem('durak_test_session', JSON.stringify({ wsUrl: $('wsUrl').value, roomId: myRoomId, playerId: myPlayerId }));
+  }
+}
+function clearSession() {
+  localStorage.removeItem('durak_test_session');
+  updateSessionUI();
+}
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem('durak_test_session') || 'null'); } catch { return null; }
+}
+function updateSessionUI() {
+  const s = loadSession();
+  $('sessionInfo').textContent = s ? `сохранено: комната ${s.roomId}, playerId ${s.playerId.slice(0, 8)}…` : 'нет сохранённой сессии';
+  $('rejoinBtn').disabled = !s;
+}
+
+function send(obj) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) { logLine('нет соединения — сообщение не отправлено'); return; }
+  ws.send(JSON.stringify(obj));
+}
+
+function connect() {
+  const url = $('wsUrl').value.trim();
+  if (!url) return;
+  ws = new WebSocket(url);
+  $('connStatus').textContent = 'подключаюсь…';
+  ws.addEventListener('open', () => {
+    $('connStatus').textContent = 'подключено';
+    logLine('WebSocket открыт: ' + url);
+    send({ type: 'listRooms' });
+  });
+  ws.addEventListener('close', () => {
+    $('connStatus').textContent = 'соединение закрыто';
+    logLine('WebSocket закрыт');
+    setInteractionEnabled(false);
+  });
+  ws.addEventListener('error', () => { $('connStatus').textContent = 'ошибка соединения'; });
+  ws.addEventListener('message', (ev) => {
+    const msg = JSON.parse(ev.data);
+    handleMessage(msg);
+  });
+}
+
+function handleMessage(msg) {
+  if (msg.type === 'error') { logLine('ОШИБКА: ' + msg.message); return; }
+
+  if (msg.type === 'rooms') { renderRooms(msg.rooms); return; }
+
+  if (msg.type === 'joined') {
+    myPlayerId = msg.playerId;
+    myRoomId = msg.roomId;
+    saveSession();
+    updateSessionUI();
+    setInteractionEnabled(true);
+    logLine(`Вошли в комнату ${msg.roomId} как ${msg.playerId.slice(0, 8)}… (мест занято ${msg.seatsFilled}/${msg.seatsTotal})`);
+    $('gameStatus').textContent = `в комнате ${msg.roomId}, ждём остальных (${msg.seatsFilled}/${msg.seatsTotal})…`;
+    return;
+  }
+
+  if (msg.type === 'left') {
+    logLine('Вышли из комнаты');
+    myPlayerId = null;
+    myRoomId = null;
+    clearSession();
+    setInteractionEnabled(false);
+    $('gameStatus').textContent = 'не в комнате';
+    $('playersBox').innerHTML = '';
+    $('handBox').innerHTML = '';
+    $('actionBar').innerHTML = '';
+    $('tableBox').textContent = '—';
+    send({ type: 'listRooms' });
+    return;
+  }
+
+  if (msg.type === 'state') {
+    lastState = msg.state;
+    lastLegal = msg.legalActions || [];
+    lastPlayers = msg.players || [];
+    renderGame();
+    return;
+  }
+}
+
+function renderRooms(rooms) {
+  const tbody = $('roomsTable').querySelector('tbody');
+  tbody.innerHTML = '';
+  for (const r of rooms) {
+    const tr = document.createElement('tr');
+    const statusText = r.finished ? 'завершена' : r.started ? 'идёт' : 'ждёт игроков';
+    tr.innerHTML = `<td>${r.roomId}</td><td>${r.label || '—'}</td><td>${r.seatsFilled}/${r.numPlayers}</td>` +
+      `<td>${r.deckSize} карт, ${r.throwInPolicy}, ${statusText}</td><td></td>`;
+    const td = tr.lastElementChild;
+    if (!r.started) {
+      const btn = document.createElement('button');
+      btn.textContent = 'Войти';
+      btn.addEventListener('click', () => {
+        const name = prompt('Ваше имя?', 'Игрок') || 'Игрок';
+        send({ type: 'join', roomId: r.roomId, name });
+      });
+      td.appendChild(btn);
+    }
+    tbody.appendChild(tr);
+  }
+  if (rooms.length === 0) tbody.innerHTML = '<tr><td colspan="5" class="muted">комнат пока нет</td></tr>';
+}
+
+function renderGame() {
+  if (!lastState) return;
+  const you = lastState.players.find((p) => p.id === myPlayerId);
+  const rosterLine = lastPlayers.map((p) => {
+    const flags = [];
+    if (p.id === lastState.attacker) flags.push('атакует');
+    if (p.id === lastState.defender) flags.push('защита');
+    if (!p.connected) flags.push('offline');
+    if (p.botControlled) flags.push('бот вместо игрока');
+    return `${p.name}${p.id === myPlayerId ? ' (вы)' : ''} — ${flags.join(', ') || 'ждёт'}`;
+  }).join(' · ');
+  $('playersBox').innerHTML = rosterLine;
+
+  if (lastState.finished) {
+    const durakPlayer = lastPlayers.find((p) => p.id === lastState.durak);
+    $('gameStatus').textContent = lastState.durak ? `Партия окончена — дурак: ${durakPlayer?.name || lastState.durak}` : 'Партия окончена — ничья';
+  } else {
+    $('gameStatus').textContent = `Козырь: ${cardStr(lastState.trumpCard)} · в колоде: ${lastState.talonCount}`;
+  }
+
+  const tableParts = lastState.table.map((t) => `${cardStr(t.attack)}${t.defense ? '→' + cardStr(t.defense) : ''}`);
+  $('tableBox').textContent = tableParts.length ? tableParts.join('  ') : 'пусто';
+
+  const handBox = $('handBox');
+  handBox.innerHTML = '';
+  const attackKeys = new Set(lastLegal.filter((a) => a.type === 'attack').map(actionCardKey));
+  const defendKeys = new Set(lastLegal.filter((a) => a.type === 'defend').map(actionCardKey));
+  (you?.hand || []).forEach((c) => {
+    const btn = document.createElement('button');
+    btn.className = 'card';
+    btn.textContent = cardStr(c);
+    const key = cardKey(c);
+    if (attackKeys.has(key)) {
+      btn.classList.add('legal');
+      btn.addEventListener('click', () => send({ type: 'action', action: lastLegal.find((a) => a.type === 'attack' && actionCardKey(a) === key) }));
+    } else if (defendKeys.has(key)) {
+      btn.classList.add('legal');
+      btn.addEventListener('click', () => send({ type: 'action', action: lastLegal.find((a) => a.type === 'defend' && actionCardKey(a) === key) }));
+    } else {
+      btn.disabled = true;
+    }
+    handBox.appendChild(btn);
+  });
+
+  const actionBar = $('actionBar');
+  actionBar.innerHTML = '';
+  const transfer = lastLegal.find((a) => a.type === 'transfer');
+  const take = lastLegal.find((a) => a.type === 'take');
+  const pass = lastLegal.find((a) => a.type === 'pass');
+  if (transfer) addActionBtn(actionBar, `Перевести (${transfer.cards.length})`, transfer);
+  if (take) addActionBtn(actionBar, 'Взять карты', take);
+  if (pass) addActionBtn(actionBar, 'Пас', pass);
+}
+
+function addActionBtn(container, label, action) {
+  const btn = document.createElement('button');
+  btn.className = 'legal';
+  btn.textContent = label;
+  btn.addEventListener('click', () => send({ type: 'action', action }));
+  container.appendChild(btn);
+}
+
+function setInteractionEnabled(inRoom) {
+  $('leaveBtn').disabled = !inRoom;
+  $('dropBtn').disabled = !inRoom;
+}
+
+$('connectBtn').addEventListener('click', connect);
+$('refreshRoomsBtn').addEventListener('click', () => send({ type: 'listRooms' }));
+$('createRoomBtn').addEventListener('click', () => {
+  send({
+    type: 'createRoom',
+    label: $('createLabel').value,
+    name: $('createName').value,
+    numPlayers: Number($('createNumPlayers').value),
+    deckSize: Number($('createDeckSize').value),
+    throwInPolicy: $('createThrowIn').value,
+  });
+});
+$('joinRoomBtn').addEventListener('click', () => {
+  send({ type: 'join', roomId: $('joinRoomId').value.trim().toUpperCase(), name: $('joinName').value });
+});
+$('rejoinBtn').addEventListener('click', () => {
+  const s = loadSession();
+  if (!s) return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) { $('wsUrl').value = s.wsUrl; connect(); setTimeout(() => send({ type: 'rejoin', roomId: s.roomId, playerId: s.playerId }), 300); }
+  else send({ type: 'rejoin', roomId: s.roomId, playerId: s.playerId });
+});
+$('leaveBtn').addEventListener('click', () => send({ type: 'leave' }));
+$('dropBtn').addEventListener('click', () => { logLine('Имитирую обрыв связи (закрываю сокет, сессия остаётся сохранённой)'); ws.close(); });
+$('forgetBtn').addEventListener('click', clearSession);
+
+// Значение по умолчанию — типичный проброшенный порт Codespaces, если открыт локально просто впишите ws://localhost:8080
+$('wsUrl').value = (location.protocol === 'https:' ? 'wss://' : 'ws://') + 'localhost:8080';
+updateSessionUI();
+</script>
+</body>
+</html>
