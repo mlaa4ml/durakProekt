@@ -15,21 +15,44 @@
     --brick:#a63a2e;
     --gold:#c9a227;
     --paper-dim:#cfc6ad;
+    --bg-a:#2a2018; --bg-b:#14100c; --bg-c:#0b0908;
+    --panel-border:#4a3a26; --panel-bg:#1b140d; --input-bg:#241b12;
+    --slot-border:#6b5638; --log-border:#3a2c1c; --footer-muted:#6b6153;
+    --log-hl-bg:#3a2c1c; --log-hl-text:var(--cream);
     --display: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --card-w: clamp(40px, 6.4vw, 56px);
-    --card-h: clamp(58px, 9.4vw, 82px);
-    --hand-card-w: clamp(54px, 7.6vw, 78px);
-    --hand-card-h: clamp(78px, 11vw, 113px);
+    --card-w: clamp(44px, 7vw, 62px);
+    --card-h: clamp(62px, 9.8vw, 87px);
+    --hand-card-w: clamp(60px, 8.6vw, 88px);
+    --hand-card-h: clamp(84px, 12vw, 124px);
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]):not([data-theme="light"]){
+      --felt-1:#ece2c8; --felt-2:#ddcfa6; --rail:#8a6a42; --rail-hi:#c39a5c;
+      --gold:#8a6a1a; --paper-dim:#5c5344;
+      --bg-a:#faf6ec; --bg-b:#f0ead9; --bg-c:#e6dfc9;
+      --panel-border:#cfc2a0; --panel-bg:#f6f1e3; --input-bg:#efe8d5;
+      --slot-border:#a9926a; --log-border:#d9cca3; --footer-muted:#8a7f68;
+      --log-hl-bg:#e6d9b0; --log-hl-text:var(--ink);
+    }
+  }
+  :root[data-theme="light"]{
+    --felt-1:#ece2c8; --felt-2:#ddcfa6; --rail:#8a6a42; --rail-hi:#c39a5c;
+    --gold:#8a6a1a; --paper-dim:#5c5344;
+    --bg-a:#faf6ec; --bg-b:#f0ead9; --bg-c:#e6dfc9;
+    --panel-border:#cfc2a0; --panel-bg:#f6f1e3; --input-bg:#efe8d5;
+    --slot-border:#a9926a; --log-border:#d9cca3; --footer-muted:#8a7f68;
+    --log-hl-bg:#e6d9b0; --log-hl-text:var(--ink);
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background: radial-gradient(120% 100% at 50% 0%, #2a2018 0%, #14100c 60%, #0b0908 100%);
+    background: radial-gradient(120% 100% at 50% 0%, var(--bg-a) 0%, var(--bg-b) 60%, var(--bg-c) 100%);
     color:var(--paper-dim);
     font-family:var(--display);
     min-height:100vh;
     padding:20px 14px 40px;
+    transition:background-color .2s, color .2s;
   }
   .wrap{max-width:980px;margin:0 auto;}
   header{margin-bottom:16px;}
@@ -43,8 +66,8 @@
     font-family:var(--mono); font-size:12px;
   }
   .settings-panel{
-    margin-top:12px; border:1px solid #4a3a26; border-radius:8px;
-    background:#1b140d; padding:2px 12px 10px;
+    margin-top:12px; border:1px solid var(--panel-border); border-radius:8px;
+    background:var(--panel-bg); padding:2px 12px 10px;
   }
   .settings-panel summary{
     cursor:pointer; font-family:var(--mono); font-size:12px; color:var(--gold);
@@ -56,8 +79,8 @@
   .settings-panel[open] summary::before{ transform:rotate(90deg); }
   .settings-panel .controls-bar{ margin-top:2px; }
   select, button{
-    font-family:var(--mono); font-size:12px; background:#241b12; color:var(--paper-dim);
-    border:1px solid #4a3a26; border-radius:4px; padding:6px 10px; cursor:pointer;
+    font-family:var(--mono); font-size:12px; background:var(--input-bg); color:var(--paper-dim);
+    border:1px solid var(--panel-border); border-radius:4px; padding:6px 10px; cursor:pointer;
   }
   button:hover, select:hover{border-color:var(--gold); color:var(--cream);}
   button.primary{background:var(--brick); color:var(--cream); border-color:var(--brick);}
@@ -180,25 +203,33 @@
 
   .discard-area{ text-align:center; }
   .discard-pile{
-    width:var(--card-w); height:var(--card-h); border-radius:8px; border:2px dashed #6b5638;
+    width:var(--card-w); height:var(--card-h); border-radius:8px; border:2px dashed var(--slot-border);
     display:flex; align-items:center; justify-content:center;
-    font-family:var(--mono); font-size:12px; color:#6b5638; margin:0 auto 6px;
+    font-family:var(--mono); font-size:12px; color:var(--slot-border); margin:0 auto 6px;
   }
 
   .card{
     width:var(--card-w); height:var(--card-h); border-radius:6px; background:var(--cream);
     box-shadow:0 4px 10px #0007, inset 0 0 0 1px #0002;
-    display:flex; flex-direction:column;
-    padding:4px 5px; font-family:var(--display); font-weight:700;
-    font-size:clamp(11px,2.1vw,14px); line-height:1; flex:none;
+    position:relative; font-family:var(--display); font-weight:700;
+    line-height:.92; flex:none;
   }
   .card.ink{color:var(--ink);}
   .card.brick{color:var(--brick);}
-  .card .rank{font-size:clamp(11px,2.1vw,14px); flex:none;}
-  .card .suit-big{
-    font-size:clamp(17px,3.4vw,24px); flex:1; display:flex;
-    align-items:center; justify-content:center;
+  /* Индекс (ранг+масть) вынесен в угол — вариант "1d": ранг ~40% ширины карты,
+     масть ~32%, без фонового символа по центру. Продублирован вверх ногами в
+     противоположном углу, поэтому при любом нахлёсте карт в веере видно,
+     что это за карта. */
+  .card .corner{
+    position:absolute; top:calc(var(--card-w) * .07); left:calc(var(--card-w) * .08);
+    text-align:center;
   }
+  .card .corner.br{
+    top:auto; left:auto; bottom:calc(var(--card-w) * .07); right:calc(var(--card-w) * .08);
+    transform:rotate(180deg);
+  }
+  .card .corner .r{ font-size:calc(var(--card-w) * .4); }
+  .card .corner .s{ font-size:calc(var(--card-w) * .32); margin-top:1px; }
   .card-back{
     width:var(--card-w); height:var(--card-h); border-radius:6px;
     background:
@@ -212,21 +243,41 @@
     display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap;
   }
   .my-hand{
-    display:flex; justify-content:center; align-items:flex-end; gap:0; flex-wrap:wrap;
-    min-height:calc(var(--hand-card-h) + 6px); row-gap:14px;
+    position:relative; margin:0 auto; width:100%;
+    min-height:calc(var(--hand-card-h) + 6px);
   }
   .my-hand .card{
+    position:absolute; left:50%; bottom:0;
     width:var(--hand-card-w); height:var(--hand-card-h);
-    margin-left:clamp(-26px,-2.6vw,-14px); transition:transform .15s;
+    transform-origin:bottom center;
+    transform:translate(var(--tx,0px), var(--ty,0px)) rotate(var(--tr,0deg));
+    transition:transform .15s;
   }
-  .my-hand .card .rank{ font-size:clamp(13px,2.6vw,17px); }
-  .my-hand .card .suit-big{ font-size:clamp(20px,4vw,28px); }
-  .my-hand .card:first-child{ margin-left:0; }
-  .my-hand .card:hover{ transform:translateY(-8px); z-index:2; position:relative; }
+  .my-hand .card .corner{
+    top:calc(var(--hand-card-w) * .05); left:calc(var(--hand-card-w) * .06);
+  }
+  .my-hand .card .corner.br{
+    bottom:calc(var(--hand-card-w) * .05); right:calc(var(--hand-card-w) * .06);
+  }
+  .my-hand .card .corner .r{ font-size:calc(var(--hand-card-w) * .4); }
+  .my-hand .card .corner .s{ font-size:calc(var(--hand-card-w) * .32); }
   .my-hand .card.playable{ cursor:pointer; box-shadow:0 0 0 2px var(--gold), 0 4px 10px #0007; }
   .my-hand .card.playable.transferable{ box-shadow:0 0 0 2px #5b9bd5, 0 4px 10px #0007; }
-  .my-hand .card.playable:hover{ transform:translateY(-12px); z-index:2; position:relative; }
   .my-hand .card.unplayable{ opacity:.55; }
+  @media (hover:hover) and (pointer:fine){
+    .my-hand .card:hover{
+      transform:translate(var(--tx,0px), calc(var(--ty,0px) - 10px)) rotate(var(--tr,0deg));
+      z-index:50;
+    }
+    .my-hand .card.playable:hover{
+      transform:translate(var(--tx,0px), calc(var(--ty,0px) - 14px)) rotate(var(--tr,0deg));
+      z-index:50;
+    }
+  }
+  .my-hand .card.playable:active{
+    transform:translate(var(--tx,0px), calc(var(--ty,0px) - 10px)) rotate(var(--tr,0deg));
+    z-index:50;
+  }
 
   .action-bar{
     display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:12px; min-height:30px;
@@ -243,6 +294,11 @@
   .mode-toggle{ display:flex; gap:4px; }
   .mode-toggle button{ padding:5px 9px; }
   .mode-toggle button.active{ background:var(--brick); color:var(--cream); border-color:var(--brick); }
+  .theme-switch{
+    display:inline-flex; align-items:center; gap:6px; margin-top:8px;
+    font-family:var(--mono); font-size:11px; color:var(--paper-dim);
+  }
+  .theme-switch select{ padding:4px 7px; font-size:11px; }
   .view-only{ display:block; }
   .view-only.hidden{ display:none; }
   .hidden{ display:none !important; }
@@ -278,16 +334,16 @@
   .step-counter{ font-family:var(--mono); font-size:11px; }
 
   details{
-    margin-top:22px; border-top:1px solid #3a2c1c; padding-top:10px;
+    margin-top:22px; border-top:1px solid var(--log-border); padding-top:10px;
   }
   summary{ cursor:pointer; font-family:var(--mono); font-size:12px; color:var(--gold); }
   .log{
     font-family:var(--mono); font-size:11.5px; line-height:1.6; color:var(--paper-dim);
     max-height:280px; overflow-y:auto; margin-top:10px; white-space:pre-wrap;
   }
-  .log .cur{ color:var(--cream); background:#3a2c1c; display:inline-block; padding:1px 4px; border-radius:3px; }
+  .log .cur{ color:var(--log-hl-text); background:var(--log-hl-bg); display:inline-block; padding:1px 4px; border-radius:3px; }
 
-  .footer-note{ font-family:var(--mono); font-size:10.5px; color:#6b6153; text-align:center; margin-top:18px; }
+  .footer-note{ font-family:var(--mono); font-size:10.5px; color:var(--footer-muted); text-align:center; margin-top:18px; }
 
   /* ===================== Мобильная версия ===================== */
   @media (max-width:680px){
@@ -323,15 +379,9 @@
     /* Рука игрока прилипает к низу экрана — всегда доступна для тапа. */
     .my-hand-wrap{
       position:sticky; bottom:0; z-index:5;
-      background:linear-gradient(to top, #14100c 66%, transparent);
+      background:linear-gradient(to top, var(--bg-b) 66%, transparent);
       margin:0 -10px; padding:10px 10px calc(10px + env(safe-area-inset-bottom));
     }
-    .my-hand{
-      flex-wrap:nowrap; justify-content:flex-start; overflow-x:auto;
-      -webkit-overflow-scrolling:touch; padding:4px 4px 8px; scroll-snap-type:x proximity;
-    }
-    .my-hand .card{ scroll-snap-align:start; }
-    .my-hand .card:hover, .my-hand .card.playable:hover{ transform:none; }
 
     .action-bar{ margin-top:8px; }
     .action-bar button{ min-height:42px; padding:10px 16px; font-size:13px; flex:1 1 auto; }
@@ -357,6 +407,13 @@
       <button type="button" id="modeInteractiveBtn">Играю против ботов</button>
       <button type="button" id="modeNetworkBtn">Играть по сети</button>
     </div>
+    <label class="theme-switch">Тема
+      <select id="themeSelect">
+        <option value="system">системная</option>
+        <option value="light">светлая</option>
+        <option value="dark">тёмная</option>
+      </select>
+    </label>
     <details class="settings-panel" id="settingsPanel" open>
       <summary>Настройки партии</summary>
       <div class="controls-bar">
@@ -1083,6 +1140,7 @@ function renderInteractive(){
     }
     myHandBox.appendChild(el);
   });
+  layoutHandArc(myHandBox);
 
   // панель действий (пас / перевести оба сразу / взять карты)
   const actionBar=document.getElementById('actionBar');
@@ -1345,6 +1403,7 @@ function renderNetwork(){
     }
     myHandBox.appendChild(el);
   });
+  layoutHandArc(myHandBox);
 
   const actionBar=document.getElementById('actionBar');
   actionBar.innerHTML='';
@@ -1397,12 +1456,44 @@ function setMode(newMode){
 
 /* ============ Визуализация ============ */
 
+// Раскладывает карты руки дугой: центральная карта ниже и без наклона,
+// к краям карты приподнимаются и разворачиваются. Работает по фактической
+// ширине карты (--hand-card-w меняется через clamp()), поэтому пересчитывается
+// при каждой отрисовке руки и при ресайзе окна.
+function layoutHandArc(container){
+  if(!container) return;
+  const cards = Array.from(container.children).filter(el=>el.classList.contains('card'));
+  const n = cards.length;
+  if(n===0){ container.style.height=''; return; }
+  const w = cards[0].getBoundingClientRect().width || 60;
+  const h = cards[0].getBoundingClientRect().height || 84;
+  const avail = container.clientWidth || w*n;
+  const stepDeg = n>1 ? Math.min(9, 56/(n-1)) : 0;
+  const stepX = n>1 ? Math.max(w*0.22, Math.min(w*0.62, (avail - w) / (n-1))) : 0;
+  const curve = h*0.055;
+  const mid = (n-1)/2;
+  cards.forEach((el,i)=>{
+    const off = i - mid;
+    el.style.setProperty('--tr', (off*stepDeg).toFixed(2)+'deg');
+    el.style.setProperty('--tx', (off*stepX).toFixed(1)+'px');
+    el.style.setProperty('--ty', (off*off*curve).toFixed(1)+'px');
+    el.style.marginLeft = (-w/2)+'px';
+    el.style.zIndex = String(100 - Math.round(Math.abs(off*2)));
+  });
+  container.style.height = (h + mid*mid*curve + 12) + 'px';
+}
+window.addEventListener('resize', ()=>{
+  clearTimeout(window.__handArcResize);
+  window.__handArcResize = setTimeout(()=> layoutHandArc(document.getElementById('myHand')), 120);
+});
+
 function cardEl(card, faceUp=true){
   if(!faceUp){ const d=document.createElement('div'); d.className='card-back'; return d; }
   const d=document.createElement('div');
   const red = RED_SUITS.has(card.suit);
   d.className='card ' + (red?'brick':'ink');
-  d.innerHTML = `<div class="rank">${rankName(card.rank)}</div><div class="suit-big">${card.suit}</div>`;
+  const idx = `<div class="r">${rankName(card.rank)}</div><div class="s">${card.suit}</div>`;
+  d.innerHTML = `<div class="corner">${idx}</div><div class="corner br">${idx}</div>`;
   return d;
 }
 
@@ -1532,6 +1623,7 @@ function render(){
   const myHandBox=document.getElementById('myHand');
   myHandBox.innerHTML='';
   sortHandForDisplay(me.hand, snap.trumpSuit).forEach(c=> myHandBox.appendChild(cardEl(c,true)) );
+  layoutHandArc(myHandBox);
 
   renderFullLog();
 
@@ -1606,6 +1698,22 @@ if (window.matchMedia('(max-width: 680px)').matches) {
   const sp = document.getElementById('settingsPanel');
   if (sp) sp.open = false;
 }
+
+/* ============ Тема (светлая/тёмная/системная) ============ */
+function applyTheme(pref){
+  if(pref==='light' || pref==='dark') document.documentElement.setAttribute('data-theme', pref);
+  else document.documentElement.removeAttribute('data-theme');
+}
+(function initTheme(){
+  const saved = localStorage.getItem('durak-theme') || 'system';
+  const sel = document.getElementById('themeSelect');
+  if(sel) sel.value = saved;
+  applyTheme(saved);
+  sel?.addEventListener('change', e=>{
+    localStorage.setItem('durak-theme', e.target.value);
+    applyTheme(e.target.value);
+  });
+})();
 
 buildGame();
 </script>
