@@ -7,7 +7,8 @@
   "scripts": {
     "play": "node src/cli/playVerbose.js 2 24",
     "simulate": "node src/cli/simulate.js 1000 2 24",
-    "server": "node server/index.js"
+    "server": "node server/index.js",
+    "smoke": "node scripts/smoke.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
