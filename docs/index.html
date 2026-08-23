@@ -15,17 +15,44 @@
     --brick:#a63a2e;
     --gold:#c9a227;
     --paper-dim:#cfc6ad;
+    --bg-a:#2a2018; --bg-b:#14100c; --bg-c:#0b0908;
+    --panel-border:#4a3a26; --panel-bg:#1b140d; --input-bg:#241b12;
+    --slot-border:#6b5638; --log-border:#3a2c1c; --footer-muted:#6b6153;
+    --log-hl-bg:#3a2c1c; --log-hl-text:var(--cream);
     --display: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --card-w: clamp(44px, 7vw, 62px);
+    --card-h: clamp(62px, 9.8vw, 87px);
+    --hand-card-w: clamp(60px, 8.6vw, 88px);
+    --hand-card-h: clamp(84px, 12vw, 124px);
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]):not([data-theme="light"]){
+      --felt-1:#ece2c8; --felt-2:#ddcfa6; --rail:#8a6a42; --rail-hi:#c39a5c;
+      --gold:#8a6a1a; --paper-dim:#5c5344;
+      --bg-a:#faf6ec; --bg-b:#f0ead9; --bg-c:#e6dfc9;
+      --panel-border:#cfc2a0; --panel-bg:#f6f1e3; --input-bg:#efe8d5;
+      --slot-border:#a9926a; --log-border:#d9cca3; --footer-muted:#8a7f68;
+      --log-hl-bg:#e6d9b0; --log-hl-text:var(--ink);
+    }
+  }
+  :root[data-theme="light"]{
+    --felt-1:#ece2c8; --felt-2:#ddcfa6; --rail:#8a6a42; --rail-hi:#c39a5c;
+    --gold:#8a6a1a; --paper-dim:#5c5344;
+    --bg-a:#faf6ec; --bg-b:#f0ead9; --bg-c:#e6dfc9;
+    --panel-border:#cfc2a0; --panel-bg:#f6f1e3; --input-bg:#efe8d5;
+    --slot-border:#a9926a; --log-border:#d9cca3; --footer-muted:#8a7f68;
+    --log-hl-bg:#e6d9b0; --log-hl-text:var(--ink);
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
-    background: radial-gradient(120% 100% at 50% 0%, #2a2018 0%, #14100c 60%, #0b0908 100%);
+    background: radial-gradient(120% 100% at 50% 0%, var(--bg-a) 0%, var(--bg-b) 60%, var(--bg-c) 100%);
     color:var(--paper-dim);
     font-family:var(--display);
     min-height:100vh;
     padding:20px 14px 40px;
+    transition:background-color .2s, color .2s;
   }
   .wrap{max-width:980px;margin:0 auto;}
   header{margin-bottom:16px;}
@@ -38,9 +65,22 @@
     display:flex; flex-wrap:wrap; gap:10px; align-items:center;
     font-family:var(--mono); font-size:12px;
   }
+  .settings-panel{
+    margin-top:12px; border:1px solid var(--panel-border); border-radius:8px;
+    background:var(--panel-bg); padding:2px 12px 10px;
+  }
+  .settings-panel summary{
+    cursor:pointer; font-family:var(--mono); font-size:12px; color:var(--gold);
+    text-transform:uppercase; letter-spacing:.05em; padding:9px 0;
+    list-style:none;
+  }
+  .settings-panel summary::-webkit-details-marker{ display:none; }
+  .settings-panel summary::before{ content:"▸ "; display:inline-block; transition:transform .15s; }
+  .settings-panel[open] summary::before{ transform:rotate(90deg); }
+  .settings-panel .controls-bar{ margin-top:2px; }
   select, button{
-    font-family:var(--mono); font-size:12px; background:#241b12; color:var(--paper-dim);
-    border:1px solid #4a3a26; border-radius:4px; padding:6px 10px; cursor:pointer;
+    font-family:var(--mono); font-size:12px; background:var(--input-bg); color:var(--paper-dim);
+    border:1px solid var(--panel-border); border-radius:4px; padding:6px 10px; cursor:pointer;
   }
   button:hover, select:hover{border-color:var(--gold); color:var(--cream);}
   button.primary{background:var(--brick); color:var(--cream); border-color:var(--brick);}
@@ -50,13 +90,16 @@
   .table{
     margin-top:18px;
     background:
-      radial-gradient(80% 60% at 50% 30%, var(--felt-1) 0%, var(--felt-2) 100%);
+      radial-gradient(140% 90% at 50% 8%, var(--felt-1) 0%, var(--felt-2) 72%);
     border:10px solid var(--rail);
     border-image: linear-gradient(160deg, var(--rail-hi), var(--rail)) 1;
-    border-radius:22px;
+    border-radius:38px;
     box-shadow: 0 30px 60px -20px #000a, inset 0 0 60px #0006;
-    padding:20px 16px;
+    padding:26px 22px 20px;
     position:relative;
+  }
+  @media (max-width:680px){
+    .table{ border-radius:16px; padding:14px 10px 12px; }
   }
 
   .status-line{
@@ -64,16 +107,49 @@
     text-align:center; margin-bottom:14px; min-height:16px;
   }
 
+  /*
+    Места за столом. Контейнер — дуга над центром стола; каждый .opp
+    позиционируется абсолютно, координаты заданы для 1..5 соперников
+    (2..6 игроков всего), чтобы при любом их числе рассадка выглядела
+    как места вокруг овального стола, а не как ряд в очереди.
+  */
   .opponents{
-    display:flex; justify-content:center; gap:22px; flex-wrap:wrap;
-    margin-bottom:22px;
+    position:relative;
+    height:clamp(190px, 27vw, 250px);
+    margin-bottom:20px;
+  }
+  .opponents[data-count="4"], .opponents[data-count="5"]{
+    height:clamp(230px, 32vw, 300px);
   }
   .opp{
-    text-align:center; position:relative;
+    text-align:center; position:absolute;
+    left:50%; top:0; transform:translateX(-50%);
+    width:max-content; max-width:132px;
   }
+  .opponents[data-count="1"] .opp:nth-child(1){ left:50%; top:0%; }
+
+  .opponents[data-count="2"] .opp:nth-child(1){ left:22%; top:18%; }
+  .opponents[data-count="2"] .opp:nth-child(2){ left:78%; top:18%; }
+
+  .opponents[data-count="3"] .opp:nth-child(1){ left:12%; top:22%; }
+  .opponents[data-count="3"] .opp:nth-child(2){ left:50%; top:0%; }
+  .opponents[data-count="3"] .opp:nth-child(3){ left:88%; top:22%; }
+
+  .opponents[data-count="4"] .opp:nth-child(1){ left:7%;  top:14%; }
+  .opponents[data-count="4"] .opp:nth-child(2){ left:32%; top:6%; }
+  .opponents[data-count="4"] .opp:nth-child(3){ left:68%; top:6%; }
+  .opponents[data-count="4"] .opp:nth-child(4){ left:93%; top:14%; }
+
+  .opponents[data-count="5"] .opp:nth-child(1){ left:4%;  top:16%; }
+  .opponents[data-count="5"] .opp:nth-child(2){ left:23%; top:14%; }
+  .opponents[data-count="5"] .opp:nth-child(3){ left:50%; top:0%; }
+  .opponents[data-count="5"] .opp:nth-child(4){ left:77%; top:14%; }
+  .opponents[data-count="5"] .opp:nth-child(5){ left:96%; top:16%; }
+
   .opp .label{
     font-family:var(--mono); font-size:11px; color:var(--paper-dim);
     margin-bottom:6px; display:flex; align-items:center; gap:6px; justify-content:center;
+    flex-wrap:wrap;
   }
   .role-tag{
     font-size:9px; padding:1px 6px; border-radius:8px; letter-spacing:.05em;
@@ -81,9 +157,21 @@
   }
   .role-tag.attacker{background:var(--brick); color:var(--cream);}
   .role-tag.defender{background:var(--gold); color:#2a2010;}
-  .fan{display:flex;}
-  .fan .card-back{ margin-left:-22px; }
+  .fan{display:flex; justify-content:center;}
+  .fan .card-back{
+    width:clamp(30px, 5vw, 44px); height:clamp(44px, 7.3vw, 64px);
+    margin-left:clamp(-24px, -3.4vw, -14px);
+  }
   .fan .card-back:first-child{ margin-left:0; }
+  /* Боковые места при 5+ игроках: карты веером вниз, а не вбок — экономит горизонтальное место. */
+  .opp.vertical{ max-width:calc(clamp(30px, 5vw, 44px) + 26px); }
+  .opp.vertical .fan{
+    flex-direction:column; align-items:center;
+  }
+  .opp.vertical .fan .card-back{
+    margin-left:0; margin-top:clamp(-46px, -6.4vw, -26px);
+  }
+  .opp.vertical .fan .card-back:first-child{ margin-top:0; }
   .opp.out .fan, .opp.out .label{opacity:.3;}
   .finish-badge{
     font-family:var(--mono); font-size:10px; color:var(--gold); margin-top:4px;
@@ -95,59 +183,101 @@
   }
 
   .talon-area{ text-align:center; }
-  .talon-stack{ position:relative; width:70px; height:96px; margin:0 auto 6px; }
+  .talon-stack{ position:relative; width:var(--card-w); height:var(--card-h); margin:0 auto 6px; }
   .talon-stack .card-back{ position:absolute; top:0; left:0; }
   .trump-peek{
-    position:absolute; left:34px; top:14px; transform:rotate(90deg);
+    position:absolute; left:calc(var(--card-w) * 0.48); top:14px; transform:rotate(90deg);
     transform-origin:left top;
   }
   .talon-count, .discard-count{ font-family:var(--mono); font-size:11px; }
 
   .trick-area{
-    display:flex; gap:14px; flex-wrap:wrap; justify-content:center;
-    min-width:220px;
+    display:flex; gap:clamp(8px,2vw,14px); flex-wrap:wrap; justify-content:center;
+    min-width:0; flex:1 1 auto;
   }
-  .trick-pair{ position:relative; width:64px; height:96px; }
+  .trick-pair{ position:relative; width:var(--card-w); height:calc(var(--card-h) + 20px); }
   .trick-pair .attack-card{ position:absolute; top:0; left:0; }
-  .trick-pair .defense-card{ position:absolute; top:14px; left:16px; }
+  .trick-pair .defense-card{ position:absolute; top:14px; left:calc(var(--card-w) * 0.3); }
+  .trick-area.taking-cards .trick-pair{ opacity:.55; filter:grayscale(35%); transition:opacity .15s,filter .15s; }
+  .taking-label{ font-family:var(--mono); font-size:11px; opacity:.75; width:100%; text-align:center; margin-bottom:4px; }
 
   .discard-area{ text-align:center; }
   .discard-pile{
-    width:70px; height:96px; border-radius:8px; border:2px dashed #6b5638;
+    width:var(--card-w); height:var(--card-h); border-radius:8px; border:2px dashed var(--slot-border);
     display:flex; align-items:center; justify-content:center;
-    font-family:var(--mono); font-size:12px; color:#6b5638; margin:0 auto 6px;
+    font-family:var(--mono); font-size:12px; color:var(--slot-border); margin:0 auto 6px;
   }
 
   .card{
-    width:52px; height:76px; border-radius:6px; background:var(--cream);
+    width:var(--card-w); height:var(--card-h); border-radius:6px; background:var(--cream);
     box-shadow:0 4px 10px #0007, inset 0 0 0 1px #0002;
-    display:flex; flex-direction:column; justify-content:space-between;
-    padding:4px 5px; font-family:var(--display); font-weight:700;
-    font-size:14px; line-height:1;
+    position:relative; font-family:var(--display); font-weight:700;
+    line-height:.92; flex:none;
   }
   .card.ink{color:var(--ink);}
   .card.brick{color:var(--brick);}
-  .card .rank{font-size:14px;}
-  .card .suit-big{font-size:20px; align-self:center;}
+  /* Индекс (ранг+масть) вынесен в угол — вариант "1d": ранг ~40% ширины карты,
+     масть ~32%, без фонового символа по центру. Продублирован вверх ногами в
+     противоположном углу, поэтому при любом нахлёсте карт в веере видно,
+     что это за карта. */
+  .card .corner{
+    position:absolute; top:calc(var(--card-w) * .07); left:calc(var(--card-w) * .08);
+    text-align:center;
+  }
+  .card .corner.br{
+    top:auto; left:auto; bottom:calc(var(--card-w) * .07); right:calc(var(--card-w) * .08);
+    transform:rotate(180deg);
+  }
+  .card .corner .r{ font-size:calc(var(--card-w) * .4); }
+  .card .corner .s{ font-size:calc(var(--card-w) * .32); margin-top:1px; }
   .card-back{
-    width:52px; height:76px; border-radius:6px;
+    width:var(--card-w); height:var(--card-h); border-radius:6px;
     background:
       repeating-linear-gradient(135deg, #2c4a3f 0 6px, #234037 6px 12px);
-    border:1px solid #0a1a14; box-shadow:0 4px 10px #0007;
+    border:1px solid #0a1a14; box-shadow:0 4px 10px #0007; flex:none;
   }
 
   .my-hand-wrap{ text-align:center; }
   .my-hand-label{
     font-family:var(--mono); font-size:11px; margin-bottom:8px;
-    display:flex; align-items:center; justify-content:center; gap:6px;
+    display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap;
   }
-  .my-hand{ display:flex; justify-content:center; gap:0; flex-wrap:wrap; min-height:82px; }
-  .my-hand .card{ margin-left:-14px; transition:transform .15s; }
-  .my-hand .card:first-child{ margin-left:0; }
-  .my-hand .card:hover{ transform:translateY(-6px); }
+  .my-hand{
+    position:relative; margin:0 auto; width:100%;
+    min-height:calc(var(--hand-card-h) + 6px);
+  }
+  .my-hand .card{
+    position:absolute; left:50%; bottom:0;
+    width:var(--hand-card-w); height:var(--hand-card-h);
+    transform-origin:bottom center;
+    transform:translate(var(--tx,0px), var(--ty,0px)) rotate(var(--tr,0deg));
+    transition:transform .15s;
+  }
+  .my-hand .card .corner{
+    top:calc(var(--hand-card-w) * .05); left:calc(var(--hand-card-w) * .06);
+  }
+  .my-hand .card .corner.br{
+    bottom:calc(var(--hand-card-w) * .05); right:calc(var(--hand-card-w) * .06);
+  }
+  .my-hand .card .corner .r{ font-size:calc(var(--hand-card-w) * .4); }
+  .my-hand .card .corner .s{ font-size:calc(var(--hand-card-w) * .32); }
   .my-hand .card.playable{ cursor:pointer; box-shadow:0 0 0 2px var(--gold), 0 4px 10px #0007; }
-  .my-hand .card.playable:hover{ transform:translateY(-10px); }
+  .my-hand .card.playable.transferable{ box-shadow:0 0 0 2px #5b9bd5, 0 4px 10px #0007; }
   .my-hand .card.unplayable{ opacity:.55; }
+  @media (hover:hover) and (pointer:fine){
+    .my-hand .card:hover{
+      transform:translate(var(--tx,0px), calc(var(--ty,0px) - 10px)) rotate(var(--tr,0deg));
+      z-index:50;
+    }
+    .my-hand .card.playable:hover{
+      transform:translate(var(--tx,0px), calc(var(--ty,0px) - 14px)) rotate(var(--tr,0deg));
+      z-index:50;
+    }
+  }
+  .my-hand .card.playable:active{
+    transform:translate(var(--tx,0px), calc(var(--ty,0px) - 10px)) rotate(var(--tr,0deg));
+    z-index:50;
+  }
 
   .action-bar{
     display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:12px; min-height:30px;
@@ -164,8 +294,32 @@
   .mode-toggle{ display:flex; gap:4px; }
   .mode-toggle button{ padding:5px 9px; }
   .mode-toggle button.active{ background:var(--brick); color:var(--cream); border-color:var(--brick); }
+  .theme-switch{
+    display:inline-flex; align-items:center; gap:6px; margin-top:8px;
+    font-family:var(--mono); font-size:11px; color:var(--paper-dim);
+  }
+  .theme-switch select{ padding:4px 7px; font-size:11px; }
   .view-only{ display:block; }
   .view-only.hidden{ display:none; }
+  .hidden{ display:none !important; }
+  .local-controls{ display:contents; }
+  #networkStatusBar{ display:flex; align-items:center; gap:6px; }
+  #networkStatusBar.hidden{ display:none !important; }
+
+  .network-lobby{ font-family:var(--mono); font-size:12px; }
+  .network-lobby fieldset{ border:1px solid var(--line); border-radius:8px; margin-bottom:14px; padding:10px 14px; }
+  .network-lobby legend{ padding:0 6px; color:var(--gold); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .network-lobby input, .network-lobby select{
+    font-family:var(--mono); font-size:12px; padding:5px 8px; margin:2px 4px 2px 0;
+    background:var(--felt-dark); color:var(--cream); border:1px solid var(--line); border-radius:4px;
+  }
+  .network-lobby table{ border-collapse:collapse; width:100%; font-size:12px; margin-bottom:6px; }
+  .network-lobby td, .network-lobby th{ border:1px solid var(--line); padding:5px 8px; text-align:left; }
+  .network-lobby .muted{ opacity:.6; font-size:11px; }
+  .network-lobby .net-status{ font-size:12px; color:var(--gold); margin:0 8px; }
+  .net-roster-flag{ font-size:10px; padding:1px 6px; border-radius:8px; background:#3a2a2a; margin-left:6px; }
+  .net-roster-flag.offline{ background:#5a2320; }
+  .net-roster-flag.bot{ background:#3a6b52; }
 
   .event-desc{
     text-align:center; color:var(--cream); font-size:15px; margin:16px 0 4px;
@@ -180,16 +334,67 @@
   .step-counter{ font-family:var(--mono); font-size:11px; }
 
   details{
-    margin-top:22px; border-top:1px solid #3a2c1c; padding-top:10px;
+    margin-top:22px; border-top:1px solid var(--log-border); padding-top:10px;
   }
   summary{ cursor:pointer; font-family:var(--mono); font-size:12px; color:var(--gold); }
   .log{
     font-family:var(--mono); font-size:11.5px; line-height:1.6; color:var(--paper-dim);
     max-height:280px; overflow-y:auto; margin-top:10px; white-space:pre-wrap;
   }
-  .log .cur{ color:var(--cream); background:#3a2c1c; display:inline-block; padding:1px 4px; border-radius:3px; }
+  .log .cur{ color:var(--log-hl-text); background:var(--log-hl-bg); display:inline-block; padding:1px 4px; border-radius:3px; }
 
-  .footer-note{ font-family:var(--mono); font-size:10.5px; color:#6b6153; text-align:center; margin-top:18px; }
+  .footer-note{ font-family:var(--mono); font-size:10.5px; color:var(--footer-muted); text-align:center; margin-top:18px; }
+
+  /* ===================== Мобильная версия ===================== */
+  @media (max-width:680px){
+    body{ padding:10px 0 0; }
+    .wrap{ padding:0 10px; }
+    h1{ font-size:19px; margin-bottom:8px; }
+    .eyebrow{ font-size:10px; }
+    .mode-toggle{ display:flex; width:100%; gap:6px; }
+    .mode-toggle button{ flex:1 1 0; font-size:11px; padding:8px 4px; }
+    .settings-panel{ font-size:11px; }
+    .controls-bar{ gap:8px; }
+    .controls-bar label{ display:flex; flex-direction:column; align-items:flex-start; gap:3px; width:100%; }
+    .controls-bar select, .controls-bar button{ width:100%; padding:9px 10px; font-size:13px; }
+    .controls-bar label:has(input[type="checkbox"]){ flex-direction:row; align-items:center; }
+    .controls-bar label:has(input[type="checkbox"]) input{ width:auto; }
+
+    /* Места соперников: дуга не помещается — превращаем в горизонтальную ленту. */
+    .opponents{
+      position:static; height:auto; display:flex; flex-wrap:nowrap;
+      gap:16px; overflow-x:auto; -webkit-overflow-scrolling:touch;
+      padding:2px 4px 10px; margin-bottom:10px; scroll-snap-type:x proximity;
+      -webkit-mask-image:linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+      mask-image:linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    }
+    .opp{
+      position:static; transform:none; flex:0 0 auto; scroll-snap-align:start;
+      max-width:none;
+    }
+
+    .mid-row{ gap:14px; margin-bottom:14px; }
+    .trick-area{ overflow-x:auto; padding-bottom:4px; }
+
+    /* Рука игрока прилипает к низу экрана — всегда доступна для тапа. */
+    .my-hand-wrap{
+      position:sticky; bottom:0; z-index:5;
+      background:linear-gradient(to top, var(--bg-b) 66%, transparent);
+      margin:0 -10px; padding:10px 10px calc(10px + env(safe-area-inset-bottom));
+    }
+
+    .action-bar{ margin-top:8px; }
+    .action-bar button{ min-height:42px; padding:10px 16px; font-size:13px; flex:1 1 auto; }
+    .turn-hint{ font-size:11px; }
+
+    details{ margin-top:16px; }
+    .log{ max-height:200px; font-size:11px; }
+    .footer-note{ margin-top:12px; padding-bottom:16px; }
+
+    .network-lobby fieldset{ padding:8px 10px; }
+    .network-lobby input, .network-lobby select{ width:100%; margin:3px 0; }
+    .network-lobby table{ display:block; overflow-x:auto; white-space:nowrap; }
+  }
 </style>
 </head>
 <body>
@@ -197,34 +402,102 @@
   <header>
     <div class="eyebrow">Шаг 1 · Движок игры</div>
     <h1>Переводной дурак — прогон партии</h1>
-    <div class="controls-bar">
-      <div class="mode-toggle">
-        <button type="button" id="modeViewBtn" class="active">Просмотр ботов</button>
-        <button type="button" id="modeInteractiveBtn">Играю против ботов</button>
-      </div>
-      <label>Игроков
-        <select id="numPlayers">
-          <option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
-        </select>
-      </label>
-      <label>Колода
-        <select id="deckSize">
-          <option>24</option><option>36</option><option>52</option>
-        </select>
-      </label>
-      <label>Подкидывают
-        <select id="throwInPolicy">
-          <option value="all" selected>все игроки</option>
-          <option value="neighbors">соседи защитника</option>
-          <option value="attackerOnly">только атакующий</option>
-        </select>
-      </label>
-      <label><input type="checkbox" id="showAll" checked /> показать все карты (для проверки правил)</label>
-      <button class="primary" id="newGameBtn">Новая партия</button>
+    <div class="mode-toggle">
+      <button type="button" id="modeViewBtn" class="active">Просмотр ботов</button>
+      <button type="button" id="modeInteractiveBtn">Играю против ботов</button>
+      <button type="button" id="modeNetworkBtn">Играть по сети</button>
     </div>
+    <label class="theme-switch">Тема
+      <select id="themeSelect">
+        <option value="system">системная</option>
+        <option value="light">светлая</option>
+        <option value="dark">тёмная</option>
+      </select>
+    </label>
+    <details class="settings-panel" id="settingsPanel" open>
+      <summary>Настройки партии</summary>
+      <div class="controls-bar">
+        <div class="local-controls" id="localControls">
+        <label>Игроков
+          <select id="numPlayers">
+            <option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
+          </select>
+        </label>
+        <label>Колода
+          <select id="deckSize">
+            <option>24</option><option>36</option><option>52</option>
+          </select>
+        </label>
+        <label>Подкидывают
+          <select id="throwInPolicy">
+            <option value="all" selected>все игроки</option>
+            <option value="neighbors">соседи защитника</option>
+            <option value="attackerOnly">только атакующий</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="showAll" checked /> показать все карты (для проверки правил)</label>
+        <label>Козыри в руке
+          <select id="trumpSide">
+            <option value="right" selected>справа</option>
+            <option value="left">слева</option>
+          </select>
+        </label>
+        <button class="primary" id="newGameBtn">Новая партия</button>
+        </div>
+        <div class="local-controls hidden" id="networkStatusBar">
+          <span class="net-status" id="netStatusText">не подключено</span>
+          <span class="net-status" id="netRoomText"></span>
+          <button type="button" id="netLeaveBtn" class="hidden">Выйти в лобби</button>
+        </div>
+      </div>
+    </details>
   </header>
 
-  <div class="table">
+  <div class="network-lobby hidden" id="networkLobby">
+    <fieldset>
+      <legend>Подключение к серверу</legend>
+      <input type="text" id="netWsUrl" size="42" placeholder="wss://ваш-сервер" />
+      <button type="button" id="netConnectBtn">Подключиться</button>
+      <span class="net-status" id="netLobbyStatus">не подключено</span>
+    </fieldset>
+
+    <fieldset>
+      <legend>Комнаты</legend>
+      <button type="button" id="netRefreshRoomsBtn">Обновить список</button>
+      <span class="muted">список обновляется и сам, при изменениях</span>
+      <table id="netRoomsTable"><thead><tr><th>Код</th><th>Название</th><th>Игроков</th><th>Правила</th><th></th></tr></thead><tbody></tbody></table>
+    </fieldset>
+
+    <fieldset>
+      <legend>Создать комнату</legend>
+      <input type="text" id="netCreateLabel" placeholder="название комнаты" />
+      <input type="text" id="netCreateName" placeholder="ваше имя" />
+      <select id="netCreateNumPlayers"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+      <select id="netCreateDeckSize"><option>24</option><option>36</option><option>52</option></select>
+      <select id="netCreateThrowIn">
+        <option value="all">все игроки</option>
+        <option value="neighbors">соседи защитника</option>
+        <option value="attackerOnly">только атакующий</option>
+      </select>
+      <button type="button" id="netCreateRoomBtn">Создать</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Присоединиться по коду</legend>
+      <input type="text" id="netJoinRoomId" placeholder="код комнаты" style="text-transform:uppercase" />
+      <input type="text" id="netJoinName" placeholder="ваше имя" />
+      <button type="button" id="netJoinRoomBtn">Войти</button>
+    </fieldset>
+
+    <fieldset id="netSessionBox" style="display:none;">
+      <legend>Сохранённая партия</legend>
+      <span class="muted" id="netSessionInfo"></span>
+      <button type="button" id="netRejoinBtn">Вернуться в партию (reconnect)</button>
+      <button type="button" id="netForgetBtn">Забыть</button>
+    </fieldset>
+  </div>
+
+  <div class="table" id="tableBoard">
     <div class="status-line" id="statusLine"></div>
     <div class="opponents" id="opponents"></div>
 
@@ -332,9 +605,9 @@ class DurakGame {
     this.phase = 'need-attack';
     this.perevodUsedThisRound = false;
     this.attackerIndex = this._pickFirstAttacker();
-    this.defenderIndex = this._nextActiveIndex(this.attackerIndex);
+    this._setDefender(this._nextActiveIndex(this.attackerIndex));
     this.allowAnyCardNow = true;
-    this.postTakeRanks = null;
+    this.tookCards = false;
     this.postTakeMode = false;
     this.attackCountThisRound = 0;
     this._resetThrowInQueue();
@@ -347,6 +620,7 @@ class DurakGame {
       trumpSuit:this.trumpSuit, trumpCard:this.trumpCard,
       talonCount:this.talon.length, discardCount:this.discardCount,
       table:this.table.map(t=>({attack:t.attack, defense:t.defense})),
+      tableGoingToDefender:this.tookCards===true,
       attackerIndex:this.attackerIndex, defenderIndex:this.defenderIndex,
       players:this.players.map(p=>({id:p.id,name:p.name,hand:p.hand.slice(),out:p.out,finishRank:p.finishRank})),
       durak:this.durak, finished:this.phase==='finished',
@@ -396,6 +670,15 @@ class DurakGame {
     this.throwInQueue=queue; this.throwInQueuePos=0; this.passedPlayers=new Set();
   }
   _undefendedAttacks(){ return this.table.filter(t=>t.defense===null); }
+  // Фиксирует нового защищающегося и СРАЗУ ЖЕ запоминает размер его руки — "на начало раунда",
+  // т.е. до того как он успеет отбиться (или перевести) хотя бы одной картой. Раньше
+  // _defenderHandAtStart просто сбрасывался в undefined и пересчитывался лениво при первом
+  // обращении, которое могло произойти уже ПОСЛЕ того, как защитник отыграл несколько карт
+  // защиты — из-за этого лимит подкидывания занижался.
+  _setDefender(idx){
+    this.defenderIndex = idx;
+    this._defenderHandAtStart = this.players[idx].hand.length;
+  }
   _defenderHandSizeAtRoundStart(){
     if(this._defenderHandAtStart===undefined) this._defenderHandAtStart=this.players[this.defenderIndex].hand.length;
     return this._defenderHandAtStart;
@@ -408,13 +691,25 @@ class DurakGame {
     if(this.phase==='need-attack'){ if(this.throwInQueue[this.throwInQueuePos]!==idx) return []; return this._legalThrowInActions(idx); }
     return [];
   }
+  // Какие ранги сейчас разрешено подкидывать (null = разрешено всё).
+  // Общая точка правды для _legalThrowInActions и лога после отбоя.
+  _currentAllowedThrowInRanks(){
+    const tableEmpty=this.table.length===0;
+    if(!tableEmpty) return new Set(this.table.map(t=>t.attack.rank).concat(this.table.filter(t=>t.defense).map(t=>t.defense.rank)));
+    if(this.allowAnyCardNow) return null;
+    return new Set();
+  }
+  _throwInStatusText(){
+    const allowedRanks=this._currentAllowedThrowInRanks();
+    const ranksLabel = allowedRanks===null ? 'любые (новый раунд)'
+      : (allowedRanks.size>0 ? [...allowedRanks].map(rankName).join(', ') : 'нет (подкидывать нечем)');
+    const limit=Math.min(this.rules.maxTableAttacks, this.rules.attackLimitByDefenderHand?this._defenderHandSizeAtRoundStart():Infinity);
+    const roomLeft=limit-this.attackCountThisRound;
+    return `Можно подкидывать ранги: ${ranksLabel}. Лимит атак за раунд: ${this.attackCountThisRound}/${limit} (осталось ${Math.max(roomLeft,0)}).`;
+  }
   _legalThrowInActions(idx){
     const actions=[]; const hand=this.players[idx].hand; const tableEmpty=this.table.length===0;
-    const ranksOnTable=new Set(this.table.map(t=>t.attack.rank).concat(this.table.filter(t=>t.defense).map(t=>t.defense.rank)));
-    let allowedRanks=null;
-    if(!tableEmpty) allowedRanks=ranksOnTable;
-    else if(this.allowAnyCardNow) allowedRanks=null;
-    else allowedRanks=this.postTakeRanks||new Set();
+    const allowedRanks=this._currentAllowedThrowInRanks();
     const limit=Math.min(this.rules.maxTableAttacks, this.rules.attackLimitByDefenderHand?this._defenderHandSizeAtRoundStart():Infinity);
     const roomLeft=limit-this.attackCountThisRound;
     if(roomLeft>0){ for(const c of hand){ if(allowedRanks===null||allowedRanks.has(c.rank)) actions.push({type:'attack',card:c}); } }
@@ -427,14 +722,19 @@ class DurakGame {
       const target=undefended[0];
       for(const c of defender.hand){ if(canBeat(target.attack,c,this.trumpSuit)) actions.push({type:'defend',card:c,against:target.attack}); }
     }
+    // Перевод: игрок сам решает, каким количеством карт того же ранга переводить —
+    // можно одной (например, некозырной), а вторую такого же ранга подкинуть позже.
     if(this._canConsiderPerevod()){
       const rank=undefended[0].attack.rank;
       const matching=defender.hand.filter(c=>c.rank===rank);
       if(matching.length>0){
         const nextIdx=this._nextActiveIndex(this.defenderIndex);
         const nextHandSize=this.players[nextIdx].hand.length;
-        const ok=!this.rules.perevodRequiresEnoughCards || nextHandSize>=undefended.length+matching.length;
-        if(nextIdx!==this.defenderIndex && ok) actions.push({type:'transfer',cards:matching});
+        const okByHandSize=(n)=> !this.rules.perevodRequiresEnoughCards || nextHandSize>=undefended.length+n;
+        if(nextIdx!==this.defenderIndex){
+          for(const c of matching){ if(okByHandSize(1)) actions.push({type:'transfer',cards:[c]}); }
+          if(matching.length>1 && okByHandSize(matching.length)) actions.push({type:'transfer',cards:matching});
+        }
       }
     }
     actions.push({type:'take'});
@@ -465,25 +765,33 @@ class DurakGame {
   _actionsEqual(a,b){
     if(a.type!==b.type) return false;
     if(a.type==='attack'||a.type==='defend') return a.card.suit===b.card.suit && a.card.rank===b.card.rank;
-    if(a.type==='transfer') return a.cards.length===b.cards.length;
+    if(a.type==='transfer'){
+      if(a.cards.length!==b.cards.length) return false;
+      const bRemaining=b.cards.slice();
+      for(const ac of a.cards){
+        const i=bRemaining.findIndex(bc=>bc.suit===ac.suit && bc.rank===ac.rank);
+        if(i===-1) return false;
+        bRemaining.splice(i,1);
+      }
+      return true;
+    }
     return true;
   }
   _removeFromHand(idx,card){ const hand=this.players[idx].hand; const i=cardIndexInHand(hand,card); return hand.splice(i,1)[0]; }
   _doAttack(idx,card){
     this._removeFromHand(idx,card);
     this.attackCountThisRound++;
+    this.table.push({attack:card, defense:null});
     if(this.postTakeMode){
-      // Защищающийся уже забрал карты — новые подкинутые карты того же ранга
-      // просто уходят ему в руку, без фазы защиты.
+      // Защищающийся уже решил забрать карты — новая карта ложится на стол рядом
+      // с остальными (видно всем), физически уйдёт защитнику при закрытии стола.
       const defender=this.players[this.defenderIndex];
-      defender.hand.push(card);
-      this._log(`${this.players[idx].name} подкидывает ${cardToString(card)} — карта уходит в руку игроку ${defender.name} (карты уже забраны)`);
+      this._log(`${this.players[idx].name} подкидывает ${cardToString(card)} — карта ляжет в стопку, которую забирает ${defender.name}`);
       this.allowAnyCardNow=false; this.passedPlayers.clear();
       this.throwInQueuePos=(this.throwInQueuePos+1)%Math.max(this.throwInQueue.length,1);
       this._maybeResolveNeedAttack();
       return;
     }
-    this.table.push({attack:card, defense:null});
     this._log(`${this.players[idx].name} подкидывает ${cardToString(card)}`);
     this.allowAnyCardNow=false; this.passedPlayers.clear();
     this.throwInQueuePos=(this.throwInQueuePos+1)%Math.max(this.throwInQueue.length,1);
@@ -505,7 +813,11 @@ class DurakGame {
     entry.defense=card;
     this._log(`${this.players[idx].name} отбивается ${cardToString(card)} от ${cardToString(against)}`);
     if(this._undefendedAttacks().length>0){ this.phase='defender-to-act'; }
-    else { this.phase='need-attack'; this._resetThrowInQueue(); this._maybeResolveNeedAttack(); }
+    else {
+      this.phase='need-attack'; this._resetThrowInQueue();
+      this._log(`Стол отбит. ${this._throwInStatusText()}`);
+      this._maybeResolveNeedAttack();
+    }
   }
   _doTransfer(idx,cards){
     for(const c of cards){ this._removeFromHand(idx,c); this.table.push({attack:c, defense:null}); }
@@ -513,27 +825,35 @@ class DurakGame {
     this._log(`${this.players[idx].name} переводит: ${cards.map(cardToString).join(', ')}`);
     this.perevodUsedThisRound=true;
     this.attackerIndex=idx;
-    this.defenderIndex=this._nextActiveIndex(idx);
-    this._defenderHandAtStart=undefined; this.allowAnyCardNow=false;
+    this._setDefender(this._nextActiveIndex(idx)); // лимит фиксируется под нового защищающегося сразу
+    this.allowAnyCardNow=false;
     this._resetThrowInQueue();
     this._log(`Теперь защищается: ${this.players[this.defenderIndex].name}`);
     this.phase='defender-to-act';
   }
   _doTake(idx){
+    // Карты со стола НЕ убираем сразу — они лежат "на взятие" до конца захода (пока все
+    // не спасуют), чтобы всем было видно, что забирает защитник и что подкинули следом.
+    // Физически в руку они уйдут в _resolveTableClosed.
     const cardCount=this.table.length + this.table.filter(t=>t.defense).length;
-    this._log(`${this.players[idx].name} забирает карты со стола (${cardCount} шт.)`);
-    const defender=this.players[idx]; const takenRanks=new Set();
-    for(const t of this.table){ takenRanks.add(t.attack.rank); defender.hand.push(t.attack); if(t.defense){ takenRanks.add(t.defense.rank); defender.hand.push(t.defense); } }
-    this.table=[]; this.tookCards=true; this.allowAnyCardNow=false; this.postTakeRanks=takenRanks; this.postTakeMode=true;
+    this.tookCards=true; this.postTakeMode=true; this.allowAnyCardNow=false;
+    this._log(`${this.players[idx].name} решает забрать карты (пока на столе ${cardCount} шт.). ${this._throwInStatusText()}`);
     this.phase='need-attack';
     if(!this.rules.throwInAfterTake){ this.throwInQueue=[]; this.throwInQueuePos=0; this.passedPlayers=new Set(); this._resolveTableClosed(); return; }
     this._resetThrowInQueue();
     this._maybeResolveNeedAttack();
   }
   _resolveTableClosed(){
-    const tookCards=this.tookCards===true; this.tookCards=false;
+    const tookCards=this.tookCards===true; this.tookCards=false; this.postTakeMode=false;
     const prevDefenderIdx=this.defenderIndex;
-    if(!tookCards){ this.discardCount+=this.table.length*2; this.table=[]; this._log(`Карты биты, уходят в отбой.`); }
+    if(tookCards){
+      // Заход завершён — теперь физически отдаём защитнику всё, что накопилось на столе.
+      const defender=this.players[prevDefenderIdx];
+      const cardCount=this.table.length + this.table.filter(t=>t.defense).length;
+      for(const t of this.table){ defender.hand.push(t.attack); if(t.defense) defender.hand.push(t.defense); }
+      this.table=[];
+      this._log(`${defender.name} забирает карты со стола (${cardCount} шт.)`);
+    } else { this.discardCount+=this.table.length*2; this.table=[]; this._log(`Карты биты, уходят в отбой.`); }
     this._refillHands();
     this._checkFinishedPlayers();
     if(this.phase==='finished') return;
@@ -543,9 +863,9 @@ class DurakGame {
     else { newAttacker = this.players[prevDefenderIdx].out ? this._nextActiveIndex(prevDefenderIdx) : prevDefenderIdx; }
     const newDefender=this._nextActiveIndex(newAttacker);
     if(newAttacker===newDefender){ this._finishGame(); return; }
-    this.attackerIndex=newAttacker; this.defenderIndex=newDefender;
-    this._defenderHandAtStart=undefined; this.perevodUsedThisRound=false;
-    this.allowAnyCardNow=true; this.postTakeRanks=null; this.postTakeMode=false; this.attackCountThisRound=0;
+    this.attackerIndex=newAttacker; this._setDefender(newDefender);
+    this.perevodUsedThisRound=false;
+    this.allowAnyCardNow=true; this.postTakeMode=false; this.attackCountThisRound=0;
     this.phase='need-attack'; this._resetThrowInQueue();
     this._log(`Новый раунд. Ходит: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
     this._maybeResolveNeedAttack();
@@ -582,11 +902,14 @@ class DurakGame {
 }
 
 function cardValue(card, trumpSuit){ return (card.suit===trumpSuit?100:0)+card.rank; }
+// Дама и старше — карта, которую имеет смысл придерживать, пока в колоде есть прикуп.
+function isHighCard(card){ return card.rank>=12; }
 function simpleBotDecide(state, playerId, legalActions){
   if(legalActions.length===0) return null;
   const trumpSuit=state.trumpSuit;
-  const me=state.players.find(p=>p.id===playerId);
-  const myHandSize=me.hand.length;
+  // Пока в колоде есть прикуп — есть смысл экономить крупные карты на потом.
+  // Когда колода пуста, беречь дальше нечего — задача избавиться от карт как можно быстрее.
+  const endgame=state.talonCount===0;
   const attacks=legalActions.filter(a=>a.type==='attack');
   const defends=legalActions.filter(a=>a.type==='defend');
   const transfer=legalActions.find(a=>a.type==='transfer');
@@ -594,11 +917,12 @@ function simpleBotDecide(state, playerId, legalActions){
   const pass=legalActions.find(a=>a.type==='pass');
   if(attacks.length>0){
     const mustAttack=!pass;
-    if(mustAttack||myHandSize>3){
-      attacks.sort((a,b)=>cardValue(a.card,trumpSuit)-cardValue(b.card,trumpSuit));
-      const cheapest=attacks[0];
-      if(mustAttack||cardValue(cheapest.card,trumpSuit)<90) return cheapest;
-    }
+    attacks.sort((a,b)=>cardValue(a.card,trumpSuit)-cardValue(b.card,trumpSuit));
+    const cheapest=attacks[0];
+    const isTrump=cheapest.card.suit===trumpSuit;
+    // Козырь бережём всегда; крупную карту (Q+) — только пока не эндшпиль. Мелочь кидаем всегда.
+    const shouldHold=isTrump||(isHighCard(cheapest.card)&&!endgame);
+    if(mustAttack||!shouldHold) return cheapest;
     if(pass) return pass;
   }
   if(defends.length>0){
@@ -624,7 +948,7 @@ function runFullGame(numPlayers, deckSize, throwInPolicy){
       if(p.out) continue;
       const legal=game.getLegalActions(p.id);
       if(legal.length===0) continue;
-      const stateForBot={trumpSuit:game.trumpSuit, players: game.players.map(pl=>({id:pl.id, hand:pl.hand}))};
+      const stateForBot={trumpSuit:game.trumpSuit, talonCount:game.talon.length, players: game.players.map(pl=>({id:pl.id, hand:pl.hand}))};
       const action=simpleBotDecide(stateForBot, p.id, legal);
       if(!action) continue;
       game.applyAction(p.id, action);
@@ -686,7 +1010,7 @@ function scheduleBotStep(){
     if(!igame || igame.phase==='finished') { interactiveBusy=false; renderInteractive(); return; }
     const legal=igame.getLegalActions(turnPlayer.id);
     if(legal.length===0){ interactiveBusy=false; scheduleBotStep(); return; }
-    const stateForBot={trumpSuit:igame.trumpSuit, players: igame.players.map(pl=>({id:pl.id, hand:pl.hand}))};
+    const stateForBot={trumpSuit:igame.trumpSuit, talonCount:igame.talon.length, players: igame.players.map(pl=>({id:pl.id, hand:pl.hand}))};
     const action=simpleBotDecide(stateForBot, turnPlayer.id, legal);
     if(action) igame.applyAction(turnPlayer.id, action);
     interactiveBusy=false;
@@ -727,9 +1051,10 @@ function renderInteractive(){
   // соперники
   const oppBox=document.getElementById('opponents');
   oppBox.innerHTML='';
+  oppBox.dataset.count = String(igame.players.length-1);
   igame.players.slice(1).forEach((p,i)=>{
     const realIdx=i+1;
-    const wrap=document.createElement('div'); wrap.className='opp'+(p.out?' out':'');
+    const wrap=document.createElement('div'); wrap.className=oppWrapClass(i, igame.players.length-1, p.out);
     const label=document.createElement('div'); label.className='label';
     label.innerHTML = `${p.name}`+
       (realIdx===igame.attackerIndex?' <span class="role-tag attacker">атакует</span>':'')+
@@ -737,7 +1062,7 @@ function renderInteractive(){
       (realIdx===turnIdx?' <span class="role-tag" style="background:#3a6b52;color:var(--cream);">думает…</span>':'');
     wrap.appendChild(label);
     const fan=document.createElement('div'); fan.className='fan';
-    p.hand.forEach(c=> fan.appendChild(cardEl(c, showAll)) );
+    sortHandForDisplay(p.hand, igame.trumpSuit).forEach(c=> fan.appendChild(cardEl(c, showAll)) );
     wrap.appendChild(fan);
     if(p.out){ const b=document.createElement('div'); b.className='finish-badge'; b.textContent=`место ${p.finishRank}`; wrap.appendChild(b); }
     else { const cnt=document.createElement('div'); cnt.className='finish-badge'; cnt.textContent=`${p.hand.length} карт`; wrap.appendChild(cnt); }
@@ -763,8 +1088,14 @@ function renderInteractive(){
   // стол
   const trickArea=document.getElementById('trickArea');
   trickArea.innerHTML='';
+  trickArea.classList.toggle('taking-cards', igame.tookCards===true);
+  if(igame.tookCards){
+    const label=document.createElement('div'); label.className='taking-label';
+    label.textContent=`→ забирает ${igame.players[igame.defenderIndex].name}`;
+    trickArea.appendChild(label);
+  }
   if(igame.table.length===0){
-    trickArea.innerHTML='<span style="font-family:var(--mono);font-size:11px;opacity:.5;">стол пуст</span>';
+    trickArea.innerHTML+='<span style="font-family:var(--mono);font-size:11px;opacity:.5;">стол пуст</span>';
   }
   igame.table.forEach(t=>{
     const pair=document.createElement('div'); pair.className='trick-pair';
@@ -784,35 +1115,43 @@ function renderInteractive(){
 
   const attackActions=legalForHuman.filter(a=>a.type==='attack');
   const defendActions=legalForHuman.filter(a=>a.type==='defend');
+  const transferActions=legalForHuman.filter(a=>a.type==='transfer');
+  const singleTransferActions=transferActions.filter(a=>a.cards.length===1);
+  const comboTransferAction=transferActions.find(a=>a.cards.length>1);
   const isHumanTurn = !finished && !interactiveBusy && turnIdx===0;
 
-  human.hand.forEach(c=>{
+  sortHandForDisplay(human.hand, igame.trumpSuit).forEach(c=>{
     const el=cardEl(c,true);
-    let matchedAction=null;
+    let matchedAction=null, isTransfer=false;
     if(isHumanTurn){
       matchedAction = attackActions.find(a=>a.card.suit===c.suit && a.card.rank===c.rank)
         || defendActions.find(a=>a.card.suit===c.suit && a.card.rank===c.rank);
+      if(!matchedAction){
+        const st=singleTransferActions.find(a=>a.cards[0].suit===c.suit && a.cards[0].rank===c.rank);
+        if(st){ matchedAction=st; isTransfer=true; }
+      }
     }
     if(matchedAction){
       el.classList.add('playable');
+      if(isTransfer) el.classList.add('transferable');
       el.addEventListener('click', ()=> doHumanAction(matchedAction));
-    } else if(isHumanTurn && (attackActions.length>0 || defendActions.length>0)){
+    } else if(isHumanTurn && (attackActions.length>0 || defendActions.length>0 || singleTransferActions.length>0)){
       el.classList.add('unplayable');
     }
     myHandBox.appendChild(el);
   });
+  layoutHandArc(myHandBox);
 
-  // панель действий (пас / перевести / взять карты)
+  // панель действий (пас / перевести оба сразу / взять карты)
   const actionBar=document.getElementById('actionBar');
   actionBar.innerHTML='';
   if(isHumanTurn){
     const passAction=legalForHuman.find(a=>a.type==='pass');
-    const transferAction=legalForHuman.find(a=>a.type==='transfer');
     const takeAction=legalForHuman.find(a=>a.type==='take');
-    if(transferAction){
+    if(comboTransferAction){
       const btn=document.createElement('button'); btn.className='transfer';
-      btn.textContent=`Перевести (${transferAction.cards.length})`;
-      btn.addEventListener('click', ()=> doHumanAction(transferAction));
+      btn.textContent=`Перевести оба (${comboTransferAction.cards.length})`;
+      btn.addEventListener('click', ()=> doHumanAction(comboTransferAction));
       actionBar.appendChild(btn);
     }
     if(takeAction){
@@ -849,9 +1188,249 @@ function renderInteractiveLog(){
   box.innerHTML = igame.log.map((line,i)=>`<span data-i="${i}">${i===n-1?'<span class="cur">'+line+'</span>':line}</span>`).join('\n');
 }
 
+/* ============ Сетевой режим: игра через WebSocket-сервер ============ */
+
+const NET_SESSION_KEY = 'durak_visual_net_session';
+
+let netWs = null;
+let netPlayerId = null;
+let netRoomId = null;
+let netInRoom = false;
+let netGameStarted = false; // true, когда партия реально началась (пришло первое 'state') — до этого сидим в лобби, ждём соперников
+let netLastState = null;
+let netLastLegal = [];
+let netLastPlayers = [];
+let netLastLog = [];
+
+function netSend(obj){
+  if(!netWs || netWs.readyState!==WebSocket.OPEN){ netSetLobbyStatus('нет соединения — сообщение не отправлено'); return; }
+  netWs.send(JSON.stringify(obj));
+}
+
+function netSetLobbyStatus(text){
+  const el=document.getElementById('netLobbyStatus');
+  if(el) el.textContent=text;
+}
+
+function netUpdateStatusBar(){
+  const connected = netWs && netWs.readyState===WebSocket.OPEN;
+  document.getElementById('netStatusText').textContent = connected ? 'подключено' : 'не подключено';
+  document.getElementById('netRoomText').textContent = netInRoom ? `· комната ${netRoomId}` : '';
+  document.getElementById('netLeaveBtn').classList.toggle('hidden', !netInRoom || netGameStarted);
+}
+
+function netConnect(){
+  const url=document.getElementById('netWsUrl').value.trim();
+  if(!url) return;
+  if(netWs && (netWs.readyState===WebSocket.OPEN || netWs.readyState===WebSocket.CONNECTING)) return;
+  netSetLobbyStatus('подключаюсь…');
+  netWs=new WebSocket(url);
+  netWs.addEventListener('open', ()=>{ netSetLobbyStatus('подключено'); netUpdateStatusBar(); netSend({type:'listRooms'}); });
+  netWs.addEventListener('close', ()=>{ netSetLobbyStatus('соединение закрыто'); netUpdateStatusBar(); });
+  netWs.addEventListener('error', ()=>{ netSetLobbyStatus('ошибка соединения'); });
+  netWs.addEventListener('message', (ev)=>{ netHandleMessage(JSON.parse(ev.data)); });
+}
+
+function netHandleMessage(msg){
+  if(msg.type==='error'){ netSetLobbyStatus('Ошибка: '+msg.message); return; }
+
+  if(msg.type==='rooms'){ netRenderRooms(msg.rooms); return; }
+
+  if(msg.type==='joined'){
+    netPlayerId=msg.playerId; netRoomId=msg.roomId; netInRoom=true; netGameStarted=false;
+    netSaveSession(); netUpdateSessionUI(); netUpdateStatusBar(); netUpdatePanels();
+    return;
+  }
+
+  if(msg.type==='left'){
+    netPlayerId=null; netRoomId=null; netInRoom=false; netGameStarted=false; netLastState=null;
+    netClearSession(); netUpdateStatusBar(); netUpdatePanels();
+    netSend({type:'listRooms'});
+    return;
+  }
+
+  if(msg.type==='state'){
+    netLastState=msg.state; netLastLegal=msg.legalActions||[]; netLastPlayers=msg.players||[]; netLastLog=msg.log||[];
+    const wasStarted=netGameStarted;
+    netGameStarted=true;
+    if(!wasStarted) netUpdatePanels(); // первое состояние партии — переключаем лобби на игровое поле
+    if(mode==='network') renderNetwork();
+    return;
+  }
+}
+
+function netRenderRooms(rooms){
+  const tbody=document.querySelector('#netRoomsTable tbody');
+  tbody.innerHTML='';
+  rooms.forEach(r=>{
+    const tr=document.createElement('tr');
+    const statusText = r.finished ? 'завершена' : r.started ? 'идёт' : 'ждёт игроков';
+    tr.innerHTML = `<td>${r.roomId}</td><td>${r.label||'—'}</td><td>${r.seatsFilled}/${r.numPlayers}</td>`+
+      `<td>${r.deckSize} карт, ${r.throwInPolicy}, ${statusText}</td><td></td>`;
+    if(!r.started){
+      const btn=document.createElement('button'); btn.type='button'; btn.textContent='Войти';
+      btn.addEventListener('click', ()=>{
+        const name=document.getElementById('netJoinName').value.trim() || prompt('Ваше имя?','Игрок') || 'Игрок';
+        netSend({type:'join', roomId:r.roomId, name});
+      });
+      tr.lastElementChild.appendChild(btn);
+    }
+    tbody.appendChild(tr);
+  });
+  if(rooms.length===0) tbody.innerHTML='<tr><td colspan="5" class="muted">комнат пока нет</td></tr>';
+}
+
+function netSaveSession(){
+  if(netRoomId && netPlayerId){
+    localStorage.setItem(NET_SESSION_KEY, JSON.stringify({wsUrl:document.getElementById('netWsUrl').value.trim(), roomId:netRoomId, playerId:netPlayerId}));
+  }
+  netUpdateSessionUI();
+}
+function netClearSession(){ localStorage.removeItem(NET_SESSION_KEY); netUpdateSessionUI(); }
+function netLoadSession(){ try{ return JSON.parse(localStorage.getItem(NET_SESSION_KEY)||'null'); } catch { return null; } }
+function netUpdateSessionUI(){
+  const s=netLoadSession();
+  const box=document.getElementById('netSessionBox');
+  if(s){ box.style.display='block'; document.getElementById('netSessionInfo').textContent=`комната ${s.roomId}, сервер ${s.wsUrl}`; }
+  else{ box.style.display='none'; }
+}
+
+// Показываем либо лобби, либо игровое поле (переиспользует те же DOM-узлы,
+// что и локальный интерактивный режим) — в зависимости от того, сидим ли мы уже в комнате.
+function netUpdatePanels(){
+  const inNetwork = mode==='network';
+  document.getElementById('tableBoard').classList.toggle('hidden', inNetwork && !netGameStarted);
+  document.getElementById('networkLobby').classList.toggle('hidden', !inNetwork || netGameStarted);
+  netUpdateStatusBar();
+}
+
+function renderNetwork(){
+  if(!netLastState) return;
+  const st=netLastState;
+  const you=st.players.find(p=>p.id===netPlayerId);
+  const finished=st.finished;
+  const attacker=netLastPlayers.find(p=>p.id===st.attacker);
+  const defender=netLastPlayers.find(p=>p.id===st.defender);
+
+  document.getElementById('statusLine').textContent = finished
+    ? (st.durak ? `Партия окончена — дурак: ${(netLastPlayers.find(p=>p.id===st.durak)||{}).name || st.durak}` : 'Партия окончена — ничья')
+    : `Атакует: ${attacker?.name||'?'}  ·  Защищается: ${defender?.name||'?'}  ·  козырь ${st.trumpSuit}`;
+  document.getElementById('eventDesc').textContent='';
+  document.getElementById('stepCounter').textContent='';
+
+  const oppBox=document.getElementById('opponents');
+  oppBox.innerHTML='';
+  oppBox.dataset.count = String(st.players.length-1);
+  st.players.filter(p=>p.id!==netPlayerId).forEach((p,seatIdx)=>{
+    const rosterInfo=netLastPlayers.find(rp=>rp.id===p.id) || {};
+    const wrap=document.createElement('div'); wrap.className=oppWrapClass(seatIdx, st.players.length-1, p.out);
+    const label=document.createElement('div'); label.className='label';
+    label.innerHTML = `${p.name}`+
+      (p.id===st.attacker?' <span class="role-tag attacker">атакует</span>':'')+
+      (p.id===st.defender?' <span class="role-tag defender">защита</span>':'')+
+      (rosterInfo.connected===false?' <span class="net-roster-flag offline">офлайн</span>':'')+
+      (rosterInfo.botControlled?' <span class="net-roster-flag bot">бот вместо игрока</span>':'');
+    wrap.appendChild(label);
+    const fan=document.createElement('div'); fan.className='fan';
+    // Сервер намеренно не присылает чужие карты — рисуем нужное количество рубашек.
+    for(let i=0;i<p.handCount;i++) fan.appendChild(cardEl(null,false));
+    wrap.appendChild(fan);
+    if(p.out){ const b=document.createElement('div'); b.className='finish-badge'; b.textContent=`место ${p.finishRank}`; wrap.appendChild(b); }
+    else { const cnt=document.createElement('div'); cnt.className='finish-badge'; cnt.textContent=`${p.handCount} карт`; wrap.appendChild(cnt); }
+    oppBox.appendChild(wrap);
+  });
+
+  const talonStack=document.getElementById('talonStack');
+  talonStack.innerHTML='';
+  const stackDepth=Math.min(4, Math.ceil(st.talonCount/6));
+  for(let i=0;i<Math.max(stackDepth, st.talonCount>0?1:0); i++){
+    const b=document.createElement('div'); b.className='card-back';
+    b.style.position='absolute'; b.style.left=(i*2)+'px'; b.style.top=(i*2)+'px';
+    talonStack.appendChild(b);
+  }
+  if(st.talonCount>0 && st.trumpCard){
+    const peek=document.createElement('div'); peek.className='trump-peek';
+    peek.appendChild(cardEl(st.trumpCard, true));
+    talonStack.appendChild(peek);
+  }
+  document.getElementById('talonCount').textContent = st.talonCount>0 ? `в колоде: ${st.talonCount}` : 'колода пуста';
+
+  const trickArea=document.getElementById('trickArea');
+  trickArea.innerHTML='';
+  trickArea.classList.toggle('taking-cards', st.tableGoingToDefender===true);
+  if(st.tableGoingToDefender){
+    const label=document.createElement('div'); label.className='taking-label';
+    label.textContent=`→ забирает ${defender?.name||'?'}`;
+    trickArea.appendChild(label);
+  }
+  if(st.table.length===0){
+    trickArea.innerHTML+='<span style="font-family:var(--mono);font-size:11px;opacity:.5;">стол пуст</span>';
+  }
+  st.table.forEach(t=>{
+    const pair=document.createElement('div'); pair.className='trick-pair';
+    const a=cardEl(t.attack,true); a.classList.add('attack-card'); a.style.transform='rotate(-6deg)';
+    pair.appendChild(a);
+    if(t.defense){ const d=cardEl(t.defense,true); d.classList.add('defense-card'); d.style.transform='rotate(8deg)'; pair.appendChild(d); }
+    trickArea.appendChild(pair);
+  });
+
+  document.getElementById('discardPile').textContent = st.discardCount>0 ? `${st.discardCount}` : '—';
+
+  document.getElementById('myHandLabel').textContent =
+    `${you?.name||'Вы'}${netPlayerId===st.attacker?' — атакует':''}${netPlayerId===st.defender?' — защищается':''}`;
+  const myHandBox=document.getElementById('myHand');
+  myHandBox.innerHTML='';
+  const isMyTurn = !finished && netLastLegal.length>0;
+  const netSingleTransfers=netLastLegal.filter(a=>a.type==='transfer' && a.cards.length===1);
+  const netComboTransfer=netLastLegal.find(a=>a.type==='transfer' && a.cards.length>1);
+  (sortHandForDisplay(you?.hand||[], st.trumpSuit)).forEach(c=>{
+    const el=cardEl(c,true);
+    let matched=null, isTransfer=false;
+    if(isMyTurn){
+      matched = netLastLegal.find(a=>a.type==='attack' && a.card.suit===c.suit && a.card.rank===c.rank)
+        || netLastLegal.find(a=>a.type==='defend' && a.card.suit===c.suit && a.card.rank===c.rank);
+      if(!matched){
+        const st2=netSingleTransfers.find(a=>a.cards[0].suit===c.suit && a.cards[0].rank===c.rank);
+        if(st2){ matched=st2; isTransfer=true; }
+      }
+    }
+    if(matched){
+      el.classList.add('playable');
+      if(isTransfer) el.classList.add('transferable');
+      el.addEventListener('click', ()=> netSend({type:'action', action:matched}));
+    } else if(isMyTurn){
+      el.classList.add('unplayable');
+    }
+    myHandBox.appendChild(el);
+  });
+  layoutHandArc(myHandBox);
+
+  const actionBar=document.getElementById('actionBar');
+  actionBar.innerHTML='';
+  if(isMyTurn){
+    const takeAction=netLastLegal.find(a=>a.type==='take');
+    const passAction=netLastLegal.find(a=>a.type==='pass');
+    if(netComboTransfer){ const btn=document.createElement('button'); btn.className='transfer'; btn.textContent=`Перевести оба (${netComboTransfer.cards.length})`; btn.addEventListener('click',()=>netSend({type:'action',action:netComboTransfer})); actionBar.appendChild(btn); }
+    if(takeAction){ const btn=document.createElement('button'); btn.className='take'; btn.textContent='Взять карты'; btn.addEventListener('click',()=>netSend({type:'action',action:takeAction})); actionBar.appendChild(btn); }
+    if(passAction){ const btn=document.createElement('button'); btn.className='pass'; btn.textContent = st.phase==='need-attack' ? 'Пас (не подкидываю)' : 'Пас'; btn.addEventListener('click',()=>netSend({type:'action',action:passAction})); actionBar.appendChild(btn); }
+  }
+
+  const hintBox=document.getElementById('turnHint');
+  if(finished){
+    hintBox.textContent='Партия завершена. Можно выйти в лобби и сыграть ещё раз.';
+  } else if(isMyTurn){
+    hintBox.textContent = st.phase==='defender-to-act' ? 'Ваш ход: отбейтесь картой, переведите или заберите карты.' : 'Ваш ход: подкиньте карту или пасуйте.';
+  } else {
+    hintBox.textContent = 'Ждём ход соперника…';
+  }
+
+  const logBox=document.getElementById('fullLog');
+  logBox.textContent = netLastLog.join('\n'); // сервер шлёт только хвост лога (последние 20 строк)
+}
+
 /* ============ Переключение режимов ============ */
 
-let mode='view'; // 'view' | 'interactive'
+let mode='view'; // 'view' | 'interactive' | 'network'
 
 function setMode(newMode){
   if(mode===newMode) return;
@@ -860,24 +1439,86 @@ function setMode(newMode){
   stopBotTimer();
   document.getElementById('modeViewBtn').classList.toggle('active', mode==='view');
   document.getElementById('modeInteractiveBtn').classList.toggle('active', mode==='interactive');
+  document.getElementById('modeNetworkBtn').classList.toggle('active', mode==='network');
   document.getElementById('viewTransport').classList.toggle('hidden', mode!=='view');
   document.getElementById('scrubber').classList.toggle('hidden', mode!=='view');
+  document.getElementById('localControls').classList.toggle('hidden', mode==='network');
+  document.getElementById('networkStatusBar').classList.toggle('hidden', mode!=='network');
   document.getElementById('footerNote').textContent = mode==='view'
     ? 'Ходят боты друг против друга — это инструмент проверки правил, не финальный интерфейс.'
-    : 'Вы играете за «Вы» (первый игрок), остальные — боты. Переключатель «показать все карты» оставляет карты ботов открытыми — удобно для поиска багов в правилах.';
+    : mode==='interactive'
+    ? 'Вы играете за «Вы» (первый игрок), остальные — боты. Переключатель «показать все карты» оставляет карты ботов открытыми — удобно для поиска багов в правилах.'
+    : 'Партия идёт на отдельном сервере — карты соперников вам не видны, только их количество.';
   if(mode==='view') buildGame();
-  else startInteractiveGame();
+  else if(mode==='interactive') startInteractiveGame();
+  else { netUpdatePanels(); if(netGameStarted) renderNetwork(); }
 }
 
 /* ============ Визуализация ============ */
+
+// Раскладывает карты руки дугой: центральная карта ниже и без наклона,
+// к краям карты приподнимаются и разворачиваются. Работает по фактической
+// ширине карты (--hand-card-w меняется через clamp()), поэтому пересчитывается
+// при каждой отрисовке руки и при ресайзе окна.
+function layoutHandArc(container){
+  if(!container) return;
+  const cards = Array.from(container.children).filter(el=>el.classList.contains('card'));
+  const n = cards.length;
+  if(n===0){ container.style.height=''; return; }
+  const w = cards[0].getBoundingClientRect().width || 60;
+  const h = cards[0].getBoundingClientRect().height || 84;
+  const avail = container.clientWidth || w*n;
+  const stepDeg = n>1 ? Math.min(9, 56/(n-1)) : 0;
+  const stepX = n>1 ? Math.max(w*0.22, Math.min(w*0.62, (avail - w) / (n-1))) : 0;
+  const curve = h*0.055;
+  const mid = (n-1)/2;
+  cards.forEach((el,i)=>{
+    const off = i - mid;
+    el.style.setProperty('--tr', (off*stepDeg).toFixed(2)+'deg');
+    el.style.setProperty('--tx', (off*stepX).toFixed(1)+'px');
+    el.style.setProperty('--ty', (off*off*curve).toFixed(1)+'px');
+    el.style.marginLeft = (-w/2)+'px';
+    el.style.zIndex = String(100 - Math.round(Math.abs(off*2)));
+  });
+  container.style.height = (h + mid*mid*curve + 12) + 'px';
+}
+window.addEventListener('resize', ()=>{
+  clearTimeout(window.__handArcResize);
+  window.__handArcResize = setTimeout(()=> layoutHandArc(document.getElementById('myHand')), 120);
+});
 
 function cardEl(card, faceUp=true){
   if(!faceUp){ const d=document.createElement('div'); d.className='card-back'; return d; }
   const d=document.createElement('div');
   const red = RED_SUITS.has(card.suit);
   d.className='card ' + (red?'brick':'ink');
-  d.innerHTML = `<div class="rank">${rankName(card.rank)}</div><div class="suit-big">${card.suit}</div><div class="rank" style="align-self:flex-end;transform:rotate(180deg)">${rankName(card.rank)}</div>`;
+  const idx = `<div class="r">${rankName(card.rank)}</div><div class="s">${card.suit}</div>`;
+  d.innerHTML = `<div class="corner">${idx}</div><div class="corner br">${idx}</div>`;
   return d;
+}
+
+// Группировка руки по мастям (внутри масти — по возрастанию ранга).
+// Козырная масть ставится в начало или в конец, по выбору игрока.
+const SUIT_ORDER_BASE = ['♠','♣','♥','♦'];
+function trumpSidePref(){
+  const el = document.getElementById('trumpSide');
+  return el ? el.value : 'right';
+}
+function sortHandForDisplay(hand, trumpSuit){
+  const side = trumpSidePref();
+  const others = SUIT_ORDER_BASE.filter(s=>s!==trumpSuit);
+  const order = side==='left' ? [trumpSuit, ...others] : [...others, trumpSuit];
+  return hand.slice().sort((a,b)=>{
+    const oa=order.indexOf(a.suit), ob=order.indexOf(b.suit);
+    if(oa!==ob) return oa-ob;
+    return a.rank-b.rank;
+  });
+}
+// Крайние (левое/правое) места при 4+ соперниках рисуем вертикальным веером —
+// иначе при 5-6 игроках карты по бокам вылезают за стол по горизонтали.
+function oppWrapClass(seatIdx, totalOpponents, out){
+  const vertical = totalOpponents>=4 && (seatIdx===0 || seatIdx===totalOpponents-1);
+  return 'opp' + (out?' out':'') + (vertical?' vertical':'');
 }
 
 let game=null, cursor=0, playTimer=null;
@@ -918,9 +1559,10 @@ function render(){
   // opponents = все, кроме первого игрока (используем первого как "мою" позицию для примера)
   const oppBox=document.getElementById('opponents');
   oppBox.innerHTML='';
+  oppBox.dataset.count = String(snap.players.length-1);
   snap.players.slice(1).forEach((p,i)=>{
     const realIdx=i+1;
-    const wrap=document.createElement('div'); wrap.className='opp'+(p.out?' out':'');
+    const wrap=document.createElement('div'); wrap.className=oppWrapClass(i, snap.players.length-1, p.out);
     const label=document.createElement('div'); label.className='label';
     label.innerHTML = `${p.name}`+
       (realIdx===snap.attackerIndex?' <span class="role-tag attacker">атакует</span>':'')+
@@ -928,7 +1570,7 @@ function render(){
     wrap.appendChild(label);
     const fan=document.createElement('div'); fan.className='fan';
     const faceUp = showAll;
-    p.hand.forEach(c=> fan.appendChild(cardEl(c, faceUp)) );
+    sortHandForDisplay(p.hand, snap.trumpSuit).forEach(c=> fan.appendChild(cardEl(c, faceUp)) );
     wrap.appendChild(fan);
     if(p.out){ const b=document.createElement('div'); b.className='finish-badge'; b.textContent=`место ${p.finishRank}`; wrap.appendChild(b); }
     else { const cnt=document.createElement('div'); cnt.className='finish-badge'; cnt.textContent=`${p.hand.length} карт`; wrap.appendChild(cnt); }
@@ -954,8 +1596,14 @@ function render(){
   // trick area
   const trickArea=document.getElementById('trickArea');
   trickArea.innerHTML='';
+  trickArea.classList.toggle('taking-cards', snap.tableGoingToDefender===true);
+  if(snap.tableGoingToDefender){
+    const label=document.createElement('div'); label.className='taking-label';
+    label.textContent=`→ забирает ${defenderName}`;
+    trickArea.appendChild(label);
+  }
   if(snap.table.length===0){
-    trickArea.innerHTML = '<span style="font-family:var(--mono);font-size:11px;opacity:.5;">стол пуст</span>';
+    trickArea.innerHTML += '<span style="font-family:var(--mono);font-size:11px;opacity:.5;">стол пуст</span>';
   }
   snap.table.forEach(t=>{
     const pair=document.createElement('div'); pair.className='trick-pair';
@@ -974,7 +1622,8 @@ function render(){
     `${me.name}${0===snap.attackerIndex?' — атакует':''}${0===snap.defenderIndex?' — защищается':''}`;
   const myHandBox=document.getElementById('myHand');
   myHandBox.innerHTML='';
-  me.hand.forEach(c=> myHandBox.appendChild(cardEl(c,true)) );
+  sortHandForDisplay(me.hand, snap.trumpSuit).forEach(c=> myHandBox.appendChild(cardEl(c,true)) );
+  layoutHandArc(myHandBox);
 
   renderFullLog();
 
@@ -992,8 +1641,45 @@ document.getElementById('newGameBtn').addEventListener('click', ()=>{
 document.getElementById('showAll').addEventListener('change', ()=>{
   if(mode==='view') render(); else renderInteractive();
 });
+document.getElementById('trumpSide').addEventListener('change', ()=>{
+  if(mode==='view') render();
+  else if(mode==='interactive') renderInteractive();
+  else if(netGameStarted) renderNetwork();
+});
 document.getElementById('modeViewBtn').addEventListener('click', ()=> setMode('view'));
 document.getElementById('modeInteractiveBtn').addEventListener('click', ()=> setMode('interactive'));
+document.getElementById('modeNetworkBtn').addEventListener('click', ()=> setMode('network'));
+
+document.getElementById('netConnectBtn').addEventListener('click', netConnect);
+document.getElementById('netRefreshRoomsBtn').addEventListener('click', ()=> netSend({type:'listRooms'}));
+document.getElementById('netCreateRoomBtn').addEventListener('click', ()=>{
+  netSend({
+    type:'createRoom',
+    label: document.getElementById('netCreateLabel').value,
+    name: document.getElementById('netCreateName').value,
+    numPlayers: Number(document.getElementById('netCreateNumPlayers').value),
+    deckSize: Number(document.getElementById('netCreateDeckSize').value),
+    throwInPolicy: document.getElementById('netCreateThrowIn').value,
+  });
+});
+document.getElementById('netJoinRoomBtn').addEventListener('click', ()=>{
+  netSend({type:'join', roomId: document.getElementById('netJoinRoomId').value.trim().toUpperCase(), name: document.getElementById('netJoinName').value});
+});
+document.getElementById('netLeaveBtn').addEventListener('click', ()=> netSend({type:'leave'}));
+document.getElementById('netForgetBtn').addEventListener('click', netClearSession);
+document.getElementById('netRejoinBtn').addEventListener('click', ()=>{
+  const s=netLoadSession();
+  if(!s) return;
+  document.getElementById('netWsUrl').value=s.wsUrl;
+  const doRejoin=()=> netSend({type:'rejoin', roomId:s.roomId, playerId:s.playerId});
+  if(netWs && netWs.readyState===WebSocket.OPEN){ doRejoin(); return; }
+  netConnect();
+  const check=setInterval(()=>{
+    if(netWs && netWs.readyState===WebSocket.OPEN){ clearInterval(check); doRejoin(); }
+  }, 100);
+  setTimeout(()=>clearInterval(check), 5000);
+});
+netUpdateSessionUI();
 document.getElementById('btnFirst').addEventListener('click', ()=>{ stop(); cursor=0; render(); });
 document.getElementById('btnLast').addEventListener('click', ()=>{ stop(); cursor=game.snapshots.length-1; render(); });
 document.getElementById('btnPrev').addEventListener('click', ()=>{ stop(); cursor=Math.max(0,cursor-1); render(); });
@@ -1007,6 +1693,27 @@ document.getElementById('btnPlay').addEventListener('click', ()=>{
     cursor++; render();
   }, Number(document.getElementById('speed').value));
 });
+
+if (window.matchMedia('(max-width: 680px)').matches) {
+  const sp = document.getElementById('settingsPanel');
+  if (sp) sp.open = false;
+}
+
+/* ============ Тема (светлая/тёмная/системная) ============ */
+function applyTheme(pref){
+  if(pref==='light' || pref==='dark') document.documentElement.setAttribute('data-theme', pref);
+  else document.documentElement.removeAttribute('data-theme');
+}
+(function initTheme(){
+  const saved = localStorage.getItem('durak-theme') || 'system';
+  const sel = document.getElementById('themeSelect');
+  if(sel) sel.value = saved;
+  applyTheme(saved);
+  sel?.addEventListener('change', e=>{
+    localStorage.setItem('durak-theme', e.target.value);
+    applyTheme(e.target.value);
+  });
+})();
 
 buildGame();
 </script>

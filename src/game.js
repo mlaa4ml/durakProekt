@@ -1,4 +1,4 @@
-import { createDeck, shuffle, cardToString } from './deck.js';
+import { createDeck, shuffle, cardToString, rankName } from './deck.js';
 import { resolveRules } from './rules.js';
 
 function canBeat(attackCard, defendCard, trumpSuit) {
@@ -41,10 +41,10 @@ export class DurakGame {
     this.perevodUsedThisRound = false;
 
     this.attackerIndex = this._pickFirstAttacker();
-    this.defenderIndex = this._nextActiveIndex(this.attackerIndex);
+    this._setDefender(this._nextActiveIndex(this.attackerIndex));
     this.allowAnyCardNow = true;  // разрешено класть любую карту (только на пустой стол в начале раунда)
-    this.postTakeRanks = null;    // ранги, разрешённые для подкидывания после того как защищающийся забрал карты
-    this.postTakeMode = false;    // true = защищающийся уже забрал карты в этом раунде; новые подкидывания идут прямо ему в руку, без защиты
+    this.tookCards = false;       // true = защищающийся решил забрать; карты со стола пока НЕ убраны — лежат "на взятие"
+    this.postTakeMode = false;    // true = защищающийся уже решил забрать карты в этом раунде; сам он больше не отбивается
     this.attackCountThisRound = 0; // счётчик всех подкинутых карт за раунд (включая подкинутые после взятия) — для лимита attackLimitByDefenderHand
     this._resetThrowInQueue();
 
@@ -143,8 +143,21 @@ export class DurakGame {
     return this.table.filter((t) => t.defense === null);
   }
 
+  // Фиксирует нового защищающегося и СРАЗУ ЖЕ запоминает размер его руки —
+  // именно "на начало раунда", т.е. до того как он успеет отбиться
+  // (или перевести) хотя бы одной картой. Раньше _defenderHandAtStart
+  // просто сбрасывался в undefined и пересчитывался лениво при первом
+  // обращении, которое могло произойти уже ПОСЛЕ того, как защитник
+  // отыграл несколько карт защиты — из-за этого лимит подкидывания
+  // занижался (напр. 4 вместо 6 у игрока с 6 картами в начале хода).
+  _setDefender(idx) {
+    this.defenderIndex = idx;
+    this._defenderHandAtStart = this.players[idx].hand.length;
+  }
+
   _defenderHandSizeAtRoundStart() {
     if (this._defenderHandAtStart === undefined) {
+      // Подстраховка на случай, если метод вызвали до _setDefender.
       this._defenderHandAtStart = this.players[this.defenderIndex].hand.length;
     }
     return this._defenderHandAtStart;
@@ -158,7 +171,11 @@ export class DurakGame {
       trumpSuit: this.trumpSuit,
       trumpCard: this.trumpCard,
       talonCount: this.talon.length,
+      discardCount: this.discardCount,
       table: this.table.map((t) => ({ attack: t.attack, defense: t.defense })),
+      // true = защитник уже решил забрать — карты на столе ещё физически лежат там,
+      // но визуально их можно показывать как "уходящие" ему в руку.
+      tableGoingToDefender: this.tookCards === true,
       attacker: this.players[this.attackerIndex]?.id,
       defender: this.players[this.defenderIndex]?.id,
       players: this.players.map((p) => ({
@@ -193,26 +210,44 @@ export class DurakGame {
     return [];
   }
 
+  // Какие ранги сейчас разрешено подкидывать (или null = разрешено всё).
+  // Единая точка правды: и _legalThrowInActions, и лог после отбоя/взятия берут ранги отсюда,
+  // чтобы никогда не разойтись между собой.
+  // Стол теперь не очищается сразу при взятии (карты остаются лежать "на взятие" до конца
+  // захода — см. _doTake/_resolveTableClosed), поэтому пока идёт постТейк-подкидывание,
+  // this.table всегда непуст и ранги естественным образом берутся из него же.
+  _currentAllowedThrowInRanks() {
+    const tableEmpty = this.table.length === 0;
+    if (!tableEmpty) {
+      return new Set(this.table.map((t) => t.attack.rank).concat(
+        this.table.filter((t) => t.defense).map((t) => t.defense.rank)
+      ));
+    }
+    if (this.allowAnyCardNow) return null;
+    return new Set();
+  }
+
+  // Единый текст статуса лимита подкидывания — используется и после успешной защиты,
+  // и после решения защитника забрать карты, чтобы в логе всегда было видно,
+  // сколько ещё карт можно подкинуть и какие ранги разрешены.
+  _throwInStatusText() {
+    const allowedRanks = this._currentAllowedThrowInRanks();
+    const ranksLabel = allowedRanks === null
+      ? 'любые (новый раунд)'
+      : (allowedRanks.size > 0 ? [...allowedRanks].map(rankName).join(', ') : 'нет (подкидывать нечем)');
+    const limit = Math.min(
+      this.rules.maxTableAttacks,
+      this.rules.attackLimitByDefenderHand ? this._defenderHandSizeAtRoundStart() : Infinity
+    );
+    const roomLeft = limit - this.attackCountThisRound;
+    return `Можно подкидывать ранги: ${ranksLabel}. Лимит атак за раунд: ${this.attackCountThisRound}/${limit} (осталось ${Math.max(roomLeft, 0)}).`;
+  }
+
   _legalThrowInActions(idx) {
     const actions = [];
     const hand = this.players[idx].hand;
     const tableEmpty = this.table.length === 0;
-
-    const ranksOnTable = new Set(this.table.map((t) => t.attack.rank).concat(
-      this.table.filter((t) => t.defense).map((t) => t.defense.rank)
-    ));
-    // Какие ранги разрешено подкидывать прямо сейчас:
-    // - если стол не пуст — только ранги уже лежащих на столе карт;
-    // - если стол пуст, но это старт нового раунда (allowAnyCardNow) — любая карта;
-    // - если стол пуст из-за того, что защищающийся только что забрал карты — только ранги из забранных карт.
-    let allowedRanks = null; // null = разрешено всё
-    if (!tableEmpty) {
-      allowedRanks = ranksOnTable;
-    } else if (this.allowAnyCardNow) {
-      allowedRanks = null;
-    } else {
-      allowedRanks = this.postTakeRanks || new Set();
-    }
+    const allowedRanks = this._currentAllowedThrowInRanks();
 
     const limit = Math.min(
       this.rules.maxTableAttacks,
@@ -251,23 +286,27 @@ export class DurakGame {
       }
     }
 
-    // Перевод
-    if (
-      this.rules.allowPerevod &&
-      !this.perevodUsedThisRound === false ? true : true // (оставлено читаемым ниже явной проверкой)
-    ) {
-      // no-op branch removed below; реальная проверка дальше
-    }
+    // Перевод. Игрок сам решает, каким количеством карт того же ранга переводить:
+    // можно перевести только одной (например, некозырной), а вторую такого же
+    // ранга при желании подкинуть позже обычным подкидыванием.
     if (this._canConsiderPerevod()) {
       const rank = undefended[0].attack.rank;
       const matching = defender.hand.filter((c) => c.rank === rank);
       if (matching.length > 0) {
         const nextIdx = this._nextActiveIndex(this.defenderIndex);
         const nextPlayerHandSize = this.players[nextIdx].hand.length;
-        const okByHandSize = !this.rules.perevodRequiresEnoughCards ||
-          nextPlayerHandSize >= undefended.length + matching.length;
-        if (nextIdx !== this.defenderIndex && okByHandSize) {
-          actions.push({ type: 'transfer', cards: matching });
+        const okByHandSize = (n) => !this.rules.perevodRequiresEnoughCards ||
+          nextPlayerHandSize >= undefended.length + n;
+
+        if (nextIdx !== this.defenderIndex) {
+          // Перевод одной конкретной картой — по варианту на каждую подходящую карту в руке.
+          for (const c of matching) {
+            if (okByHandSize(1)) actions.push({ type: 'transfer', cards: [c] });
+          }
+          // Плюс перевод сразу всеми картами этого ранга одним ходом, если их больше одной.
+          if (matching.length > 1 && okByHandSize(matching.length)) {
+            actions.push({ type: 'transfer', cards: matching });
+          }
         }
       }
     }
@@ -313,7 +352,16 @@ export class DurakGame {
       return a.card.suit === b.card.suit && a.card.rank === b.card.rank;
     }
     if (a.type === 'transfer') {
-      return a.cards.length === b.cards.length; // упрощённо: бот передаёт весь набор карт нужного ранга
+      if (a.cards.length !== b.cards.length) return false;
+      // Сравниваем как множества (порядок карт в запросе значения не имеет),
+      // чтобы разные варианты перевода (одной картой из двух и т.п.) не путались.
+      const bRemaining = b.cards.slice();
+      for (const ac of a.cards) {
+        const i = bRemaining.findIndex((bc) => bc.suit === ac.suit && bc.rank === ac.rank);
+        if (i === -1) return false;
+        bRemaining.splice(i, 1);
+      }
+      return true;
     }
     return true;
   }
@@ -328,14 +376,14 @@ export class DurakGame {
   _doAttack(idx, card) {
     this._removeFromHand(idx, card);
     this.attackCountThisRound++;
+    this.table.push({ attack: card, defense: null });
 
     if (this.postTakeMode) {
-      // Защищающийся уже забрал карты в этом раунде: по правилам новые подкинутые
-      // карты того же ранга просто уходят ему в руку — отбиваться от них не нужно
-      // и это не начинает новую фазу защиты.
+      // Защищающийся уже решил забрать карты в этом раунде: новая подкинутая карта
+      // ложится на стол рядом с остальными — видно всем, что она тоже уйдёт защитнику
+      // при закрытии стола. Отбиваться от неё не нужно, фаза защиты не открывается.
       const defender = this.players[this.defenderIndex];
-      defender.hand.push(card);
-      this._log(`${this.players[idx].name} подкидывает ${cardToString(card)} — карта уходит в руку игроку ${defender.name} (карты уже забраны)`);
+      this._log(`${this.players[idx].name} подкидывает ${cardToString(card)} — карта ляжет в стопку, которую забирает ${defender.name}`);
       this.allowAnyCardNow = false;
       this.passedPlayers.clear();
       this._advanceThrowInQueue();
@@ -343,7 +391,6 @@ export class DurakGame {
       return this.getState();
     }
 
-    this.table.push({ attack: card, defense: null });
     this._log(`${this.players[idx].name} подкидывает ${cardToString(card)}`);
     this.allowAnyCardNow = false;
     this.passedPlayers.clear();
@@ -385,6 +432,7 @@ export class DurakGame {
       // всё отбито — снова очередь подкидывающих
       this.phase = 'need-attack';
       this._resetThrowInQueue();
+      this._log(`Стол отбит. ${this._throwInStatusText()}`);
       this._maybeResolveNeedAttack(); // на случай если подкидывать больше некому/нечем
     }
     return this.getState();
@@ -402,8 +450,7 @@ export class DurakGame {
     // Переводящий сам становится атакующим (актуально прежде всего при
     // игре вдвоём: иначе "новый защищающийся" совпал бы с атакующим).
     this.attackerIndex = idx;
-    this.defenderIndex = this._nextActiveIndex(idx);
-    this._defenderHandAtStart = undefined; // пересчитаем лимит под нового защищающегося
+    this._setDefender(this._nextActiveIndex(idx)); // лимит фиксируется под нового защищающегося сразу
     this.allowAnyCardNow = false;
     this._resetThrowInQueue();
     this._log(`Теперь защищается: ${this.players[this.defenderIndex].name}`);
@@ -412,23 +459,14 @@ export class DurakGame {
   }
 
   _doTake(idx) {
+    // Карты со стола НЕ убираем сразу — они остаются лежать до конца захода (пока все
+    // не спасуют), чтобы всем было видно, что именно защитник забирает и что ещё
+    // подкинули следом. Физически в руку защитника они уйдут в _resolveTableClosed.
     const cardCount = this.table.length + this.table.filter((t) => t.defense).length;
-    this._log(`${this.players[idx].name} забирает карты со стола (${cardCount} шт.)`);
-    const defender = this.players[idx];
-    const takenRanks = new Set();
-    for (const t of this.table) {
-      takenRanks.add(t.attack.rank);
-      defender.hand.push(t.attack);
-      if (t.defense) {
-        takenRanks.add(t.defense.rank);
-        defender.hand.push(t.defense);
-      }
-    }
-    this.table = [];
     this.tookCards = true;
-    this.allowAnyCardNow = false;
-    this.postTakeRanks = takenRanks;
     this.postTakeMode = true;
+    this.allowAnyCardNow = false;
+    this._log(`${this.players[idx].name} решает забрать карты (пока на столе ${cardCount} шт.). ${this._throwInStatusText()}`);
     this.phase = 'need-attack';
     this._resetThrowInQueueForThrowInAfterTake();
     this._maybeResolveNeedAttack();
@@ -449,9 +487,22 @@ export class DurakGame {
   _resolveTableClosed() {
     const tookCards = this.tookCards === true;
     this.tookCards = false;
+    this.postTakeMode = false;
 
     const prevDefenderIdx = this.defenderIndex;
-    if (!tookCards) {
+    if (tookCards) {
+      // Заход завершён (все спасовали) — только теперь физически отдаём защитнику
+      // всё, что накопилось на столе (то, что он изначально не отбил, плюс всё,
+      // что успели подкинуть следом).
+      const defender = this.players[prevDefenderIdx];
+      const cardCount = this.table.length + this.table.filter((t) => t.defense).length;
+      for (const t of this.table) {
+        defender.hand.push(t.attack);
+        if (t.defense) defender.hand.push(t.defense);
+      }
+      this.table = [];
+      this._log(`${defender.name} забирает карты со стола (${cardCount} шт.)`);
+    } else {
       this.discardCount += this.table.length * 2;
       this.table = [];
       this._log(`Карты биты, уходят в отбой.`);
@@ -483,11 +534,9 @@ export class DurakGame {
     }
 
     this.attackerIndex = newAttacker;
-    this.defenderIndex = newDefender;
-    this._defenderHandAtStart = undefined;
+    this._setDefender(newDefender);
     this.perevodUsedThisRound = false;
     this.allowAnyCardNow = true;
-    this.postTakeRanks = null;
     this.postTakeMode = false;
     this.attackCountThisRound = 0;
     this.phase = 'need-attack';
