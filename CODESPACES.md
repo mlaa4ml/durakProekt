@@ -209,6 +209,7 @@ BOT_TAKEOVER_MS=3000 BOT_MOVE_DELAY_MS=200 npm run server
 
 ## 7. Чек-лист «всё работает»
 
+- [ ] Зелёный прогон GitHub Actions (CI) для проверки движка и сервера
 - [ ] `node -v` ≥ 18
 - [ ] `npm install` прошёл без ошибок (нужен только для сервера)
 - [ ] `node src/cli/playVerbose.js 2 24` печатает лог и итог без предохранителя
