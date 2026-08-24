@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Переводной дурак — прогон партии</title>
+<title>Переводной дурак</title>
 <style>
   :root{
     --felt-1:#1e4638;
@@ -19,6 +19,7 @@
     --panel-border:#4a3a26; --panel-bg:#1b140d; --input-bg:#241b12;
     --slot-border:#6b5638; --log-border:#3a2c1c; --footer-muted:#6b6153;
     --log-hl-bg:#3a2c1c; --log-hl-text:var(--cream);
+    --text-strong:var(--cream);
     --display: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --card-w: clamp(44px, 7vw, 62px);
@@ -34,6 +35,7 @@
       --panel-border:#cfc2a0; --panel-bg:#f6f1e3; --input-bg:#efe8d5;
       --slot-border:#a9926a; --log-border:#d9cca3; --footer-muted:#8a7f68;
       --log-hl-bg:#e6d9b0; --log-hl-text:var(--ink);
+      --text-strong:var(--ink);
     }
   }
   :root[data-theme="light"]{
@@ -43,6 +45,7 @@
     --panel-border:#cfc2a0; --panel-bg:#f6f1e3; --input-bg:#efe8d5;
     --slot-border:#a9926a; --log-border:#d9cca3; --footer-muted:#8a7f68;
     --log-hl-bg:#e6d9b0; --log-hl-text:var(--ink);
+    --text-strong:var(--ink);
   }
   *{box-sizing:border-box;}
   body{
@@ -60,10 +63,14 @@
     font-family:var(--mono); letter-spacing:.18em; font-size:11px;
     color:var(--gold); text-transform:uppercase; margin-bottom:4px;
   }
-  h1{margin:0 0 12px; font-size:28px; font-weight:600; color:var(--cream); letter-spacing:.01em;}
+  h1{margin:0 0 12px; font-size:28px; font-weight:600; color:var(--text-strong); letter-spacing:.01em;}
   .controls-bar{
     display:flex; flex-wrap:wrap; gap:10px; align-items:center;
     font-family:var(--mono); font-size:12px;
+  }
+  .settings-row{
+    display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+    flex:1 1 100%; width:100%;
   }
   .settings-panel{
     margin-top:12px; border:1px solid var(--panel-border); border-radius:8px;
@@ -82,7 +89,7 @@
     font-family:var(--mono); font-size:12px; background:var(--input-bg); color:var(--paper-dim);
     border:1px solid var(--panel-border); border-radius:4px; padding:6px 10px; cursor:pointer;
   }
-  button:hover, select:hover{border-color:var(--gold); color:var(--cream);}
+  button:hover, select:hover{border-color:var(--gold); color:var(--text-strong);}
   button.primary{background:var(--brick); color:var(--cream); border-color:var(--brick);}
   button.primary:hover{filter:brightness(1.1);}
   button:disabled{opacity:.35; cursor:default;}
@@ -251,6 +258,7 @@
     width:var(--hand-card-w); height:var(--hand-card-h);
     transform-origin:bottom center;
     transform:translate(var(--tx,0px), var(--ty,0px)) rotate(var(--tr,0deg));
+    z-index:var(--zi,1);
     transition:transform .15s;
   }
   .my-hand .card .corner{
@@ -299,6 +307,13 @@
     font-family:var(--mono); font-size:11px; color:var(--paper-dim);
   }
   .theme-switch select{ padding:4px 7px; font-size:11px; }
+  #resumeGameBtn{ display:block; margin-top:8px; }
+  .game-topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:10px; font-family:var(--mono); font-size:11px; color:var(--paper-dim);
+  }
+  .game-topbar-mode{ text-transform:uppercase; letter-spacing:.05em; opacity:.75; }
+  #backToSetupBtn{ padding:5px 10px; font-size:11px; }
   .view-only{ display:block; }
   .view-only.hidden{ display:none; }
   .hidden{ display:none !important; }
@@ -307,14 +322,14 @@
   #networkStatusBar.hidden{ display:none !important; }
 
   .network-lobby{ font-family:var(--mono); font-size:12px; }
-  .network-lobby fieldset{ border:1px solid var(--line); border-radius:8px; margin-bottom:14px; padding:10px 14px; }
+  .network-lobby fieldset{ border:1px solid var(--panel-border); border-radius:8px; margin-bottom:14px; padding:10px 14px; }
   .network-lobby legend{ padding:0 6px; color:var(--gold); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
   .network-lobby input, .network-lobby select{
     font-family:var(--mono); font-size:12px; padding:5px 8px; margin:2px 4px 2px 0;
-    background:var(--felt-dark); color:var(--cream); border:1px solid var(--line); border-radius:4px;
+    background:var(--input-bg); color:var(--text-strong); border:1px solid var(--panel-border); border-radius:4px;
   }
   .network-lobby table{ border-collapse:collapse; width:100%; font-size:12px; margin-bottom:6px; }
-  .network-lobby td, .network-lobby th{ border:1px solid var(--line); padding:5px 8px; text-align:left; }
+  .network-lobby td, .network-lobby th{ border:1px solid var(--panel-border); padding:5px 8px; text-align:left; }
   .network-lobby .muted{ opacity:.6; font-size:11px; }
   .network-lobby .net-status{ font-size:12px; color:var(--gold); margin:0 8px; }
   .net-roster-flag{ font-size:10px; padding:1px 6px; border-radius:8px; background:#3a2a2a; margin-left:6px; }
@@ -322,7 +337,7 @@
   .net-roster-flag.bot{ background:#3a6b52; }
 
   .event-desc{
-    text-align:center; color:var(--cream); font-size:15px; margin:16px 0 4px;
+    text-align:center; color:var(--text-strong); font-size:15px; margin:16px 0 4px;
     min-height:22px;
   }
 
@@ -399,14 +414,16 @@
 </head>
 <body>
 <div class="wrap">
+<div id="setupScreen">
   <header>
-    <div class="eyebrow">Шаг 1 · Движок игры</div>
-    <h1>Переводной дурак — прогон партии</h1>
+    <div class="eyebrow">Настройки</div>
+    <h1>Переводной дурак</h1>
     <div class="mode-toggle">
       <button type="button" id="modeViewBtn" class="active">Просмотр ботов</button>
       <button type="button" id="modeInteractiveBtn">Играю против ботов</button>
       <button type="button" id="modeNetworkBtn">Играть по сети</button>
     </div>
+    <button type="button" id="resumeGameBtn" class="primary hidden">← Вернуться к партии</button>
     <label class="theme-switch">Тема
       <select id="themeSelect">
         <option value="system">системная</option>
@@ -418,36 +435,54 @@
       <summary>Настройки партии</summary>
       <div class="controls-bar">
         <div class="local-controls" id="localControls">
-        <label>Игроков
-          <select id="numPlayers">
-            <option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
-          </select>
-        </label>
-        <label>Колода
-          <select id="deckSize">
-            <option>24</option><option>36</option><option>52</option>
-          </select>
-        </label>
-        <label>Подкидывают
-          <select id="throwInPolicy">
-            <option value="all" selected>все игроки</option>
-            <option value="neighbors">соседи защитника</option>
-            <option value="attackerOnly">только атакующий</option>
-          </select>
-        </label>
-        <label><input type="checkbox" id="showAll" checked /> показать все карты (для проверки правил)</label>
-        <label>Козыри в руке
-          <select id="trumpSide">
-            <option value="right" selected>справа</option>
-            <option value="left">слева</option>
-          </select>
-        </label>
-        <button class="primary" id="newGameBtn">Новая партия</button>
+        <div class="settings-row">
+          <label>Игроков
+            <select id="numPlayers">
+              <option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
+            </select>
+          </label>
+          <label>Колода
+            <select id="deckSize">
+              <option>24</option><option>36</option><option>52</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-row">
+          <label>Подкидывают
+            <select id="throwInPolicy">
+              <option value="all" selected>все игроки</option>
+              <option value="neighbors">соседи защитника</option>
+              <option value="attackerOnly">только атакующий</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-row">
+          <label><input type="checkbox" id="groupHandToggle" checked /> группировать карты в руке по мастям</label>
+        </div>
+        <div class="settings-row" id="trumpSideRow">
+          <label>Козыри в руке
+            <select id="trumpSide">
+              <option value="right" selected>справа</option>
+              <option value="left">слева</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-row">
+          <label><input type="checkbox" id="showAll" checked /> показать все карты (для проверки правил)</label>
+        </div>
         </div>
         <div class="local-controls hidden" id="networkStatusBar">
           <span class="net-status" id="netStatusText">не подключено</span>
           <span class="net-status" id="netRoomText"></span>
           <button type="button" id="netLeaveBtn" class="hidden">Выйти в лобби</button>
+        </div>
+        <div class="settings-row">
+          <label><input type="checkbox" id="showLogToggle" checked /> показывать полный текстовый лог на экране стола</label>
+        </div>
+        <div class="local-controls" id="localControlsBtn">
+        <div class="settings-row">
+          <button class="primary" id="newGameBtn">Новая партия</button>
+        </div>
         </div>
       </div>
     </details>
@@ -496,6 +531,13 @@
       <button type="button" id="netForgetBtn">Забыть</button>
     </fieldset>
   </div>
+</div>
+
+<div id="gameScreen" class="hidden">
+  <div class="game-topbar">
+    <span class="game-topbar-mode" id="gameModeLabel"></span>
+    <button type="button" id="backToSetupBtn">⚙ настройки</button>
+  </div>
 
   <div class="table" id="tableBoard">
     <div class="status-line" id="statusLine"></div>
@@ -540,12 +582,13 @@
     <input type="range" class="scrubber view-only" id="scrubber" min="0" max="0" value="0" />
   </div>
 
-  <details>
+  <details id="logBlock">
     <summary>Полный текстовый лог</summary>
     <div class="log" id="fullLog"></div>
   </details>
 
   <div class="footer-note" id="footerNote">Ходят боты друг против друга — это инструмент проверки правил, не финальный интерфейс.</div>
+</div>
 </div>
 
 <script type="module">
@@ -1246,6 +1289,7 @@ function netHandleMessage(msg){
     netPlayerId=null; netRoomId=null; netInRoom=false; netGameStarted=false; netLastState=null;
     netClearSession(); netUpdateStatusBar(); netUpdatePanels();
     netSend({type:'listRooms'});
+    showSetup();
     return;
   }
 
@@ -1254,7 +1298,7 @@ function netHandleMessage(msg){
     const wasStarted=netGameStarted;
     netGameStarted=true;
     if(!wasStarted) netUpdatePanels(); // первое состояние партии — переключаем лобби на игровое поле
-    if(mode==='network') renderNetwork();
+    if(mode==='network'){ renderNetwork(); showGame(); }
     return;
   }
 }
@@ -1295,11 +1339,11 @@ function netUpdateSessionUI(){
   else{ box.style.display='none'; }
 }
 
-// Показываем либо лобби, либо игровое поле (переиспользует те же DOM-узлы,
-// что и локальный интерактивный режим) — в зависимости от того, сидим ли мы уже в комнате.
+// Показываем либо лобби, либо игровое поле — в зависимости от того, сидим
+// ли мы уже в комнате. Сам показ экрана (лобби внутри #setupScreen vs стол
+// внутри #gameScreen) уже решают showSetup()/showGame() — здесь только лобби.
 function netUpdatePanels(){
   const inNetwork = mode==='network';
-  document.getElementById('tableBoard').classList.toggle('hidden', inNetwork && !netGameStarted);
   document.getElementById('networkLobby').classList.toggle('hidden', !inNetwork || netGameStarted);
   netUpdateStatusBar();
 }
@@ -1432,6 +1476,32 @@ function renderNetwork(){
 
 let mode='view'; // 'view' | 'interactive' | 'network'
 
+/* ============ Переключение «настройки» / «стол» ============ */
+const MODE_LABELS = {view:'просмотр ботов', interactive:'игра против ботов', network:'игра по сети'};
+function hasActiveGame(){
+  if(mode==='view') return !!game;
+  if(mode==='interactive') return !!igame;
+  if(mode==='network') return netGameStarted;
+  return false;
+}
+function updateResumeButton(){
+  document.getElementById('resumeGameBtn').classList.toggle('hidden', !hasActiveGame());
+}
+function showSetup(){
+  updateResumeButton(); // состояние партии могло измениться, пока экран настроек был скрыт (боты продолжают ходить)
+  document.getElementById('setupScreen').classList.remove('hidden');
+  document.getElementById('gameScreen').classList.add('hidden');
+}
+function showGame(){
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('gameScreen').classList.remove('hidden');
+  document.getElementById('gameModeLabel').textContent = MODE_LABELS[mode] || '';
+  // пока экран был скрыт (display:none), замеры карт возвращали 0 — пересчитываем дугу заново
+  layoutHandArc(document.getElementById('myHand'));
+}
+document.getElementById('backToSetupBtn').addEventListener('click', showSetup);
+document.getElementById('resumeGameBtn').addEventListener('click', ()=>{ if(hasActiveGame()) showGame(); });
+
 function setMode(newMode){
   if(mode===newMode) return;
   mode=newMode;
@@ -1443,15 +1513,17 @@ function setMode(newMode){
   document.getElementById('viewTransport').classList.toggle('hidden', mode!=='view');
   document.getElementById('scrubber').classList.toggle('hidden', mode!=='view');
   document.getElementById('localControls').classList.toggle('hidden', mode==='network');
+  document.getElementById('localControlsBtn').classList.toggle('hidden', mode==='network');
   document.getElementById('networkStatusBar').classList.toggle('hidden', mode!=='network');
+  netUpdatePanels(); // прячет/показывает блок «Подключение к серверу» — актуально при ЛЮБОМ переключении режима, не только при входе в сетевой
   document.getElementById('footerNote').textContent = mode==='view'
     ? 'Ходят боты друг против друга — это инструмент проверки правил, не финальный интерфейс.'
     : mode==='interactive'
     ? 'Вы играете за «Вы» (первый игрок), остальные — боты. Переключатель «показать все карты» оставляет карты ботов открытыми — удобно для поиска багов в правилах.'
     : 'Партия идёт на отдельном сервере — карты соперников вам не видны, только их количество.';
-  if(mode==='view') buildGame();
-  else if(mode==='interactive') startInteractiveGame();
-  else { netUpdatePanels(); if(netGameStarted) renderNetwork(); }
+  if(mode==='view'){ buildGame(); showGame(); }
+  else if(mode==='interactive'){ startInteractiveGame(); showGame(); }
+  else { if(netGameStarted){ renderNetwork(); showGame(); } else showSetup(); }
 }
 
 /* ============ Визуализация ============ */
@@ -1465,22 +1537,44 @@ function layoutHandArc(container){
   const cards = Array.from(container.children).filter(el=>el.classList.contains('card'));
   const n = cards.length;
   if(n===0){ container.style.height=''; return; }
+  // Отключаем transition на время замера/расстановки: getBoundingClientRect()
+  // ниже форсирует синхронный reflow, а карты только что вставлены с ещё
+  // не заданными --tx/--ty/--tr (т.е. дефолт 0,0,0) — без этого браузер
+  // фиксирует два разных состояния стиля и на КАЖДОЙ перерисовке руки
+  // проигрывает transition с нуля до дуги, из-за чего карты «мерцают».
+  cards.forEach(el=>{ el.style.transition='none'; });
   const w = cards[0].getBoundingClientRect().width || 60;
   const h = cards[0].getBoundingClientRect().height || 84;
   const avail = container.clientWidth || w*n;
   const stepDeg = n>1 ? Math.min(9, 56/(n-1)) : 0;
   const stepX = n>1 ? Math.max(w*0.22, Math.min(w*0.62, (avail - w) / (n-1))) : 0;
-  const curve = h*0.055;
   const mid = (n-1)/2;
+  // Форма дуги: центральная карта приподнята над базовой линией, к краям
+  // подъём плавно сходит на нет — у самых крайних карт --ty=0 (они стоят
+  // ровно на базовой линии контейнера). Так --ty никогда не становится
+  // положительным, и карты физически не могут провалиться НИЖЕ контейнера
+  // в панель действий/подсказку хода, даже при большой руке. Итоговый
+  // подъём центра ограничен потолком в 85% высоты карты.
+  let curveMag = h*0.055;
+  const maxExtent = h*0.85;
+  if(mid*mid*curveMag > maxExtent) curveMag = maxExtent / (mid*mid || 1);
+  const extent = mid*mid*curveMag;
   cards.forEach((el,i)=>{
     const off = i - mid;
     el.style.setProperty('--tr', (off*stepDeg).toFixed(2)+'deg');
     el.style.setProperty('--tx', (off*stepX).toFixed(1)+'px');
-    el.style.setProperty('--ty', (off*off*curve).toFixed(1)+'px');
+    el.style.setProperty('--ty', (-(mid*mid - off*off)*curveMag).toFixed(1)+'px');
     el.style.marginLeft = (-w/2)+'px';
-    el.style.zIndex = String(100 - Math.round(Math.abs(off*2)));
+    // Возрастающий z-index слева направо: каждая следующая карта лежит
+    // ПОВЕРХ предыдущей — обычный порядок веера. Раньше было наоборот
+    // (выше всех — центральная), из-за чего у крайних карт перекрывался
+    // не тот угол и веер выглядел «сломанным».
+    el.style.setProperty('--zi', String(i+1));
   });
-  container.style.height = (h + mid*mid*curve + 12) + 'px';
+  container.style.height = (h + extent + 12) + 'px';
+  // форсируем применение новой раскладки без анимации, затем возвращаем transition
+  void container.offsetHeight;
+  cards.forEach(el=>{ el.style.transition=''; });
 }
 window.addEventListener('resize', ()=>{
   clearTimeout(window.__handArcResize);
@@ -1499,12 +1593,22 @@ function cardEl(card, faceUp=true){
 
 // Группировка руки по мастям (внутри масти — по возрастанию ранга).
 // Козырная масть ставится в начало или в конец, по выбору игрока.
+// Если игрок выключил группировку в настройках — карты остаются в исходном
+// порядке (как пришли в руку), а строка «Козыри в руке» тогда не нужна.
 const SUIT_ORDER_BASE = ['♠','♣','♥','♦'];
 function trumpSidePref(){
   const el = document.getElementById('trumpSide');
   return el ? el.value : 'right';
 }
+function groupHandPref(){
+  const el = document.getElementById('groupHandToggle');
+  return el ? el.checked : true;
+}
+function updateTrumpSideRowVisibility(){
+  document.getElementById('trumpSideRow').classList.toggle('hidden', !groupHandPref());
+}
 function sortHandForDisplay(hand, trumpSuit){
+  if(!groupHandPref()) return hand.slice();
   const side = trumpSidePref();
   const others = SUIT_ORDER_BASE.filter(s=>s!==trumpSuit);
   const order = side==='left' ? [trumpSuit, ...others] : [...others, trumpSuit];
@@ -1637,6 +1741,7 @@ function stop(){ if(playTimer){ clearInterval(playTimer); playTimer=null; docume
 
 document.getElementById('newGameBtn').addEventListener('click', ()=>{
   if(mode==='view'){ stop(); buildGame(); } else { startInteractiveGame(); }
+  showGame();
 });
 document.getElementById('showAll').addEventListener('change', ()=>{
   if(mode==='view') render(); else renderInteractive();
@@ -1646,6 +1751,13 @@ document.getElementById('trumpSide').addEventListener('change', ()=>{
   else if(mode==='interactive') renderInteractive();
   else if(netGameStarted) renderNetwork();
 });
+document.getElementById('groupHandToggle').addEventListener('change', ()=>{
+  updateTrumpSideRowVisibility();
+  if(mode==='view') render();
+  else if(mode==='interactive') renderInteractive();
+  else if(netGameStarted) renderNetwork();
+});
+updateTrumpSideRowVisibility();
 document.getElementById('modeViewBtn').addEventListener('click', ()=> setMode('view'));
 document.getElementById('modeInteractiveBtn').addEventListener('click', ()=> setMode('interactive'));
 document.getElementById('modeNetworkBtn').addEventListener('click', ()=> setMode('network'));
@@ -1715,7 +1827,26 @@ function applyTheme(pref){
   });
 })();
 
+/* ============ Показ полного лога на экране стола ============ */
+function applyLogVisible(on){
+  document.getElementById('logBlock').classList.toggle('hidden', !on);
+}
+(function initLogToggle(){
+  const cb = document.getElementById('showLogToggle');
+  const saved = localStorage.getItem('durak-show-log');
+  // на телефоне по умолчанию прячем лог (занимает много места ниже стола),
+  // на десктопе — показываем; если пользователь уже выбирал сам, берём его выбор
+  const on = saved!==null ? saved==='1' : !window.matchMedia('(max-width: 680px)').matches;
+  cb.checked = on;
+  applyLogVisible(on);
+  cb.addEventListener('change', e=>{
+    localStorage.setItem('durak-show-log', e.target.checked ? '1' : '0');
+    applyLogVisible(e.target.checked);
+  });
+})();
+
 buildGame();
+showSetup();
 </script>
 </body>
 </html>
