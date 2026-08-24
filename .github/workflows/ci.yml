@@ -1,0 +1,89 @@
+# Облачная проверка проекта БЕЗ Codespaces.
+#
+# Зачем: создание Codespace требует отдельных прав (scope `Codespaces: RW`)
+# и включённых Codespaces для аккаунта/организации — см. issue #5.
+# GitHub Actions таких прав не требует и доступен всем (в т.ч. агентам,
+# которые могут только пушить ветку): достаточно запушить ветку — и во
+# вкладке Actions будет полный лог прогона.
+#
+# Что проверяется:
+#   1. движок и боты офлайн (playVerbose + simulate на разных конфигурациях);
+#   2. HTTP-эндпоинты сервера: /health, /, /visual;
+#   3. если в ветке есть `npm run smoke` (scripts/smoke.js) — прогоняется и он
+#      (полная партия по WebSocket).
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Установить зависимости
+        run: npm install
+
+      - name: Версии
+        run: node -v && npm -v
+
+      - name: Движок — подробный лог одной партии
+        run: |
+          node src/cli/playVerbose.js 2 24 | tail -20
+          node src/cli/playVerbose.js 4 36 | tail -20
+
+      - name: Движок — массовый прогон (ожидается «Ошибок движка: 0»)
+        run: |
+          set -e
+          for cfg in "300 2 24" "200 3 36" "200 4 36" "150 6 52"; do
+            echo "=== simulate $cfg ==="
+            out=$(node src/cli/simulate.js $cfg)
+            echo "$out"
+            echo "$out" | grep -q "Ошибок движка: 0" || {
+              echo "::error::simulate $cfg — ненулевое число ошибок движка"; exit 1;
+            }
+          done
+
+      - name: Сервер — /health, /, /visual
+        run: |
+          set -e
+          PORT=8099 node server/index.js &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8099/health > /dev/null; then break; fi
+            sleep 1
+          done
+
+          echo "--- /health ---"
+          curl -sf http://127.0.0.1:8099/health | tee /tmp/health.json
+          echo
+          grep -q '"ok":true' /tmp/health.json
+
+          for path in / /visual; do
+            code=$(curl -s -o /tmp/page.html -w '%{http_code}' "http://127.0.0.1:8099$path")
+            size=$(wc -c < /tmp/page.html)
+            echo "$path -> HTTP $code, $size байт"
+            [ "$code" = "200" ] || { echo "::error::$path вернул $code"; exit 1; }
+            [ "$size" -gt 100 ] || { echo "::error::$path вернул пустую страницу"; exit 1; }
+          done
+
+      - name: Smoke-тест (если есть в ветке)
+        run: |
+          if grep -q '"smoke"' package.json; then
+            npm run smoke
+          else
+            echo "В этой ветке нет скрипта npm run smoke — пропускаю (см. issue #4)."
+          fi
