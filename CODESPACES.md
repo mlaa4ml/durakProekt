@@ -221,9 +221,38 @@ BOT_TAKEOVER_MS=3000 BOT_MOVE_DELAY_MS=200 npm run server
 - [ ] обрыв связи → бот подменяет → rejoin возвращает игрока
 - [ ] `/visual` открывается и играет партию ботов
 
----
+## 7a. Если Codespaces недоступны (404 / нет scope Codespaces: RW)
 
-## 8. Что делать с найденными проблемами
+Иногда при попытке создать Codespace агент или пользователь получает ошибку:
+```
+create_codespace failed (404): {"message":"Not Found", "documentation_url": "..."}
+```
+Это означает, что **у токена доступа нет разрешений на Codespaces (scope `Codespaces: Read and write` / `codespace` в classic PAT)** либо в настройках репозитория/организации выключены Codespaces.
+
+### Как исправить:
+1. **Настройки репозитория / организации:**
+   - Перейдите в **Settings** → **Codespaces** репозитория (и/или организации, если проект в ней) и убедитесь, что функция включена.
+   - В организации проверьте **Organization settings** → **Codespaces** → **Access** (разрешены ли нужные аккаунты).
+2. **Права токена (PAT):**
+   - Для **Fine-grained PAT**: в блоке *Repository permissions* найдите **Codespaces** и выставьте **Read and write**. Также нужны *Contents* (Read and write) и *Metadata* (Read-only).
+   - Для **Classic PAT**: отметьте галочку `codespace`.
+   - **Важно:** после изменения прав токена обязательно пересоздайте/переподключите токен (или перезапустите агент, если токен пробрасывается из окружения).
+
+### Альтернативные обходные пути проверки:
+Если починить права Codespaces прямо сейчас нельзя, проект всё равно можно проверить двумя способами:
+- **Вариант A (Автоматический CI через GitHub Actions):**
+  В репозитории настроен `.github/workflows/ci.yml`, который при любом push или PR поднимает Node 20, прогоняет `simulate.js`, проверяет `playVerbose.js` и запускает фоновый WebSocket-сервер с тестом `/health`, `/` и `/visual`. Если во вкладке *Actions* сборка зелёная — всё в порядке.
+- **Вариант B (Локально / вручную):**
+  Скачайте архив репозитория или клонируйте его локально:
+  ```bash
+  git clone https://github.com/<owner>/durakProekt.git
+  cd durakProekt
+  npm install
+  npm run simulate
+  npm run server
+  ```
+
+---
 
 Заводите **отдельный issue** на каждую проблему и указывайте:
 
