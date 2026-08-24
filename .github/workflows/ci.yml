@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Environment check
+        run: |
+          node -v
+          npm -v
+
+      - name: Run verbose engine dry-run
+        run: |
+          node src/cli/playVerbose.js 2 24
+          node src/cli/playVerbose.js 4 36
+
+      - name: Run simulation stability test (simulate.js)
+        run: |
+          node src/cli/simulate.js 300 2 24
+          node src/cli/simulate.js 200 3 36
+          node src/cli/simulate.js 200 4 36
+          node src/cli/simulate.js 150 6 52
+
+      - name: Test WebSocket Server and HTTP routes
+        run: |
+          PORT=8099 node server/index.js &
+          SERVER_PID=$!
+          
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+
+          echo "Waiting for server to start on port 8099..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8099/health | grep -q '"ok":true'; then
+              echo "Server is up!"
+              break
+            fi
+            sleep 1
+          done
+
+          echo "Checking HTTP routes..."
+          HEALTH=$(curl -s http://localhost:8099/health)
+          echo "Health response: $HEALTH"
+          echo "$HEALTH" | grep -q '"ok":true'
+
+          ROOT_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8099/)
+          echo "Root HTTP status: $ROOT_CODE"
+          [ "$ROOT_CODE" -eq 200 ]
+
+          VISUAL_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8099/visual)
+          echo "Visual HTTP status: $VISUAL_CODE"
+          [ "$VISUAL_CODE" -eq 200 ]
+
+      - name: Run smoke tests if available
+        run: |
+          if node -e 'const p = require("./package.json"); process.exit(p.scripts && p.scripts.smoke ? 0 : 1)'; then
+            npm run smoke
+          else
+            echo "No 'smoke' script in package.json yet, skipping."
+          fi
