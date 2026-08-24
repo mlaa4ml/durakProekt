@@ -222,6 +222,61 @@ BOT_TAKEOVER_MS=3000 BOT_MOVE_DELAY_MS=200 npm run server
 
 ---
 
+## 7a. Если Codespaces недоступны (ошибка 404 / нет scope Codespaces: RW)
+
+Симптом (issue #5) — при попытке создать Codespace через API:
+
+```
+create_codespace failed (404): {"message":"Not Found",
+"documentation_url":".../codespaces/codespaces#create-a-codespace-in-a-repository"}
+```
+
+404 здесь означает не «репозитория нет», а «у токена нет прав это видеть».
+
+### Что проверить владельцу репозитория
+
+1. **Аккаунт/организация**: Settings → Codespaces — Codespaces включены,
+   есть свободная квота (Billing → Codespaces).
+2. **Токен приложения/агента**: fine-grained PAT → Repository permissions →
+   **Codespaces: Read and write** (+ Contents: RW, Metadata: Read).
+   Для classic-токена — scope `codespace`.
+3. **Организация**: Organization settings → Codespaces → Access — разрешить
+   нужные репозитории/аккаунты; там же General → «Codespaces access» не
+   должен быть Disabled.
+4. После изменения прав токен нужно **перевыпустить/переустановить** —
+   старый токен новые scope не подхватит.
+
+### Как проверять проект, пока Codespaces недоступны
+
+**Вариант A — GitHub Actions (ничего настраивать не нужно).**
+В репозитории есть workflow `.github/workflows/ci.yml`: он запускается на
+push в любую ветку, на pull request и вручную (Actions → CI → Run workflow)
+и прогоняет в облаке то же, что руками делается в разделах 2–4:
+
+- `npm install`, версии Node;
+- `playVerbose.js` на 2×24 и 4×36;
+- `simulate.js` на 2×24, 3×36, 4×36, 6×52 с проверкой строки
+  `Ошибок движка: 0` (шаг падает, если ошибки есть);
+- поднимает сервер на порту 8099 и проверяет `/health` (`"ok":true`), `/` и
+  `/visual` — HTTP 200 и непустой HTML;
+- если в ветке есть `npm run smoke` — прогоняет и его.
+
+Лог смотреть во вкладке **Actions** → нужный запуск. Actions доступны
+без прав Codespaces, поэтому агенту достаточно запушить ветку.
+
+**Вариант B — локально или в уже созданном вручную Codespace:**
+
+```bash
+npm install
+node src/cli/simulate.js 1000 2 24     # ждём «Ошибок движка: 0»
+npm run server                          # затем открыть /health, /, /visual
+```
+
+Ручными остаются только сценарии из раздела 5.3 (реконнект и подмена
+ботом) и визуальная проверка UI — их скриптом не покрыть.
+
+---
+
 ## 8. Что делать с найденными проблемами
 
 Заводите **отдельный issue** на каждую проблему и указывайте:
