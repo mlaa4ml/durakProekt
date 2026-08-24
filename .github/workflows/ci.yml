@@ -82,7 +82,7 @@ jobs:
 
       - name: Smoke-тест (если есть в ветке)
         run: |
-          if node -e "process.exit(require('./package.json').scripts?.smoke ? 0 : 1)"; then
+          if grep -q '"smoke"' package.json; then
             npm run smoke
           else
             echo "В этой ветке нет скрипта npm run smoke — пропускаю (см. issue #4)."
