@@ -222,6 +222,56 @@ BOT_TAKEOVER_MS=3000 BOT_MOVE_DELAY_MS=200 npm run server
 
 ---
 
+## 7.1. Одна команда для проверки всего (и для внешних инструментов)
+
+```bash
+bash /workspaces/durakProekt/scripts/codespace-check.sh
+# или из корня репозитория:
+npm run check
+```
+
+Скрипт `scripts/codespace-check.sh` повторяет весь набор проверок из CI
+(версии, `playVerbose`, `simulate` на четырёх конфигурациях, `/health`, `/`,
+`/visual`, `npm run smoke`) и **сам определяет корень репозитория**, поэтому
+его можно запускать из любого каталога.
+
+Это важно при запуске команд снаружи, через `gh`:
+
+```bash
+gh codespace ssh -c <имя-codespace> -- 'bash /workspaces/durakProekt/scripts/codespace-check.sh'
+```
+
+Обратите внимание: `gh codespace ssh` стартует команду в домашнем каталоге
+(`/home/node`), а не в `/workspaces/durakProekt`. Поэтому «голый»
+`npm run smoke` через SSH падает так:
+
+```
+npm error code ENOENT
+npm error path /home/node/package.json
+```
+
+Правильные варианты:
+
+```bash
+gh codespace ssh -c <имя> -- 'cd /workspaces/durakProekt && npm run smoke'
+gh codespace ssh -c <имя> -- 'npm --prefix /workspaces/durakProekt run smoke'
+gh codespace ssh -c <имя> -- 'bash /workspaces/durakProekt/scripts/codespace-check.sh'
+```
+
+Ещё нюанс: у современного `gh` нет флага `--command` — команда передаётся
+после `--`. Вариант `gh codespace ssh --command "..."` завершается с
+`unknown flag: --command`.
+
+Если SSH недоступен (например, `error getting ssh server details: failed to
+start SSH server` сразу после создания codespace) — подождите 1–3 минуты:
+фичи devcontainer (в т.ч. `ghcr.io/devcontainers/features/sshd:1`) и
+`postCreateCommand: npm install` доустанавливаются уже после того, как
+codespace получил статус *Available*. Альтернатива — веб-терминал
+`https://<имя-codespace>.github.dev` или GitHub Actions
+(`.github/workflows/ci.yml`).
+
+---
+
 ## 8. Что делать с найденными проблемами
 
 Заводите **отдельный issue** на каждую проблему и указывайте:
