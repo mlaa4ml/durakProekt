@@ -10,6 +10,10 @@
 //     {type:'join',   roomId, name}
 //     {type:'rejoin', roomId, playerId}
 //     {type:'leave'}                    // только для ещё не начавшейся партии
+//     {type:'fillWithBots'}             // только создатель комнаты: занять все свободные места
+//                                        // ботами и сразу начать партию
+//     {type:'addBot'}                   // только создатель: добавить одного бота на свободное место
+//     {type:'removeBot', playerId}      // только создатель: убрать ранее добавленного бота
 //     {type:'action', action: {...}}    // тот же формат, что и getLegalActions()
 //
 //   сервер -> клиент:
@@ -18,6 +22,10 @@
 //                                        // старт/уборка) — присылается всем, кто сейчас
 //                                        // не сидит ни в одной комнате
 //     {type:'joined', playerId, roomId, seatsFilled, seatsTotal}
+//     {type:'roomUpdate', roomId, label, numPlayers, hostPlayerId, seats:[{id,name,connected,botControlled}]}
+//                                        // состав ещё не начавшейся комнаты — шлётся всем, кто
+//                                        // уже сидит в ней, при любом изменении состава (join/addBot/leave).
+//                                        // hostPlayerId — кто сейчас может звать ботов.
 //     {type:'left'}
 //     {type:'state', you, state, legalActions, players, log}
 //     {type:'error', message}
@@ -32,19 +40,58 @@
 // подключении — это то, что позволяет вернуться в ту же партию после разрыва связи.
 
 import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
 import { RoomManager } from './rooms.js';
 
 const PORT = process.env.PORT || 8080;
 const manager = new RoomManager();
 
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Немного статики поверх того же порта: в GitHub Codespaces это важно —
+// пробрасывать нужно ровно один порт, и по нему доступны и WebSocket,
+// и тестовый клиент, и офлайн-визуализация.
+const STATIC_ROUTES = {
+  '/': 'server/test-client.html',
+  '/test-client.html': 'server/test-client.html',
+  '/visual': 'docs/index.html',
+  '/visual/': 'docs/index.html',
+};
+
 // Сокеты, которые сейчас не сидят ни в одной комнате — им рассылаем
 // обновления списка комнат (лобби).
 const lobbySockets = new Set();
 
-const httpServer = createServer((req, res) => {
-  res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
-  res.end('Durak multiplayer server работает. Подключайтесь по WebSocket.');
+const httpServer = createServer(async (req, res) => {
+  let pathname = '/';
+  try {
+    pathname = normalize(new URL(req.url, `http://${req.headers.host || 'localhost'}`).pathname);
+  } catch {
+    pathname = '/';
+  }
+
+  if (pathname === '/health') {
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+    return res.end(JSON.stringify({ ok: true, rooms: manager.listOpen().length }));
+  }
+
+  const route = STATIC_ROUTES[pathname];
+  if (route) {
+    try {
+      const body = await readFile(join(ROOT, route));
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      return res.end(body);
+    } catch (e) {
+      res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+      return res.end(`Не удалось прочитать ${route}: ${e.message}`);
+    }
+  }
+
+  res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+  res.end('Durak multiplayer server работает. Тестовый клиент — на "/", визуализация — на "/visual".');
 });
 
 const wss = new WebSocketServer({ server: httpServer });
@@ -169,6 +216,33 @@ function handleMessage(socket, msg) {
       }
       lobbySockets.add(socket);
       send(socket, { type: 'left' });
+      return;
+    }
+
+    case 'addBot': {
+      if (!socket.roomId) return send(socket, { type: 'error', message: 'Вы не в комнате' });
+      const room = manager.get(socket.roomId);
+      if (!room) return send(socket, { type: 'error', message: 'Комната не найдена' });
+      if (room.hostPlayerId !== socket.playerId) return send(socket, { type: 'error', message: 'Добавлять ботов может только создатель комнаты' });
+      room.addBot();
+      return;
+    }
+
+    case 'removeBot': {
+      if (!socket.roomId) return send(socket, { type: 'error', message: 'Вы не в комнате' });
+      const room = manager.get(socket.roomId);
+      if (!room) return send(socket, { type: 'error', message: 'Комната не найдена' });
+      if (room.hostPlayerId !== socket.playerId) return send(socket, { type: 'error', message: 'Убирать ботов может только создатель комнаты' });
+      room.removeBot(msg.playerId);
+      return;
+    }
+
+    case 'fillWithBots': {
+      if (!socket.roomId) return send(socket, { type: 'error', message: 'Вы не в комнате' });
+      const room = manager.get(socket.roomId);
+      if (!room) return send(socket, { type: 'error', message: 'Комната не найдена' });
+      if (room.hostPlayerId !== socket.playerId) return send(socket, { type: 'error', message: 'Заполнить ботами и начать может только создатель комнаты' });
+      room.fillWithBots();
       return;
     }
 

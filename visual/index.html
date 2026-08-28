@@ -24,8 +24,13 @@
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --card-w: clamp(44px, 7vw, 62px);
     --card-h: clamp(62px, 9.8vw, 87px);
-    --hand-card-w: clamp(60px, 8.6vw, 88px);
-    --hand-card-h: clamp(84px, 12vw, 124px);
+    /* --hand-scale — множитель размера карт ИГРОКА ВНИЗУ (только своей руки),
+       регулируется ползунком в шапке стола (#handSizeRange) и сохраняется
+       в localStorage, чтобы подбирать удобный размер прямо во время игры,
+       не пересдавая партию. */
+    --hand-scale: 1;
+    --hand-card-w: calc(clamp(60px, 8.6vw, 88px) * var(--hand-scale));
+    --hand-card-h: calc(clamp(84px, 12vw, 124px) * var(--hand-scale));
   }
   @media (prefers-color-scheme: light){
     :root:not([data-theme="dark"]):not([data-theme="light"]){
@@ -164,6 +169,15 @@
   }
   .role-tag.attacker{background:var(--brick); color:var(--cream);}
   .role-tag.defender{background:var(--gold); color:#2a2010;}
+  /* Строка роли ("атакует"/"защита"/"думает…") — вынесена из потока
+     (position:absolute), поэтому её появление/исчезновение/смена текста
+     никогда не меняет ширину .opp и не сдвигает соседних игроков. Висит
+     "снизу" под каждым игроком. */
+  .role-row{
+    position:absolute; left:50%; top:100%; transform:translateX(-50%);
+    margin-top:4px; white-space:nowrap; display:flex; gap:4px; justify-content:center;
+    pointer-events:none;
+  }
   .fan{display:flex; justify-content:center;}
   .fan .card-back{
     width:clamp(30px, 5vw, 44px); height:clamp(44px, 7.3vw, 64px);
@@ -183,6 +197,28 @@
   .finish-badge{
     font-family:var(--mono); font-size:10px; color:var(--gold); margin-top:4px;
   }
+
+  /* Компактный индикатор руки соперника (вместо веера рубашек, когда карты
+     скрыты) — фиксированного размера независимо от числа карт, поэтому
+     ширина .opp больше не "гуляет" при каждой раздаче/сбросе. */
+  .hand-count{
+    position:relative; width:clamp(28px, 4.6vw, 40px); height:clamp(40px, 6.6vw, 58px);
+    margin:0 auto;
+  }
+  .card-back-mini{
+    width:100%; height:100%; border-radius:5px;
+    background:repeating-linear-gradient(135deg, #2c4a3f 0 5px, #234037 5px 10px);
+    border:1px solid #0a1a14; box-shadow:0 3px 8px #0007;
+  }
+  .count-chip{
+    position:absolute; right:-7px; bottom:-7px;
+    min-width:18px; height:18px; padding:0 4px; border-radius:9px;
+    background:var(--gold); color:#2a2010; font-family:var(--mono);
+    font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 4px #0006; border:1px solid #0000004d;
+  }
+  .opp.out .hand-count{opacity:.3;}
+  .opp.vertical .hand-count{ margin:0 auto; }
 
   .mid-row{
     display:flex; align-items:flex-start; justify-content:center; gap:28px;
@@ -314,6 +350,14 @@
   }
   .game-topbar-mode{ text-transform:uppercase; letter-spacing:.05em; opacity:.75; }
   #backToSetupBtn{ padding:5px 10px; font-size:11px; }
+  .hand-size-control{
+    display:flex; align-items:center; gap:6px;
+    font-family:var(--mono); font-size:11px; color:var(--paper-dim);
+  }
+  .hand-size-control input[type="range"]{
+    width:90px; accent-color:var(--gold); vertical-align:middle;
+  }
+  .hand-size-control .hand-size-value{ min-width:3.2em; text-align:right; }
   .view-only{ display:block; }
   .view-only.hidden{ display:none; }
   .hidden{ display:none !important; }
@@ -375,21 +419,54 @@
     .controls-bar label:has(input[type="checkbox"]){ flex-direction:row; align-items:center; }
     .controls-bar label:has(input[type="checkbox"]) input{ width:auto; }
 
-    /* Места соперников: дуга не помещается — превращаем в горизонтальную ленту. */
-    .opponents{
-      position:static; height:auto; display:flex; flex-wrap:nowrap;
-      gap:16px; overflow-x:auto; -webkit-overflow-scrolling:touch;
-      padding:2px 4px 10px; margin-bottom:10px; scroll-snap-type:x proximity;
-      -webkit-mask-image:linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
-      mask-image:linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    /* Раньше здесь были правила, превращавшие дугу мест соперников в
+       горizontальную ленту — это было нужно, пока рука каждого соперника
+       рисовалась широким веером рубашек. Теперь индикатор руки — компактный
+       значок фиксированного размера (см. .hand-count), поэтому дуга
+       (left/center/right — те же проценты, что и на десктопе) помещается и
+       на телефоне без переделки в ленту. Оставляем как есть — override не нужен. */
+
+    .game-topbar{ flex-wrap:wrap; row-gap:6px; }
+    .hand-size-control{ order:1; width:100%; justify-content:space-between; }
+    .hand-size-control input[type="range"]{ width:55vw; max-width:220px; }
+    #backToSetupBtn{ order:2; }
+
+    .talon-count, .discard-count{ font-size:9.5px; line-height:1.2; }
+    #tableBoard.layout-scroll .mid-row,
+    #tableBoard.layout-wrap .mid-row{
+      position:relative; display:block;
+      min-height:calc(var(--card-h) + 34px);
+      padding:0 52px; margin-bottom:14px;
     }
-    .opp{
-      position:static; transform:none; flex:0 0 auto; scroll-snap-align:start;
-      max-width:none;
+    #tableBoard.layout-scroll .talon-area, #tableBoard.layout-scroll .discard-area,
+    #tableBoard.layout-wrap .talon-area, #tableBoard.layout-wrap .discard-area{
+      position:absolute; top:0; width:52px;
+    }
+    #tableBoard.layout-scroll .talon-area, #tableBoard.layout-wrap .talon-area{ left:-4px; }
+    #tableBoard.layout-scroll .discard-area, #tableBoard.layout-wrap .discard-area{ right:-4px; }
+
+    /* Два варианта поведения зоны карт на столе, переключаемые из настроек
+       партии (#tableLayoutMobile) через класс на #tableBoard — колода и
+       "бито" в обоих случаях остаются на месте, т.к. они absolute. */
+    #tableBoard.layout-scroll .trick-area{
+      flex-wrap:nowrap; justify-content:flex-start;
+      overflow-x:auto; padding-bottom:4px;
+      scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;
+    }
+    #tableBoard.layout-scroll .trick-pair{ scroll-snap-align:center; }
+    #tableBoard.layout-wrap .trick-area{
+      flex-wrap:wrap; justify-content:center; row-gap:16px;
     }
 
-    .mid-row{ gap:14px; margin-bottom:14px; }
-    .trick-area{ overflow-x:auto; padding-bottom:4px; }
+    /* Карты в руке игрока — крупнее на телефоне (было 60x84, стало ~112x158,
+       т.е. почти вдвое; на широких экранах тянется до ~150x212). Рука уже
+       скроллится по горизонтали, так что увеличение размера карт не ломает
+       раскладку — просто больше скролла при большой руке. */
+    :root{
+      --hand-card-w: calc(clamp(112px, 28vw, 150px) * var(--hand-scale));
+      --hand-card-h: calc(clamp(158px, 39.5vw, 212px) * var(--hand-scale));
+    }
+    .my-hand .card{ margin-left:clamp(-52px, -13vw, -38px); }
 
     /* Рука игрока прилипает к низу экрана — всегда доступна для тапа. */
     .my-hand-wrap{
@@ -470,6 +547,14 @@
         <div class="settings-row">
           <label><input type="checkbox" id="showAll" checked /> показать все карты (для проверки правил)</label>
         </div>
+        <div class="settings-row">
+          <label>Стол на телефоне
+            <select id="tableLayoutMobile">
+              <option value="scroll" selected>карты — скролл вбок</option>
+              <option value="wrap">карты — перенос вниз</option>
+            </select>
+          </label>
+        </div>
         </div>
         <div class="local-controls hidden" id="networkStatusBar">
           <span class="net-status" id="netStatusText">не подключено</span>
@@ -496,14 +581,21 @@
       <span class="net-status" id="netLobbyStatus">не подключено</span>
     </fieldset>
 
-    <fieldset>
+    <fieldset id="netWaitingRoomBox" class="hidden">
+      <legend>Ваша комната <span id="netWaitingRoomTitle" class="muted"></span></legend>
+      <table id="netWaitingSeatsTable"><thead><tr><th>Место</th><th>Игрок</th><th>Статус</th></tr></thead><tbody></tbody></table>
+      <button type="button" id="netFillWithBotsBtn">Заполнить ботами и начать игру</button>
+      <span class="muted" id="netWaitingHint"></span>
+    </fieldset>
+
+    <fieldset id="netRoomsBox">
       <legend>Комнаты</legend>
       <button type="button" id="netRefreshRoomsBtn">Обновить список</button>
       <span class="muted">список обновляется и сам, при изменениях</span>
       <table id="netRoomsTable"><thead><tr><th>Код</th><th>Название</th><th>Игроков</th><th>Правила</th><th></th></tr></thead><tbody></tbody></table>
     </fieldset>
 
-    <fieldset>
+    <fieldset id="netCreateBox">
       <legend>Создать комнату</legend>
       <input type="text" id="netCreateLabel" placeholder="название комнаты" />
       <input type="text" id="netCreateName" placeholder="ваше имя" />
@@ -517,7 +609,7 @@
       <button type="button" id="netCreateRoomBtn">Создать</button>
     </fieldset>
 
-    <fieldset>
+    <fieldset id="netJoinBox">
       <legend>Присоединиться по коду</legend>
       <input type="text" id="netJoinRoomId" placeholder="код комнаты" style="text-transform:uppercase" />
       <input type="text" id="netJoinName" placeholder="ваше имя" />
@@ -536,6 +628,11 @@
 <div id="gameScreen" class="hidden">
   <div class="game-topbar">
     <span class="game-topbar-mode" id="gameModeLabel"></span>
+    <label class="hand-size-control">
+      Размер карт
+      <input type="range" id="handSizeRange" min="0.7" max="1.6" step="0.05" value="1" />
+      <span class="hand-size-value" id="handSizeValue">100%</span>
+    </label>
     <button type="button" id="backToSetupBtn">⚙ настройки</button>
   </div>
 
@@ -1064,11 +1161,13 @@ function scheduleBotStep(){
 function doHumanAction(action){
   if(!igame || interactiveBusy) return;
   const legal=igame.getLegalActions(HUMAN_ID);
-  const match=legal.find(a=>{
-    if(a.type!==action.type) return false;
-    if(a.type==='attack'||a.type==='defend') return a.card.suit===action.card.suit && a.card.rank===action.card.rank;
-    return true;
-  });
+  // Раньше для transfer/take/pass сравнение падало в "return true" и брало
+  // первое попавшееся действие нужного типа из списка — из-за этого клик по
+  // любой карте для перевода фактически переводил не ту карту (часто козырь),
+  // т.к. порядок legal-действий не совпадает с порядком карт на экране.
+  // _actionsEqual уже умеет корректно сравнивать действия по картам (в т.ч.
+  // transfer по полному набору карт) — используем ту же проверку, что и applyAction.
+  const match=legal.find(a=>igame._actionsEqual(a,action));
   if(!match) return;
   igame.applyAction(HUMAN_ID, match);
   scheduleBotStep();
@@ -1099,14 +1198,11 @@ function renderInteractive(){
     const realIdx=i+1;
     const wrap=document.createElement('div'); wrap.className=oppWrapClass(i, igame.players.length-1, p.out);
     const label=document.createElement('div'); label.className='label';
-    label.innerHTML = `${p.name}`+
-      (realIdx===igame.attackerIndex?' <span class="role-tag attacker">атакует</span>':'')+
-      (realIdx===igame.defenderIndex?' <span class="role-tag defender">защита</span>':'')+
-      (realIdx===turnIdx?' <span class="role-tag" style="background:#3a6b52;color:var(--cream);">думает…</span>':'');
+    label.textContent = p.name;
     wrap.appendChild(label);
-    const fan=document.createElement('div'); fan.className='fan';
-    sortHandForDisplay(p.hand, igame.trumpSuit).forEach(c=> fan.appendChild(cardEl(c, showAll)) );
-    wrap.appendChild(fan);
+    appendRoleRow(wrap, roleTagsHtml(realIdx===igame.attackerIndex, realIdx===igame.defenderIndex, realIdx===turnIdx));
+    const faceUp = showAll;
+    renderOppHandArea(wrap, p.hand.length, faceUp, p.hand, igame.trumpSuit);
     if(p.out){ const b=document.createElement('div'); b.className='finish-badge'; b.textContent=`место ${p.finishRank}`; wrap.appendChild(b); }
     else { const cnt=document.createElement('div'); cnt.className='finish-badge'; cnt.textContent=`${p.hand.length} карт`; wrap.appendChild(cnt); }
     oppBox.appendChild(wrap);
@@ -1244,6 +1340,7 @@ let netLastState = null;
 let netLastLegal = [];
 let netLastPlayers = [];
 let netLastLog = [];
+let netWaitingRoom = null; // последний roomUpdate — состав ещё не начавшейся комнаты
 
 function netSend(obj){
   if(!netWs || netWs.readyState!==WebSocket.OPEN){ netSetLobbyStatus('нет соединения — сообщение не отправлено'); return; }
@@ -1286,10 +1383,16 @@ function netHandleMessage(msg){
   }
 
   if(msg.type==='left'){
-    netPlayerId=null; netRoomId=null; netInRoom=false; netGameStarted=false; netLastState=null;
+    netPlayerId=null; netRoomId=null; netInRoom=false; netGameStarted=false; netLastState=null; netWaitingRoom=null;
     netClearSession(); netUpdateStatusBar(); netUpdatePanels();
     netSend({type:'listRooms'});
     showSetup();
+    return;
+  }
+
+  if(msg.type==='roomUpdate'){
+    netWaitingRoom=msg;
+    renderNetWaitingRoom();
     return;
   }
 
@@ -1345,7 +1448,40 @@ function netUpdateSessionUI(){
 function netUpdatePanels(){
   const inNetwork = mode==='network';
   document.getElementById('networkLobby').classList.toggle('hidden', !inNetwork || netGameStarted);
+  // Пока сидим в ещё не начавшейся комнате — не нужны список всех комнат и
+  // формы создания/входа, вместо них показываем состав своей комнаты.
+  document.getElementById('netWaitingRoomBox').classList.toggle('hidden', !netInRoom);
+  document.getElementById('netRoomsBox').classList.toggle('hidden', netInRoom);
+  document.getElementById('netCreateBox').classList.toggle('hidden', netInRoom);
+  document.getElementById('netJoinBox').classList.toggle('hidden', netInRoom);
+  if(netInRoom) renderNetWaitingRoom();
   netUpdateStatusBar();
+}
+
+function renderNetWaitingRoom(){
+  const box=document.getElementById('netWaitingRoomBox');
+  if(!netInRoom || !netWaitingRoom){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  document.getElementById('netWaitingRoomTitle').textContent =
+    `· код ${netWaitingRoom.roomId}${netWaitingRoom.label?' · '+netWaitingRoom.label:''} · ${netWaitingRoom.seats.length}/${netWaitingRoom.numPlayers}`;
+  const tbody=document.querySelector('#netWaitingSeatsTable tbody');
+  tbody.innerHTML='';
+  netWaitingRoom.seats.forEach((s,i)=>{
+    const tr=document.createElement('tr');
+    const statusText = s.botControlled ? 'бот' : (s.connected ? 'в сети' : 'подключается…');
+    const nameText = s.name + (s.id===netPlayerId ? ' (вы)' : '') + (s.id===netWaitingRoom.hostPlayerId ? ' · создатель' : '');
+    tr.innerHTML = `<td>${i+1}</td><td>${nameText}</td><td>${statusText}</td>`;
+    tbody.appendChild(tr);
+  });
+  const free = netWaitingRoom.numPlayers - netWaitingRoom.seats.length;
+  const isHost = netPlayerId===netWaitingRoom.hostPlayerId;
+  const fillBtn=document.getElementById('netFillWithBotsBtn');
+  fillBtn.classList.toggle('hidden', !isHost || free<=0);
+  document.getElementById('netWaitingHint').textContent = free<=0
+    ? 'все места заняты — партия вот-вот начнётся'
+    : isHost
+      ? `свободно мест: ${free} — нажмите кнопку, чтобы отдать их ботам и начать сразу`
+      : `ждём ещё игроков (свободно: ${free}) — заполнить ботами может только создатель комнаты`;
 }
 
 function renderNetwork(){
@@ -1370,15 +1506,13 @@ function renderNetwork(){
     const wrap=document.createElement('div'); wrap.className=oppWrapClass(seatIdx, st.players.length-1, p.out);
     const label=document.createElement('div'); label.className='label';
     label.innerHTML = `${p.name}`+
-      (p.id===st.attacker?' <span class="role-tag attacker">атакует</span>':'')+
-      (p.id===st.defender?' <span class="role-tag defender">защита</span>':'')+
       (rosterInfo.connected===false?' <span class="net-roster-flag offline">офлайн</span>':'')+
       (rosterInfo.botControlled?' <span class="net-roster-flag bot">бот вместо игрока</span>':'');
     wrap.appendChild(label);
-    const fan=document.createElement('div'); fan.className='fan';
-    // Сервер намеренно не присылает чужие карты — рисуем нужное количество рубашек.
-    for(let i=0;i<p.handCount;i++) fan.appendChild(cardEl(null,false));
-    wrap.appendChild(fan);
+    appendRoleRow(wrap, roleTagsHtml(p.id===st.attacker, p.id===st.defender, false));
+    // Сервер намеренно не присылает чужие карты — всегда рисуем компактный
+    // счётчик, настоящих карт здесь в принципе нет.
+    renderOppHandArea(wrap, p.handCount, false, null, null);
     if(p.out){ const b=document.createElement('div'); b.className='finish-badge'; b.textContent=`место ${p.finishRank}`; wrap.appendChild(b); }
     else { const cnt=document.createElement('div'); cnt.className='finish-badge'; cnt.textContent=`${p.handCount} карт`; wrap.appendChild(cnt); }
     oppBox.appendChild(wrap);
@@ -1625,6 +1759,41 @@ function oppWrapClass(seatIdx, totalOpponents, out){
   return 'opp' + (out?' out':'') + (vertical?' vertical':'');
 }
 
+// Строка роли ("атакует"/"защита"/"думает…") — рисуется в отдельном
+// вынесенном из потока блоке (.role-row), чтобы её появление/исчезновение
+// не меняло ширину карточки игрока и не двигало соседей по дуге.
+function roleTagsHtml(isAttacker, isDefender, isThinking){
+  return (isAttacker?'<span class="role-tag attacker">атакует</span>':'')+
+    (isDefender?'<span class="role-tag defender">защита</span>':'')+
+    (isThinking?'<span class="role-tag" style="background:#3a6b52;color:var(--cream);">думает…</span>':'');
+}
+function appendRoleRow(wrap, html){
+  if(!html) return;
+  const row=document.createElement('div'); row.className='role-row'; row.innerHTML=html;
+  wrap.appendChild(row);
+}
+
+// Раньше при скрытых картах рисовался веер из N рубашек — его ширина росла
+// вместе с числом карт в руке соперника, а т.к. в мобильной раскладке .opp
+// стоят в одном flex-ряду, это "толкало" соседних игроков и сдвигало позиции
+// на каждой раздаче/отбое. Теперь при скрытых картах рисуем один рубашечный
+// значок фиксированного размера + бейдж с количеством — ширина .opp больше
+// не зависит от числа карт, позиции игроков стабильны. Когда включено
+// "показать все карты" (режим проверки правил), по-прежнему рисуем настоящий
+// веер лицевых карт — там важно видеть реальную раскладку.
+function renderOppHandArea(wrap, count, faceUp, hand, trumpSuit){
+  if(faceUp && hand){
+    const fan=document.createElement('div'); fan.className='fan';
+    sortHandForDisplay(hand, trumpSuit).forEach(c=> fan.appendChild(cardEl(c, true)) );
+    wrap.appendChild(fan);
+  } else {
+    const box=document.createElement('div'); box.className='hand-count';
+    const back=document.createElement('div'); back.className='card-back-mini'; box.appendChild(back);
+    const chip=document.createElement('div'); chip.className='count-chip'; chip.textContent=String(count); box.appendChild(chip);
+    wrap.appendChild(box);
+  }
+}
+
 let game=null, cursor=0, playTimer=null;
 
 function buildGame(){
@@ -1668,14 +1837,11 @@ function render(){
     const realIdx=i+1;
     const wrap=document.createElement('div'); wrap.className=oppWrapClass(i, snap.players.length-1, p.out);
     const label=document.createElement('div'); label.className='label';
-    label.innerHTML = `${p.name}`+
-      (realIdx===snap.attackerIndex?' <span class="role-tag attacker">атакует</span>':'')+
-      (realIdx===snap.defenderIndex?' <span class="role-tag defender">защита</span>':'');
+    label.textContent = p.name;
     wrap.appendChild(label);
-    const fan=document.createElement('div'); fan.className='fan';
+    appendRoleRow(wrap, roleTagsHtml(realIdx===snap.attackerIndex, realIdx===snap.defenderIndex, false));
     const faceUp = showAll;
-    sortHandForDisplay(p.hand, snap.trumpSuit).forEach(c=> fan.appendChild(cardEl(c, faceUp)) );
-    wrap.appendChild(fan);
+    renderOppHandArea(wrap, p.hand.length, faceUp, p.hand, snap.trumpSuit);
     if(p.out){ const b=document.createElement('div'); b.className='finish-badge'; b.textContent=`место ${p.finishRank}`; wrap.appendChild(b); }
     else { const cnt=document.createElement('div'); cnt.className='finish-badge'; cnt.textContent=`${p.hand.length} карт`; wrap.appendChild(cnt); }
     oppBox.appendChild(wrap);
@@ -1751,6 +1917,23 @@ document.getElementById('trumpSide').addEventListener('change', ()=>{
   else if(mode==='interactive') renderInteractive();
   else if(netGameStarted) renderNetwork();
 });
+
+// Раскладка карт на столе на мобильном (скролл вбок / перенос вниз).
+// Применяется сразу же, без пересдачи — это просто настройка отображения.
+(function initTableLayoutPref(){
+  const sel = document.getElementById('tableLayoutMobile');
+  const board = document.getElementById('tableBoard');
+  const KEY = 'durak.tableLayoutMobile';
+  const saved = localStorage.getItem(KEY);
+  if(saved === 'scroll' || saved === 'wrap') sel.value = saved;
+  function apply(){
+    board.classList.remove('layout-scroll','layout-wrap');
+    board.classList.add('layout-' + sel.value);
+    localStorage.setItem(KEY, sel.value);
+  }
+  sel.addEventListener('change', apply);
+  apply();
+})();
 document.getElementById('groupHandToggle').addEventListener('change', ()=>{
   updateTrumpSideRowVisibility();
   if(mode==='view') render();
@@ -1778,6 +1961,7 @@ document.getElementById('netJoinRoomBtn').addEventListener('click', ()=>{
   netSend({type:'join', roomId: document.getElementById('netJoinRoomId').value.trim().toUpperCase(), name: document.getElementById('netJoinName').value});
 });
 document.getElementById('netLeaveBtn').addEventListener('click', ()=> netSend({type:'leave'}));
+document.getElementById('netFillWithBotsBtn').addEventListener('click', ()=> netSend({type:'fillWithBots'}));
 document.getElementById('netForgetBtn').addEventListener('click', netClearSession);
 document.getElementById('netRejoinBtn').addEventListener('click', ()=>{
   const s=netLoadSession();
@@ -1843,6 +2027,28 @@ function applyLogVisible(on){
     localStorage.setItem('durak-show-log', e.target.checked ? '1' : '0');
     applyLogVisible(e.target.checked);
   });
+})();
+
+/* ============ Размер карт игрока внизу (подбирается прямо во время игры) ============ */
+(function initHandSize(){
+  const range = document.getElementById('handSizeRange');
+  const valueLabel = document.getElementById('handSizeValue');
+  const KEY = 'durak.handScale';
+  function apply(scale, persist){
+    document.documentElement.style.setProperty('--hand-scale', String(scale));
+    valueLabel.textContent = Math.round(scale * 100) + '%';
+    // ширина/высота карт меняются мгновенно через CSS-переменную, но веер
+    // руки (--tx/--ty/--tr) расставлен в px по факту замера карты, поэтому
+    // пересчитываем раскладку руки сразу же, без пересдачи и без ререндера
+    // остального стола.
+    layoutHandArc(document.getElementById('myHand'));
+    if(persist) localStorage.setItem(KEY, String(scale));
+  }
+  const saved = parseFloat(localStorage.getItem(KEY));
+  const initial = Number.isFinite(saved) && saved >= parseFloat(range.min) && saved <= parseFloat(range.max) ? saved : 1;
+  range.value = String(initial);
+  apply(initial, false);
+  range.addEventListener('input', ()=> apply(parseFloat(range.value), true));
 })();
 
 buildGame();

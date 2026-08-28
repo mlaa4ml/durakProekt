@@ -56,6 +56,10 @@ export class Room extends EventEmitter {
     this.seats = [];
     this.game = null;
     this.botTimer = null;
+    // Игрок, создавший комнату — только он может решать, добавлять ли ботов
+    // на свободные места. Если он уйдёт до старта партии, право переходит к
+    // следующему оставшемуся месту (см. leave()).
+    this.hostPlayerId = null;
     // Момент, с которого комната полностью опустела (0 подключённых сокетов),
     // либо null, если сейчас кто-то подключён. Используется RoomManager для очистки.
     this.emptySince = Date.now(); // только что создана, пока в ней никого
@@ -102,10 +106,59 @@ export class Room extends EventEmitter {
     this.seats.push(seat);
     socket.playerId = playerId;
     socket.roomId = this.roomId;
+    if (this.seats.length === 1) this.hostPlayerId = seat.playerId; // первый занявший место — создатель
     this._touchEmptyState();
+    this._broadcastRoomState();
     if (this.isFull) this._startGame();
     this.emit('changed');
     return seat;
+  }
+
+  // Добавляет бота на свободное место — чтобы можно было начать партию, не
+  // дожидаясь живых игроков. Бот-место работает по тем же правилам, что и
+  // "разорвавший связь и подменённый ботом" игрок (см. _maybeAutoPlay), просто
+  // с самого начала, без реального сокета и без таймера подмены.
+  addBot() {
+    if (this.isFull) throw new Error('Комната уже заполнена');
+    if (this.isStarted) throw new Error('Партия в этой комнате уже началась');
+    const botNumber = this.seats.filter((s) => s.botControlled).length + 1;
+    const seat = {
+      playerId: randomUUID(),
+      name: `Бот ${botNumber}`,
+      socket: null,
+      connected: false, // не считается за "живого" игрока для очистки пустых комнат
+      botControlled: true,
+      botTakeoverTimer: null,
+    };
+    this.seats.push(seat);
+    this._touchEmptyState();
+    this._broadcastRoomState();
+    if (this.isFull) this._startGame();
+    this.emit('changed');
+    return seat;
+  }
+
+  // Убрать ранее добавленного (ещё не начавшего играть) бота — например,
+  // если создатель комнаты передумал и хочет подождать живого игрока вместо него.
+  removeBot(playerId) {
+    if (this.isStarted) throw new Error('Партия в этой комнате уже началась');
+    const before = this.seats.length;
+    this.seats = this.seats.filter((s) => !(s.playerId === playerId && s.botControlled));
+    if (this.seats.length === before) return false;
+    this._touchEmptyState();
+    this._broadcastRoomState();
+    this.emit('changed');
+    return true;
+  }
+
+  // Заполнить все оставшиеся свободные места ботами разом и сразу начать
+  // партию (комната становится полной → _startGame() срабатывает как обычно).
+  // Право вызывать это есть только у создателя комнаты — проверяется в index.js,
+  // здесь только сама механика.
+  fillWithBots() {
+    if (this.isStarted) throw new Error('Партия в этой комнате уже началась');
+    if (this.isFull) throw new Error('Комната уже заполнена');
+    while (!this.isFull) this.addBot();
   }
 
   reconnect(playerId, socket) {
@@ -140,7 +193,13 @@ export class Room extends EventEmitter {
     const before = this.seats.length;
     this.seats = this.seats.filter((s) => s.playerId !== playerId);
     if (this.seats.length === before) return false;
+    if (this.hostPlayerId === playerId) {
+      // Создатель ушёл до старта партии — право решать про ботов переходит
+      // следующему оставшемуся месту (если комната ещё не опустела совсем).
+      this.hostPlayerId = this.seats.length > 0 ? this.seats[0].playerId : null;
+    }
     this._touchEmptyState();
+    this._broadcastRoomState();
     this.emit('changed');
     return true;
   }
@@ -237,6 +296,23 @@ export class Room extends EventEmitter {
   destroy() {
     clearTimeout(this.botTimer);
     for (const seat of this.seats) clearTimeout(seat.botTakeoverTimer);
+  }
+
+  // В отличие от broadcastState() (только во время партии), это — то, что видят
+  // игроки, уже сидящие в ещё НЕ начавшейся комнате: состав мест, кто подключён,
+  // кто бот. Раньше это никуда не рассылалось, и после join'а второй и следующий
+  // игроки просто не видели, кто ещё в комнате, пока партия не стартует.
+  _broadcastRoomState() {
+    if (this.isStarted) return;
+    const payload = {
+      type: 'roomUpdate',
+      roomId: this.roomId,
+      label: this.label,
+      numPlayers: this.numPlayers,
+      hostPlayerId: this.hostPlayerId,
+      seats: this.seats.map((s) => ({ id: s.playerId, name: s.name, connected: s.connected, botControlled: s.botControlled })),
+    };
+    for (const seat of this.seats) this._send(seat.socket, payload);
   }
 
   broadcastState() {

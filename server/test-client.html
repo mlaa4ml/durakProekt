@@ -294,8 +294,12 @@ $('leaveBtn').addEventListener('click', () => send({ type: 'leave' }));
 $('dropBtn').addEventListener('click', () => { logLine('Имитирую обрыв связи (закрываю сокет, сессия остаётся сохранённой)'); ws.close(); });
 $('forgetBtn').addEventListener('click', clearSession);
 
-// Значение по умолчанию — типичный проброшенный порт Codespaces, если открыт локально просто впишите ws://localhost:8080
-$('wsUrl').value = (location.protocol === 'https:' ? 'wss://' : 'ws://') + 'localhost:8080';
+// Если страница отдана самим сервером по HTTP (node server/index.js отдаёт этот файл
+// на "/"), подставляем тот же хост — адрес сразу рабочий и локально, и на проброшенном
+// порту Codespaces (там https -> wss). Если файл открыт как file://, берём localhost:8080.
+$('wsUrl').value = location.protocol.startsWith('http')
+  ? (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
+  : 'ws://localhost:8080';
 updateSessionUI();
 </script>
 </body>
