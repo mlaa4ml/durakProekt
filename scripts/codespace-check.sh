@@ -11,7 +11,7 @@ cd "$REPO_ROOT"
 echo "Node version: $(node -v)"
 echo "NPM version: $(npm -v)"
 echo "Git branch: $(git rev-parse --abbrev-ref HEAD)"
-echo "Git commit: $(git log -1 --oneline"
+echo "Git commit: $(git log -1 --format="%h %s")
 
 if [ ! -d "node_modules" ]; then
   echo "Устанавливаем зависимости..."
