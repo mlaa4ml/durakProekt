@@ -308,6 +308,46 @@ npm run server                          # затем открыть /health, /, 
 
 ---
 
+## 7b. Особенности запуска команд в Codespace через агента / `gh codespace ssh`
+
+Проверено в Codespace на этом репозитории (issues #9, #12, #14). Сам запуск
+команд **работает** (`gh codespace ssh -c ... -- <команда>` больше не падает с
+`unknown flag: --command`), но есть две ловушки окружения — обе обходятся:
+
+1. **Команда стартует в `/home/node`, а не в `/workspaces/durakProekt`.**
+   Поэтому `npm run smoke` выдаёт
+   `ENOENT ... open '/home/node/package.json'`, а `node src/cli/simulate.js`
+   — `Cannot find module '/home/node/src/cli/simulate.js'`.
+   Это не поломка проекта: файлы на месте, просто не тот рабочий каталог.
+
+2. **Первая команда в строке иногда «съедается» сессией.**
+   `echo FIRST; echo SECOND` печатает только `SECOND`; поэтому
+   `cd /workspaces/durakProekt && npm run smoke` может выполнить только
+   `npm run smoke`, уже из `/home/node`.
+
+### Как запускать надёжно
+
+Использовать абсолютные пути / `--prefix` и «холостую» первую команду:
+
+```bash
+# самый простой путь — один скрипт, сам находит корень репозитория:
+bash /workspaces/durakProekt/scripts/codespace-check.sh
+
+# либо через npm с явным префиксом:
+npm --prefix /workspaces/durakProekt run smoke
+node /workspaces/durakProekt/src/cli/simulate.js 1000 2 24
+
+# либо «жертвенная» первая команда перед cd:
+true; cd /workspaces/durakProekt && npm run smoke
+```
+
+`scripts/codespace-check.sh` (= `npm run codespace:check`) прогоняет
+`simulate.js` (2×24 и 4×36), `playVerbose.js` и полный `npm run smoke`,
+печатает версию Node/npm, ветку и коммит и возвращает код выхода
+`0`/`1`. Его можно вызывать из любого каталога.
+
+---
+
 ## 8. Что делать с найденными проблемами
 
 Заводите **отдельный issue** на каждую проблему и указывайте:
