@@ -6,7 +6,13 @@
       "version": "latest"
     }
   },
-  "postCreateCommand": "npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  },
   "forwardPorts": [
     8080
   ],
@@ -16,11 +22,8 @@
       "onAutoForward": "notify"
     }
   },
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "dbaeumer.vscode-eslint"
-      ]
-    }
-  }
+  "waitFor": "postCreateCommand",
+  "onCreateCommand": "bash .devcontainer/ensure-sshd.sh",
+  "postCreateCommand": "npm install",
+  "postStartCommand": "bash .devcontainer/ensure-sshd.sh"
 }
