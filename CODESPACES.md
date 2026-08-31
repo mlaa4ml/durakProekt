@@ -18,6 +18,7 @@ Codespaces, проверить движок, ботов, WebSocket-сервер,
 | WS-сервер + комнаты | `server/index.js`, `server/rooms.js` | `npm run server` (шаг 3) |
 | Тестовый клиент сервера | `server/test-client.html` | открывается на `/` (шаг 4) |
 | Визуализация (боты / игра против ботов) | `docs/index.html` = `visual/index.html` | открывается на `/visual` или как файл |
+| Проблемы с SSH / Codespace | Раздел 7b | Решение проблем с `sshd` в Codespaces |
 
 Единственная зависимость — пакет `ws` (нужен только серверу). CLI-скрипты
 работают вообще без `npm install`.
