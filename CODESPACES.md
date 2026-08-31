@@ -308,6 +308,37 @@ npm run server                          # затем открыть /health, /, 
 
 ---
 
+## 7b. Если команды в Codespace падают с «sshd не поднялся»
+
+При повторном открытии или перезапуске Codespace (или если фича `sshd` не успела проинициализироваться за стандартное время) команды через `run_in_codespace()` могут падать с ошибкой:
+
+```
+ERROR: sshd в codespace так и не поднялся за 60 c после Available.
+error getting ssh server details: failed to start SSH server:
+Please check if an SSH server is installed in the container.
+```
+
+### Причина
+1. В стандартной конфигурации статус **Available** выставлялся до завершения `postCreateCommand` (`npm install` и установка фич), из-за чего 60-секундный таймер ожидания SSH начинался раньше, чем демон реально поднимался.
+2. При перезапуске (`stop` → `start`) контейнера сервисы могут не перезапускаться автоматически.
+
+### Что уже сделано в репозитории
+- В `.devcontainer/devcontainer.json` добавлено `"waitFor": "postCreateCommand"`, а также хуки `"onCreateCommand"` и `"postStartCommand"`, которые вызывают идемпотентный скрипт `.devcontainer/ensure-sshd.sh` для установки и запуска `sshd` при старте и возобновлении работы контейнера.
+- Скрипт `.devcontainer/ensure-sshd.sh` автоматически проверяет наличие `openssh-server`, генерирует host-ключи при необходимости и стартует демон.
+
+### Как проверить вручную в Codespace
+В терминале Codespace (например, через веб-интерфейс) выполните:
+```bash
+bash .devcontainer/ensure-sshd.sh
+```
+
+### Обходные пути
+1. **Веб-терминал в браузере**: если обвязка CLI сообщает об ошибке SSH, откройте Codespace в браузере по ссылке `https://<name>.github.dev` — встроенный терминал VS Code работает независимо от демона `sshd`.
+2. **Проверка ветки**: убедитесь, что Codespace создан на нужной рабочей ветке (`git branch --show-current`), а не на ветке по умолчанию (`main`).
+3. **GitHub Actions**: используйте CI-воркфлоу (`.github/workflows/ci.yml`), где все тесты и сборка выполняются автоматически.
+
+---
+
 ## 8. Что делать с найденными проблемами
 
 Заводите **отдельный issue** на каждую проблему и указывайте:
