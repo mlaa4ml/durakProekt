@@ -328,9 +328,41 @@ npm run server                          # затем открыть /health, /, 
    `cd /workspaces/durakProekt && npm run smoke` может выполнить только
    `npm run smoke`, уже из `/home/node`.
 
-### Как запускать надёжно
+### Что сделано в репозитории (issue #15)
 
-Использовать абсолютные пути / `--prefix` и «холостую» первую команду:
+1. **`.devcontainer/setup-shell.sh`** — вызывается на `onCreateCommand` и на
+   **каждом** `postStartCommand`. Он идемпотентно вставляет в НАЧАЛО
+   `~/.bashrc` (а также `~/.profile` и `~/.zshrc`, если есть) небольшой блок:
+   если сессия стартовала в домашнем каталоге, она автоматически переходит в
+   корень репозитория. Блок стоит именно первым, потому что стандартный
+   `~/.bashrc` в первых строках делает `case $- in *i*) ;; *) return;; esac`
+   и для неинтерактивных ssh-команд выходит сразу.
+   Заодно появляются alias'ы `durak-check`, `durak-smoke`, `durak-root`.
+
+   После этого обычные `npm run smoke` и `node src/cli/simulate.js 1000 2 24`,
+   присланные снаружи, работают без всяких префиксов. Если блок почему-то не
+   встал (codespace создан до этого коммита), поставьте его руками:
+
+   ```bash
+   bash /workspaces/durakProekt/.devcontainer/setup-shell.sh
+   ```
+
+2. **`scripts/codespace-run.sh`** (= `npm run codespace:run`) — обёртка,
+   которая выполняет любую команду из корня репозитория:
+
+   ```bash
+   bash /workspaces/durakProekt/scripts/codespace-run.sh npm run smoke
+   bash /workspaces/durakProekt/scripts/codespace-run.sh node src/cli/simulate.js 1000 2 24
+   bash /workspaces/durakProekt/scripts/codespace-run.sh   # без аргументов = codespace-check.sh
+   ```
+
+   Так как это одна команда без `cd` и без `&&`, её не ломает ни чужой
+   рабочий каталог, ни «съеденная» первая команда строки.
+
+### Как запускать надёжно в любом случае
+
+Даже без вышеописанного всегда работают абсолютные пути / `--prefix` и
+«холостая» первая команда:
 
 ```bash
 # самый простой путь — один скрипт, сам находит корень репозитория:
@@ -348,6 +380,11 @@ true; cd /workspaces/durakProekt && npm run smoke
 `simulate.js` (2×24 и 4×36), `playVerbose.js` и полный `npm run smoke`,
 печатает версию Node/npm, ветку и коммит и возвращает код выхода
 `0`/`1`. Его можно вызывать из любого каталога.
+
+> Первопричина обеих ловушек — на стороне обвязки агента / `gh codespace ssh`
+> (рабочий каталог сессии и потеря первой команды). Репозиторий её обойти
+> полностью не может, но после issue #15 обычные команды из этой инструкции
+> работают «как есть».
 
 ## 7c. Если команды в Codespace падают с «sshd не поднялся»
 
