@@ -1970,9 +1970,15 @@ function render(){
 
   const attackerName = snap.players[snap.attackerIndex]?.name;
   const defenderName = snap.players[snap.defenderIndex]?.name;
-  document.getElementById('statusLine').textContent = snap.finished
-    ? (snap.durak ? `Партия окончена — дурак: ${snap.players.find(p=>p.id===snap.durak)?.name}` : 'Партия окончена — ничья')
-    : `Атакует: ${attackerName}  ·  Защищается: ${defenderName}  ·  козырь ${snap.trumpSuit}`;
+  renderStatusHud({
+    finished: snap.finished,
+    durakName: snap.durak ? snap.players.find(p=>p.id===snap.durak)?.name : null,
+    attackerName, defenderName,
+    trumpSuit: snap.trumpSuit,
+    talonCount: snap.talonCount,
+    discardCount: snap.discardCount,
+  });
+  markYourTurn(false); // режим просмотра ботов — «вашего хода» здесь не бывает
 
   // opponents = все, кроме первого игрока (используем первого как "мою" позицию для примера)
   const oppBox=document.getElementById('opponents');
