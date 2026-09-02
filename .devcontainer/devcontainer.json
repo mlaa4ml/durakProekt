@@ -16,12 +16,19 @@
 
   // Подстраховка на случай, если фича sshd не доехала (частичная сборка,
   // восстановление контейнера из prebuild / после stop-start).
-  "onCreateCommand": "bash .devcontainer/ensure-sshd.sh",
+  //
+  // Issue #15: команды, которые обвязка агента / `gh codespace ssh`
+  // прокидывает в контейнер, стартуют в /home/node, а не в
+  // /workspaces/durakProekt, из-за чего `npm run smoke` не находит
+  // package.json. setup-shell.sh прописывает в ~/.bashrc / ~/.profile
+  // автопереход в корень репозитория для таких сессий.
+  "onCreateCommand": "bash .devcontainer/ensure-sshd.sh && bash .devcontainer/setup-shell.sh \"${containerWorkspaceFolder}\"",
   "postCreateCommand": "npm install",
 
   // Выполняется при КАЖДОМ старте/резюме контейнера: демон ssh после
-  // остановки codespace не всегда стартует сам — поднимаем его явно.
-  "postStartCommand": "bash .devcontainer/ensure-sshd.sh",
+  // остановки codespace не всегда стартует сам — поднимаем его явно;
+  // заодно переустанавливаем блок в ~/.bashrc (issue #15).
+  "postStartCommand": "bash .devcontainer/ensure-sshd.sh && bash .devcontainer/setup-shell.sh \"${containerWorkspaceFolder}\"",
 
   "forwardPorts": [
     8080
