@@ -6,7 +6,23 @@
       "version": "latest"
     }
   },
+
+  // Issue #13: обвязка агента ждёт sshd всего ~60 c после статуса Available.
+  // По умолчанию waitFor = "updateContentCommand", то есть codespace
+  // объявляется Available ещё до окончания postCreateCommand (npm install).
+  // Сдвигаем точку готовности на postCreateCommand: когда codespace станет
+  // Available, sshd уже поднят, а зависимости установлены.
+  "waitFor": "postCreateCommand",
+
+  // Подстраховка на случай, если фича sshd не доехала (частичная сборка,
+  // восстановление контейнера из prebuild / после stop-start).
+  "onCreateCommand": "bash .devcontainer/ensure-sshd.sh",
   "postCreateCommand": "npm install",
+
+  // Выполняется при КАЖДОМ старте/резюме контейнера: демон ssh после
+  // остановки codespace не всегда стартует сам — поднимаем его явно.
+  "postStartCommand": "bash .devcontainer/ensure-sshd.sh",
+
   "forwardPorts": [
     8080
   ],
