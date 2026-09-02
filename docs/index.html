@@ -1699,6 +1699,7 @@ function renderNetwork(){
   } else {
     hintBox.textContent = 'Ждём ход соперника…';
   }
+  markYourTurn(isMyTurn);
 
   const logBox=document.getElementById('fullLog');
   logBox.textContent = netLastLog.join('\n'); // сервер шлёт только хвост лога (последние 20 строк)
