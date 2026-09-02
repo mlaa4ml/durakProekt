@@ -1409,6 +1409,7 @@ function renderInteractive(){
   } else {
     hintBox.textContent = `Ходит ${igame.players[turnIdx]?.name || '...'}…`;
   }
+  markYourTurn(isHumanTurn);
 
   renderInteractiveLog();
 }
