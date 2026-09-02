@@ -1585,9 +1585,14 @@ function renderNetwork(){
   const attacker=netLastPlayers.find(p=>p.id===st.attacker);
   const defender=netLastPlayers.find(p=>p.id===st.defender);
 
-  document.getElementById('statusLine').textContent = finished
-    ? (st.durak ? `Партия окончена — дурак: ${(netLastPlayers.find(p=>p.id===st.durak)||{}).name || st.durak}` : 'Партия окончена — ничья')
-    : `Атакует: ${attacker?.name||'?'}  ·  Защищается: ${defender?.name||'?'}  ·  козырь ${st.trumpSuit}`;
+  renderStatusHud({
+    finished,
+    durakName: st.durak ? ((netLastPlayers.find(p=>p.id===st.durak)||{}).name || st.durak) : null,
+    attackerName: attacker?.name, defenderName: defender?.name,
+    trumpSuit: st.trumpSuit,
+    talonCount: st.talonCount,
+    discardCount: st.discardCount,
+  });
   document.getElementById('eventDesc').textContent='';
   document.getElementById('stepCounter').textContent='';
 
