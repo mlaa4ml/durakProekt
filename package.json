@@ -9,7 +9,9 @@
     "simulate": "node src/cli/simulate.js 1000 2 24",
     "server": "node server/index.js",
     "smoke": "node scripts/smoke.js",
-    "codespace:check": "bash scripts/codespace-check.sh"
+    "codespace:check": "bash scripts/codespace-check.sh",
+    "codespace:run": "bash scripts/codespace-run.sh",
+    "codespace:shell-setup": "bash .devcontainer/setup-shell.sh"
   },
   "dependencies": {
     "ws": "^8.18.0"
