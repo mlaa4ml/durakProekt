@@ -1802,6 +1802,52 @@ window.addEventListener('resize', ()=>{
   window.__handArcResize = setTimeout(()=> layoutHandArc(document.getElementById('myHand')), 120);
 });
 
+/* ============ HUD партии (issue #19) ============
+   Раньше вверху стола была одна длинная строка
+   «Атакует: X · Защищается: Y · козырь ♠»: на телефоне она переносилась,
+   счётчики колоды и «бито» жили отдельно мелким текстом по краям стола, и
+   ничто не связывало имя в строке с местом соперника за столом.
+   Теперь тот же смысл выводится набором цветных чипов; цвета совпадают с
+   бейджами ролей (.role-tag.attacker/.defender) и кольцами вокруг мест,
+   поэтому «кто атакует / кто защищается» читается одним взглядом.
+   Функция общая для всех трёх режимов (просмотр ботов / против ботов / сеть). */
+function hudEsc(s){ return String(s==null?'':s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function hudSuitHtml(suit){
+  return `<span class="suit${RED_SUITS.has(suit)?' red':''}">${hudEsc(suit)}</span>`;
+}
+function renderStatusHud(o){
+  const box=document.getElementById('statusLine');
+  if(!box) return;
+  if(o.finished){
+    box.innerHTML = '<span class="hud-chip finished">'+
+      (o.durakName ? 'партия окончена — дурак: <b>'+hudEsc(o.durakName)+'</b>' : 'партия окончена — ничья')+
+      '</span>';
+    return;
+  }
+  const chips=[];
+  if(o.trumpSuit) chips.push(`<span class="hud-chip trump">козырь ${hudSuitHtml(o.trumpSuit)}</span>`);
+  chips.push(`<span class="hud-chip attacker"><span class="dot"></span>атакует <b>${hudEsc(o.attackerName||'?')}</b></span>`);
+  chips.push(`<span class="hud-chip defender"><span class="dot"></span>защищается <b>${hudEsc(o.defenderName||'?')}</b></span>`);
+  chips.push(`<span class="hud-chip">колода <b>${o.talonCount==null?'?':o.talonCount}</b></span>`);
+  chips.push(`<span class="hud-chip">бито <b>${o.discardCount||0}</b></span>`);
+  box.innerHTML = chips.join('');
+}
+// Подсветка «сейчас ходите вы»: окантовка стола + контрастная подсказка +
+// отдельный чип в HUD. Вызывается уже после того, как режим посчитал,
+// действительно ли ход за игроком.
+function markYourTurn(on){
+  const table=document.getElementById('tableBoard');
+  if(table) table.classList.toggle('your-turn', !!on);
+  const hint=document.getElementById('turnHint');
+  if(hint) hint.classList.toggle('my-turn', !!on);
+  const box=document.getElementById('statusLine');
+  if(box && on && !box.querySelector('.hud-chip.you')){
+    const chip=document.createElement('span');
+    chip.className='hud-chip you'; chip.innerHTML='<b>ваш ход</b>';
+    box.appendChild(chip);
+  }
+}
+
 function cardEl(card, faceUp=true){
   if(!faceUp){ const d=document.createElement('div'); d.className='card-back'; return d; }
   const d=document.createElement('div');
