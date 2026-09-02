@@ -48,6 +48,9 @@ npm -v
 npm install
 ```
 
+> Если codespace создаёт автоматика (агент) и команды падают с
+> «sshd не поднялся» — см. раздел **7b**.
+
 ---
 
 ## 2. Проверить движок и ботов (без сети, без UI)
@@ -345,6 +348,57 @@ true; cd /workspaces/durakProekt && npm run smoke
 `simulate.js` (2×24 и 4×36), `playVerbose.js` и полный `npm run smoke`,
 печатает версию Node/npm, ветку и коммит и возвращает код выхода
 `0`/`1`. Его можно вызывать из любого каталога.
+
+## 7c. Если команды в Codespace падают с «sshd не поднялся»
+
+Симптом (issue #13) — codespace создался и виден как **Available**, но любая
+команда, отправленная автоматикой (агентом, `gh codespace ssh`), падает:
+
+```
+ERROR: sshd в codespace так и не поднялся за 60 c после Available.
+error getting ssh server details: failed to start SSH server:
+Please check if an SSH server is installed in the container.
+```
+
+Причина не в проекте: SSH-фича в `.devcontainer/devcontainer.json` есть, и на
+том же образе SSH-команды проходят. Ломается тайминг жизненного цикла:
+статус *Available* выставляется раньше, чем доустановятся devcontainer-фичи и
+отработает `postCreateCommand: npm install`, а вызывающая сторона ждёт sshd
+всего 60 секунд. Отдельно бывает, что после stop→start контейнера демон ssh
+не поднимается сам.
+
+### Что уже сделано в репозитории
+
+В `.devcontainer/` добавлены две вещи:
+
+- `"waitFor": "postCreateCommand"` — codespace объявляется готовым только
+  после установки фич **и** `npm install`, то есть к моменту *Available*
+  sshd уже работает;
+- `ensure-sshd.sh` — идемпотентный скрипт, который вызывается на
+  `onCreateCommand` и на **каждом** `postStartCommand`: при необходимости
+  ставит `openssh-server`, генерирует host-ключи и запускает демон. Скрипт
+  никогда не завершается ошибкой, чтобы не ломать создание codespace.
+
+Проверить руками внутри codespace:
+
+```bash
+bash .devcontainer/ensure-sshd.sh   # -> [ensure-sshd] sshd работает
+pgrep -a sshd
+```
+
+### Что делать, если всё равно упало
+
+1. **Веб-терминал**: откройте `https://<имя-codespace>.github.dev` (или
+   Code → Codespaces → нужный codespace) и работайте в терминале VS Code —
+   он не использует внешний SSH, всё из разделов 2–6 запускается.
+2. **Пересоздать codespace на нужной ветке**: повторный автозапуск может
+   создать codespace на ветке по умолчанию, а не на вашей рабочей. Проверьте
+   `git branch --show-current` и при расхождении сделайте
+   `git fetch origin && git checkout <ваша-ветка>` либо удалите codespace и
+   создайте заново из UI кнопкой на нужной ветке.
+3. **GitHub Actions** (`.github/workflows/ci.yml`) — полный прогон движка,
+   сервера и smoke без Codespaces вообще: достаточно запушить ветку
+   (см. раздел 7a, вариант A).
 
 ---
 
