@@ -1271,9 +1271,14 @@ function renderInteractive(){
   // строка статуса
   const attackerName=igame.players[igame.attackerIndex]?.name;
   const defenderName=igame.players[igame.defenderIndex]?.name;
-  document.getElementById('statusLine').textContent = finished
-    ? (igame.durak ? `Партия окончена — дурак: ${igame.players.find(p=>p.id===igame.durak)?.name}` : 'Партия окончена — ничья')
-    : `Атакует: ${attackerName}  ·  Защищается: ${defenderName}  ·  козырь ${igame.trumpSuit}`;
+  renderStatusHud({
+    finished,
+    durakName: igame.durak ? igame.players.find(p=>p.id===igame.durak)?.name : null,
+    attackerName, defenderName,
+    trumpSuit: igame.trumpSuit,
+    talonCount: igame.talon.length,
+    discardCount: igame.discardCount,
+  });
   document.getElementById('eventDesc').textContent = igame.log[igame.log.length-1] || '';
   document.getElementById('stepCounter').textContent = '';
 
