@@ -1478,7 +1478,12 @@ function renderInteractive(){
       ? 'Ваш ход: отбейтесь картой, переведите или заберите карты.'
       : 'Ваш ход: подкиньте карту или пасуйте.';
   } else {
-    hintBox.textContent = `Ходит ${igame.players[turnIdx]?.name || '...'}…`;
+    // Статусная строка по issue #21: не просто «ходит X», а что именно
+    // сейчас происходит — соперник отбивается или думает над атакой.
+    const actorName = igame.players[turnIdx]?.name || '...';
+    hintBox.textContent = igame.phase==='defender-to-act'
+      ? `Соперник бьёт карты: ${actorName}…`
+      : `Ожидание хода соперника: ${actorName}…`;
   }
   markYourTurn(isHumanTurn);
 
