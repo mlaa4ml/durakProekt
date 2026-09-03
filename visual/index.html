@@ -2285,6 +2285,29 @@ function applyLogVisible(on){
   range.addEventListener('input', ()=> apply(parseFloat(range.value), true));
 })();
 
+/* ============ Вид карт в руке: веер или горизонтальный скролл (issue #21) ============
+   Пользователь просил возможность самому сравнить два варианта раскладки руки,
+   поэтому это переключатель в настройках партии, а не жёстко зашитый режим.
+   Выбор сохраняется в localStorage и применяется сразу, без пересдачи. */
+function applyHandLayout(mode){
+  const box = document.getElementById('myHand');
+  if(!box) return;
+  box.classList.toggle('hand-scroll', mode==='scroll');
+  layoutHandArc(box);
+}
+(function initHandLayout(){
+  const KEY = 'durak.handLayout';
+  const sel = document.getElementById('handLayoutMode');
+  const saved = localStorage.getItem(KEY);
+  const mode = (saved==='scroll' || saved==='fan') ? saved : 'fan';
+  if(sel) sel.value = mode;
+  applyHandLayout(mode);
+  sel?.addEventListener('change', e=>{
+    localStorage.setItem(KEY, e.target.value);
+    applyHandLayout(e.target.value);
+  });
+})();
+
 buildGame();
 showSetup();
 </script>
