@@ -1838,6 +1838,18 @@ function setMode(newMode){
 // при каждой отрисовке руки и при ресайзе окна.
 function layoutHandArc(container){
   if(!container) return;
+  // Режим «горизонтальный скролл» (выбирается в настройках, класс .hand-scroll):
+  // карты выкладывает flex-раскладка, JS-веер не нужен — сбрасываем инлайновые
+  // --tx/--ty/--tr/margin, оставшиеся от режима веера, и выходим.
+  if(container.classList.contains('hand-scroll')){
+    Array.from(container.children).forEach(el=>{
+      el.style.removeProperty('--tx'); el.style.removeProperty('--ty');
+      el.style.removeProperty('--tr'); el.style.removeProperty('--zi');
+      el.style.marginLeft='';
+    });
+    container.style.height='';
+    return;
+  }
   const cards = Array.from(container.children).filter(el=>el.classList.contains('card'));
   const n = cards.length;
   if(n===0){ container.style.height=''; return; }
