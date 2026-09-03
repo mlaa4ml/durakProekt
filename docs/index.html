@@ -574,6 +574,69 @@
     .network-lobby input, .network-lobby select{ width:100%; margin:3px 0; }
     .network-lobby table{ display:block; overflow-x:auto; white-space:nowrap; }
   }
+
+  /* ============ Стабильная раскладка и настройки вида (issue #21) ============
+     Главное требование issue: положение игроков, их карт и кнопок управления
+     не должно меняться по ходу партии. Поэтому все зоны, содержимое которых
+     появляется/исчезает (панель действий, подсказка хода, статус-строка,
+     стол, рука), получают заранее зарезервированную высоту — тогда появление
+     кнопки «Взять карты» или пустой стол между конами больше не сдвигают
+     остальной интерфейс. */
+  .my-hand-label{ min-height:18px; }
+  .action-bar{ min-height:46px; align-items:center; }
+  .turn-hint{ min-height:30px; display:flex; align-items:center; justify-content:center; }
+  .status-line{ min-height:26px; }
+  .trick-area{ min-height:calc(var(--card-h) + 24px); align-content:flex-start; }
+  .event-desc{ min-height:22px; }
+  .talon-stack{ min-height:var(--card-h); }
+  /* высота руки резервируется по максимальному изгибу веера (см. layoutHandArc),
+     поэтому не зависит от числа карт на руке */
+  .my-hand{ min-height:calc(var(--hand-card-h) * 1.35 + 12px); }
+
+  /* Вид руки игрока: веер с наложением (по умолчанию) либо ряд карт с
+     горизонтальным скроллом. Переключается в настройках (#handLayoutMode)
+     и запоминается в localStorage. */
+  .my-hand.hand-scroll{
+    display:flex; flex-wrap:nowrap; justify-content:flex-start; align-items:flex-end;
+    gap:6px; overflow-x:auto; overflow-y:hidden;
+    padding:8px 4px 10px; height:auto !important;
+    scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+  }
+  .my-hand.hand-scroll .card{
+    position:static; flex:0 0 auto; margin-left:0 !important;
+    transform:none !important; scroll-snap-align:center;
+  }
+  .my-hand.hand-scroll .card.playable{ transform:translateY(-8px) !important; }
+  .my-hand.hand-scroll .card.playable:active{ transform:translateY(-12px) !important; }
+
+  /* Индикация хода: место активного игрока мягко пульсирует. */
+  @keyframes durakTurnPulse{
+    0%,100%{ outline:2px solid transparent; outline-offset:2px; }
+    50%{ outline:2px solid var(--gold); outline-offset:5px; }
+  }
+  .opp:has(.role-tag.attacker) .hand-count,
+  .opp:has(.role-tag.defender) .hand-count{
+    animation:durakTurnPulse 1.8s ease-in-out infinite; border-radius:7px;
+  }
+  .table.your-turn .my-hand-label{ color:var(--text-strong); font-weight:700; }
+
+  /* Козырь в HUD — крупнее, чтобы масть читалась с одного взгляда. */
+  .hud-chip.trump{ background:#00000042; }
+  .hud-chip.trump .suit{ font-size:19px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .opp:has(.role-tag.attacker) .hand-count,
+    .opp:has(.role-tag.defender) .hand-count{ animation:none; }
+  }
+
+  @media (max-width:680px){
+    /* Кнопки действий — крупные, контрастные, в закреплённой нижней панели
+       (.my-hand-wrap уже sticky), и их зона всегда одной высоты. */
+    .action-bar{ min-height:54px; }
+    .action-bar button{ min-height:48px; font-size:14px; font-weight:700; }
+    .my-hand.hand-scroll{ margin:0 -10px; padding:8px 10px 10px; }
+  }
 </style>
 </head>
 <body>
