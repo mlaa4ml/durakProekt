@@ -1773,7 +1773,11 @@ function renderNetwork(){
   } else if(isMyTurn){
     hintBox.textContent = st.phase==='defender-to-act' ? 'Ваш ход: отбейтесь картой, переведите или заберите карты.' : 'Ваш ход: подкиньте карту или пасуйте.';
   } else {
-    hintBox.textContent = 'Ждём ход соперника…';
+    // issue #21: статусная строка говорит, ЧТО именно делает соперник.
+    const actorName = netLastPlayers[st.turnIndex]?.name || 'соперник';
+    hintBox.textContent = st.phase==='defender-to-act'
+      ? `Соперник бьёт карты: ${actorName}…`
+      : `Ожидание хода соперника: ${actorName}…`;
   }
   markYourTurn(isMyTurn);
 
