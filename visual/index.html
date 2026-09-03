@@ -404,6 +404,93 @@
 
   .footer-note{ font-family:var(--mono); font-size:10.5px; color:var(--footer-muted); text-align:center; margin-top:18px; }
 
+  /* ===================== Ясность партии (issue #19) =====================
+     Цель — чтобы игрок за столом без чтения лога понимал: чей сейчас ход,
+     какой козырь, что уже отбито и чем он может сходить прямо сейчас.
+     Приёмы:
+       1) строка статуса превращена в HUD из цветных «чипов»
+          (козырь / атакует / защищается / колода / бито);
+       2) цвет чипа совпадает с цветом бейджа роли у места соперника,
+          а место атакующего/защищающегося дополнительно обведено кольцом
+          того же цвета — взгляд сразу связывает «кто» и «где сидит»;
+       3) неотбитая карта на столе обведена кирпичным, отбитая — зелёным
+          (через :has(), т.е. без изменений в JS-рендере карт);
+       4) когда ход игрока — стол получает золотую окантовку, подсказка
+          снизу становится контрастной, играбельные карты светятся.
+  */
+  .status-line{
+    display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center;
+  }
+  .hud-chip{
+    display:inline-flex; align-items:center; gap:5px; white-space:nowrap;
+    padding:3px 9px; border-radius:999px;
+    border:1px solid var(--panel-border); background:#0000002e;
+    font-family:var(--mono); font-size:11px; line-height:1.5; color:var(--paper-dim);
+  }
+  .hud-chip b{ color:var(--text-strong); font-weight:700; }
+  .hud-chip .dot{ width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .hud-chip.attacker{ border-color:var(--brick); }
+  .hud-chip.attacker .dot{ background:var(--brick); }
+  .hud-chip.defender{ border-color:var(--gold); }
+  .hud-chip.defender .dot{ background:var(--gold); }
+  .hud-chip.you{ border-color:#5b9bd5; }
+  .hud-chip.trump{ border-color:var(--gold); }
+  .hud-chip.trump .suit{ font-family:var(--display); font-size:16px; line-height:1; color:var(--text-strong); }
+  .hud-chip.trump .suit.red{ color:#d2483a; }
+  .hud-chip.finished{ border-color:var(--gold); font-size:12px; }
+
+  /* Кольцо вокруг места того, кто сейчас атакует / защищается. */
+  .opp:has(.role-tag.attacker) .hand-count::after,
+  .opp:has(.role-tag.defender) .hand-count::after{
+    content:""; position:absolute; inset:-5px; border-radius:9px; pointer-events:none;
+  }
+  .opp:has(.role-tag.attacker) .hand-count::after{ border:2px solid var(--brick); }
+  .opp:has(.role-tag.defender) .hand-count::after{ border:2px solid var(--gold); }
+
+  /* Карты на столе: сразу видно, что ещё не отбито (кирпичная рамка),
+     а что уже закрыто (зелёная рамка на отбивающей карте). */
+  .trick-pair:not(:has(.defense-card)) .attack-card{
+    box-shadow:0 0 0 2px var(--brick), 0 4px 10px #0007;
+  }
+  .trick-pair:has(.defense-card) .defense-card{
+    box-shadow:0 0 0 2px #3f7f5f, 0 4px 10px #0007;
+  }
+
+  /* Ход игрока — заметен, даже если смотришь только на свою руку. */
+  .table.your-turn{
+    box-shadow:0 0 0 2px var(--gold), 0 0 26px -6px var(--gold), 0 30px 60px -20px #000a, inset 0 0 60px #0006;
+  }
+  .turn-hint{ transition:color .15s; }
+  .turn-hint.my-turn{ color:var(--text-strong); font-size:12.5px; font-weight:700; }
+  .my-hand .card.playable{
+    box-shadow:0 0 0 2px var(--gold), 0 0 16px -4px var(--gold), 0 4px 10px #0007;
+  }
+  .my-hand .card.playable.transferable{
+    box-shadow:0 0 0 2px #5b9bd5, 0 0 16px -4px #5b9bd5, 0 4px 10px #0007;
+  }
+  .my-hand .card.unplayable{ opacity:.42; filter:grayscale(55%); cursor:not-allowed; }
+
+  /* Кнопки действий — крупнее и с иконкой, чтобы «взять» и «пас»
+     не путались между собой на скорости. */
+  .action-bar button{ font-size:13px; padding:8px 15px; border-radius:6px; font-weight:600; }
+  .action-bar button.take::before{ content:"✋ "; }
+  .action-bar button.pass::before{ content:"✓ "; }
+  .action-bar button.transfer::before{ content:"↷ "; }
+
+  @media (max-width:680px){
+    /* HUD прилипает к верху стола — «чей ход и какой козырь» видно всегда,
+       даже когда экран пролистан вниз, к своей руке. */
+    .status-line{
+      position:sticky; top:0; z-index:6;
+      background:var(--felt-2); border-radius:10px;
+      padding:7px 6px; margin:0 0 10px;
+      box-shadow:0 8px 12px -10px #000a;
+    }
+    .hud-chip{ font-size:10.5px; padding:2px 7px; }
+    .hud-chip.trump .suit{ font-size:14px; }
+    .turn-hint.my-turn{ font-size:12px; }
+  }
+
   /* ===================== Мобильная версия ===================== */
   @media (max-width:680px){
     body{ padding:10px 0 0; }
@@ -1184,9 +1271,14 @@ function renderInteractive(){
   // строка статуса
   const attackerName=igame.players[igame.attackerIndex]?.name;
   const defenderName=igame.players[igame.defenderIndex]?.name;
-  document.getElementById('statusLine').textContent = finished
-    ? (igame.durak ? `Партия окончена — дурак: ${igame.players.find(p=>p.id===igame.durak)?.name}` : 'Партия окончена — ничья')
-    : `Атакует: ${attackerName}  ·  Защищается: ${defenderName}  ·  козырь ${igame.trumpSuit}`;
+  renderStatusHud({
+    finished,
+    durakName: igame.durak ? igame.players.find(p=>p.id===igame.durak)?.name : null,
+    attackerName, defenderName,
+    trumpSuit: igame.trumpSuit,
+    talonCount: igame.talon.length,
+    discardCount: igame.discardCount,
+  });
   document.getElementById('eventDesc').textContent = igame.log[igame.log.length-1] || '';
   document.getElementById('stepCounter').textContent = '';
 
@@ -1317,6 +1409,7 @@ function renderInteractive(){
   } else {
     hintBox.textContent = `Ходит ${igame.players[turnIdx]?.name || '...'}…`;
   }
+  markYourTurn(isHumanTurn);
 
   renderInteractiveLog();
 }
@@ -1492,9 +1585,14 @@ function renderNetwork(){
   const attacker=netLastPlayers.find(p=>p.id===st.attacker);
   const defender=netLastPlayers.find(p=>p.id===st.defender);
 
-  document.getElementById('statusLine').textContent = finished
-    ? (st.durak ? `Партия окончена — дурак: ${(netLastPlayers.find(p=>p.id===st.durak)||{}).name || st.durak}` : 'Партия окончена — ничья')
-    : `Атакует: ${attacker?.name||'?'}  ·  Защищается: ${defender?.name||'?'}  ·  козырь ${st.trumpSuit}`;
+  renderStatusHud({
+    finished,
+    durakName: st.durak ? ((netLastPlayers.find(p=>p.id===st.durak)||{}).name || st.durak) : null,
+    attackerName: attacker?.name, defenderName: defender?.name,
+    trumpSuit: st.trumpSuit,
+    talonCount: st.talonCount,
+    discardCount: st.discardCount,
+  });
   document.getElementById('eventDesc').textContent='';
   document.getElementById('stepCounter').textContent='';
 
@@ -1601,6 +1699,7 @@ function renderNetwork(){
   } else {
     hintBox.textContent = 'Ждём ход соперника…';
   }
+  markYourTurn(isMyTurn);
 
   const logBox=document.getElementById('fullLog');
   logBox.textContent = netLastLog.join('\n'); // сервер шлёт только хвост лога (последние 20 строк)
@@ -1715,6 +1814,52 @@ window.addEventListener('resize', ()=>{
   window.__handArcResize = setTimeout(()=> layoutHandArc(document.getElementById('myHand')), 120);
 });
 
+/* ============ HUD партии (issue #19) ============
+   Раньше вверху стола была одна длинная строка
+   «Атакует: X · Защищается: Y · козырь ♠»: на телефоне она переносилась,
+   счётчики колоды и «бито» жили отдельно мелким текстом по краям стола, и
+   ничто не связывало имя в строке с местом соперника за столом.
+   Теперь тот же смысл выводится набором цветных чипов; цвета совпадают с
+   бейджами ролей (.role-tag.attacker/.defender) и кольцами вокруг мест,
+   поэтому «кто атакует / кто защищается» читается одним взглядом.
+   Функция общая для всех трёх режимов (просмотр ботов / против ботов / сеть). */
+function hudEsc(s){ return String(s==null?'':s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function hudSuitHtml(suit){
+  return `<span class="suit${RED_SUITS.has(suit)?' red':''}">${hudEsc(suit)}</span>`;
+}
+function renderStatusHud(o){
+  const box=document.getElementById('statusLine');
+  if(!box) return;
+  if(o.finished){
+    box.innerHTML = '<span class="hud-chip finished">'+
+      (o.durakName ? 'партия окончена — дурак: <b>'+hudEsc(o.durakName)+'</b>' : 'партия окончена — ничья')+
+      '</span>';
+    return;
+  }
+  const chips=[];
+  if(o.trumpSuit) chips.push(`<span class="hud-chip trump">козырь ${hudSuitHtml(o.trumpSuit)}</span>`);
+  chips.push(`<span class="hud-chip attacker"><span class="dot"></span>атакует <b>${hudEsc(o.attackerName||'?')}</b></span>`);
+  chips.push(`<span class="hud-chip defender"><span class="dot"></span>защищается <b>${hudEsc(o.defenderName||'?')}</b></span>`);
+  chips.push(`<span class="hud-chip">колода <b>${o.talonCount==null?'?':o.talonCount}</b></span>`);
+  chips.push(`<span class="hud-chip">бито <b>${o.discardCount||0}</b></span>`);
+  box.innerHTML = chips.join('');
+}
+// Подсветка «сейчас ходите вы»: окантовка стола + контрастная подсказка +
+// отдельный чип в HUD. Вызывается уже после того, как режим посчитал,
+// действительно ли ход за игроком.
+function markYourTurn(on){
+  const table=document.getElementById('tableBoard');
+  if(table) table.classList.toggle('your-turn', !!on);
+  const hint=document.getElementById('turnHint');
+  if(hint) hint.classList.toggle('my-turn', !!on);
+  const box=document.getElementById('statusLine');
+  if(box && on && !box.querySelector('.hud-chip.you')){
+    const chip=document.createElement('span');
+    chip.className='hud-chip you'; chip.innerHTML='<b>ваш ход</b>';
+    box.appendChild(chip);
+  }
+}
+
 function cardEl(card, faceUp=true){
   if(!faceUp){ const d=document.createElement('div'); d.className='card-back'; return d; }
   const d=document.createElement('div');
@@ -1825,9 +1970,15 @@ function render(){
 
   const attackerName = snap.players[snap.attackerIndex]?.name;
   const defenderName = snap.players[snap.defenderIndex]?.name;
-  document.getElementById('statusLine').textContent = snap.finished
-    ? (snap.durak ? `Партия окончена — дурак: ${snap.players.find(p=>p.id===snap.durak)?.name}` : 'Партия окончена — ничья')
-    : `Атакует: ${attackerName}  ·  Защищается: ${defenderName}  ·  козырь ${snap.trumpSuit}`;
+  renderStatusHud({
+    finished: snap.finished,
+    durakName: snap.durak ? snap.players.find(p=>p.id===snap.durak)?.name : null,
+    attackerName, defenderName,
+    trumpSuit: snap.trumpSuit,
+    talonCount: snap.talonCount,
+    discardCount: snap.discardCount,
+  });
+  markYourTurn(false); // режим просмотра ботов — «вашего хода» здесь не бывает
 
   // opponents = все, кроме первого игрока (используем первого как "мою" позицию для примера)
   const oppBox=document.getElementById('opponents');
