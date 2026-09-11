@@ -1360,34 +1360,71 @@ function renderInteractive(){
   const comboTransferAction=transferActions.find(a=>a.cards.length>1);
   const isHumanTurn = !finished && !interactiveBusy && turnIdx===0;
 
+  // Карта, для которой сейчас ждём явного выбора "отбиться / перевести".
+  // Если она больше не даёт обоих вариантов (стол изменился) — сбрасываем.
+  if(pendingChoiceCard){
+    const stillDual = defendActions.some(a=>sameCard(a.card,pendingChoiceCard))
+      && singleTransferActions.some(a=>sameCard(a.cards[0],pendingChoiceCard));
+    if(!isHumanTurn || !stillDual) pendingChoiceCard=null;
+  }
+
   sortHandForDisplay(human.hand, igame.trumpSuit).forEach(c=>{
     const el=cardEl(c,true);
-    let matchedAction=null, isTransfer=false;
+    let matchedAction=null, isTransfer=false, isDual=false;
     if(isHumanTurn){
-      matchedAction = attackActions.find(a=>a.card.suit===c.suit && a.card.rank===c.rank)
-        || defendActions.find(a=>a.card.suit===c.suit && a.card.rank===c.rank);
-      if(!matchedAction){
-        const st=singleTransferActions.find(a=>a.cards[0].suit===c.suit && a.cards[0].rank===c.rank);
-        if(st){ matchedAction=st; isTransfer=true; }
+      const defendA=defendActions.find(a=>sameCard(a.card,c));
+      const transferA=singleTransferActions.find(a=>sameCard(a.cards[0],c));
+      // Раньше defend всегда выигрывал у transfer, поэтому козырем того же
+      // ранга нельзя было перевести — он просто "покрывал" карту (issue #22).
+      // Теперь, если доступны оба действия, клик открывает явный выбор.
+      if(defendA && transferA){
+        isDual=true;
+        matchedAction=null;
+        el.classList.add('playable','dual-action');
+        if(pendingChoiceCard && sameCard(pendingChoiceCard,c)) el.classList.add('choice-pending');
+        el.title='Можно отбиться или перевести — нажмите, чтобы выбрать';
+        el.addEventListener('click', ()=>{
+          pendingChoiceCard = (pendingChoiceCard && sameCard(pendingChoiceCard,c)) ? null : {suit:c.suit, rank:c.rank};
+          renderInteractive();
+        });
+      } else {
+        matchedAction = attackActions.find(a=>sameCard(a.card,c)) || defendA || null;
+        if(!matchedAction && transferA){ matchedAction=transferA; isTransfer=true; }
       }
     }
     if(matchedAction){
       el.classList.add('playable');
       if(isTransfer) el.classList.add('transferable');
       el.addEventListener('click', ()=> doHumanAction(matchedAction));
-    } else if(isHumanTurn && (attackActions.length>0 || defendActions.length>0 || singleTransferActions.length>0)){
+    } else if(!isDual && isHumanTurn && (attackActions.length>0 || defendActions.length>0 || singleTransferActions.length>0)){
       el.classList.add('unplayable');
     }
     myHandBox.appendChild(el);
   });
   layoutHandArc(myHandBox);
 
-  // панель действий (пас / перевести оба сразу / взять карты)
+  // панель действий (выбор отбиться/перевести / пас / перевести оба сразу / взять карты)
   const actionBar=document.getElementById('actionBar');
   actionBar.innerHTML='';
   if(isHumanTurn){
     const passAction=legalForHuman.find(a=>a.type==='pass');
     const takeAction=legalForHuman.find(a=>a.type==='take');
+    if(pendingChoiceCard){
+      const defendA=defendActions.find(a=>sameCard(a.card,pendingChoiceCard));
+      const transferA=singleTransferActions.find(a=>sameCard(a.cards[0],pendingChoiceCard));
+      const lbl=document.createElement('span'); lbl.className='choice-label';
+      lbl.textContent=`${cardToString(pendingChoiceCard)} —`;
+      actionBar.appendChild(lbl);
+      const dBtn=document.createElement('button'); dBtn.className='defend'; dBtn.textContent='Отбиться';
+      dBtn.addEventListener('click', ()=>{ pendingChoiceCard=null; doHumanAction(defendA); });
+      actionBar.appendChild(dBtn);
+      const tBtn=document.createElement('button'); tBtn.className='transfer'; tBtn.textContent='Перевести';
+      tBtn.addEventListener('click', ()=>{ pendingChoiceCard=null; doHumanAction(transferA); });
+      actionBar.appendChild(tBtn);
+      const cBtn=document.createElement('button'); cBtn.className='cancel'; cBtn.textContent='Отмена';
+      cBtn.addEventListener('click', ()=>{ pendingChoiceCard=null; renderInteractive(); });
+      actionBar.appendChild(cBtn);
+    }
     if(comboTransferAction){
       const btn=document.createElement('button'); btn.className='transfer';
       btn.textContent=`Перевести оба (${comboTransferAction.cards.length})`;
