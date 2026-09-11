@@ -307,6 +307,9 @@
   .my-hand .card .corner .s{ font-size:calc(var(--hand-card-w) * .32); }
   .my-hand .card.playable{ cursor:pointer; box-shadow:0 0 0 2px var(--gold), 0 4px 10px #0007; }
   .my-hand .card.playable.transferable{ box-shadow:0 0 0 2px #5b9bd5, 0 4px 10px #0007; }
+  /* карта, которой можно и отбиться, и перевести (обычно козырь того же ранга) */
+  .my-hand .card.playable.dual-action{ box-shadow:0 0 0 2px #5b9bd5, 0 0 0 4px var(--gold), 0 4px 12px #0007; }
+  .my-hand .card.playable.dual-action.choice-pending{ outline:2px dashed var(--gold); outline-offset:3px; }
   .my-hand .card.unplayable{ opacity:.55; }
   @media (hover:hover) and (pointer:fine){
     .my-hand .card:hover{
