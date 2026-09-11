@@ -1489,6 +1489,7 @@ let netLastLegal = [];
 let netLastPlayers = [];
 let netLastLog = [];
 let netWaitingRoom = null; // последний roomUpdate — состав ещё не начавшейся комнаты
+let netPendingChoiceCard = null; // карта, для которой ждём выбора «отбиться / перевести» (issue #22)
 
 function netSend(obj){
   if(!netWs || netWs.readyState!==WebSocket.OPEN){ netSetLobbyStatus('нет соединения — сообщение не отправлено'); return; }
