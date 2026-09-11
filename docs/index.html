@@ -1263,6 +1263,8 @@ function scheduleBotStep(){
 
 function doHumanAction(action){
   if(!igame || interactiveBusy) return;
+  if(!action) return;
+  pendingChoiceCard=null;
   const legal=igame.getLegalActions(HUMAN_ID);
   // Раньше для transfer/take/pass сравнение падало в "return true" и брало
   // первое попавшееся действие нужного типа из списка — из-за этого клик по
