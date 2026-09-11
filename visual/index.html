@@ -307,6 +307,9 @@
   .my-hand .card .corner .s{ font-size:calc(var(--hand-card-w) * .32); }
   .my-hand .card.playable{ cursor:pointer; box-shadow:0 0 0 2px var(--gold), 0 4px 10px #0007; }
   .my-hand .card.playable.transferable{ box-shadow:0 0 0 2px #5b9bd5, 0 4px 10px #0007; }
+  /* карта, которой можно и отбиться, и перевести (обычно козырь того же ранга) */
+  .my-hand .card.playable.dual-action{ box-shadow:0 0 0 2px #5b9bd5, 0 0 0 4px var(--gold), 0 4px 12px #0007; }
+  .my-hand .card.playable.dual-action.choice-pending{ outline:2px dashed var(--gold); outline-offset:3px; }
   .my-hand .card.unplayable{ opacity:.55; }
   @media (hover:hover) and (pointer:fine){
     .my-hand .card:hover{
@@ -331,6 +334,12 @@
   .action-bar button.take:hover{ filter:brightness(1.15); }
   .action-bar button.pass{ background:#2a3a2f; color:var(--cream); border-color:#2a3a2f; }
   .action-bar button.transfer{ background:var(--gold); color:#2a2010; border-color:var(--gold); }
+  .action-bar button.defend{ background:#2f4a5a; color:var(--cream); border-color:#2f4a5a; }
+  .action-bar button.cancel{ background:transparent; color:var(--paper-dim); }
+  .action-bar .choice-label{
+    font-family:var(--mono); font-size:11px; color:var(--gold);
+    align-self:center; margin-right:2px;
+  }
   .turn-hint{
     text-align:center; font-family:var(--mono); font-size:11px; color:var(--gold);
     min-height:14px; margin-top:2px;
@@ -467,6 +476,9 @@
   }
   .my-hand .card.playable.transferable{
     box-shadow:0 0 0 2px #5b9bd5, 0 0 16px -4px #5b9bd5, 0 4px 10px #0007;
+  }
+  .my-hand .card.playable.dual-action{
+    box-shadow:0 0 0 2px #5b9bd5, 0 0 0 4px var(--gold), 0 0 18px -4px var(--gold), 0 4px 12px #0007;
   }
   .my-hand .card.unplayable{ opacity:.42; filter:grayscale(55%); cursor:not-allowed; }
 
@@ -1192,9 +1204,16 @@ const HUMAN_ID = 'p1';
 let igame = null;          // текущая партия в интерактивном режиме
 let botTimer = null;       // таймер хода бота
 let interactiveBusy = false;
+// Карта, по которой игрок кликнул и для которой доступны сразу два действия —
+// «отбиться» и «перевести» (issue #22: козырь того же ранга, что и карта на
+// столе). Пока она выставлена, в панели действий показываем явный выбор.
+let pendingChoiceCard = null;
+
+function sameCard(a,b){ return !!a && !!b && a.suit===b.suit && a.rank===b.rank; }
 
 function startInteractiveGame(){
   stopBotTimer();
+  pendingChoiceCard = null;
   const numPlayers=Number(document.getElementById('numPlayers').value);
   const deckSize=Number(document.getElementById('deckSize').value);
   const throwInPolicy=document.getElementById('throwInPolicy').value;
@@ -1247,6 +1266,8 @@ function scheduleBotStep(){
 
 function doHumanAction(action){
   if(!igame || interactiveBusy) return;
+  if(!action) return;
+  pendingChoiceCard=null;
   const legal=igame.getLegalActions(HUMAN_ID);
   // Раньше для transfer/take/pass сравнение падало в "return true" и брало
   // первое попавшееся действие нужного типа из списка — из-за этого клик по
@@ -1351,34 +1372,71 @@ function renderInteractive(){
   const comboTransferAction=transferActions.find(a=>a.cards.length>1);
   const isHumanTurn = !finished && !interactiveBusy && turnIdx===0;
 
+  // Карта, для которой сейчас ждём явного выбора "отбиться / перевести".
+  // Если она больше не даёт обоих вариантов (стол изменился) — сбрасываем.
+  if(pendingChoiceCard){
+    const stillDual = defendActions.some(a=>sameCard(a.card,pendingChoiceCard))
+      && singleTransferActions.some(a=>sameCard(a.cards[0],pendingChoiceCard));
+    if(!isHumanTurn || !stillDual) pendingChoiceCard=null;
+  }
+
   sortHandForDisplay(human.hand, igame.trumpSuit).forEach(c=>{
     const el=cardEl(c,true);
-    let matchedAction=null, isTransfer=false;
+    let matchedAction=null, isTransfer=false, isDual=false;
     if(isHumanTurn){
-      matchedAction = attackActions.find(a=>a.card.suit===c.suit && a.card.rank===c.rank)
-        || defendActions.find(a=>a.card.suit===c.suit && a.card.rank===c.rank);
-      if(!matchedAction){
-        const st=singleTransferActions.find(a=>a.cards[0].suit===c.suit && a.cards[0].rank===c.rank);
-        if(st){ matchedAction=st; isTransfer=true; }
+      const defendA=defendActions.find(a=>sameCard(a.card,c));
+      const transferA=singleTransferActions.find(a=>sameCard(a.cards[0],c));
+      // Раньше defend всегда выигрывал у transfer, поэтому козырем того же
+      // ранга нельзя было перевести — он просто "покрывал" карту (issue #22).
+      // Теперь, если доступны оба действия, клик открывает явный выбор.
+      if(defendA && transferA){
+        isDual=true;
+        matchedAction=null;
+        el.classList.add('playable','dual-action');
+        if(pendingChoiceCard && sameCard(pendingChoiceCard,c)) el.classList.add('choice-pending');
+        el.title='Можно отбиться или перевести — нажмите, чтобы выбрать';
+        el.addEventListener('click', ()=>{
+          pendingChoiceCard = (pendingChoiceCard && sameCard(pendingChoiceCard,c)) ? null : {suit:c.suit, rank:c.rank};
+          renderInteractive();
+        });
+      } else {
+        matchedAction = attackActions.find(a=>sameCard(a.card,c)) || defendA || null;
+        if(!matchedAction && transferA){ matchedAction=transferA; isTransfer=true; }
       }
     }
     if(matchedAction){
       el.classList.add('playable');
       if(isTransfer) el.classList.add('transferable');
       el.addEventListener('click', ()=> doHumanAction(matchedAction));
-    } else if(isHumanTurn && (attackActions.length>0 || defendActions.length>0 || singleTransferActions.length>0)){
+    } else if(!isDual && isHumanTurn && (attackActions.length>0 || defendActions.length>0 || singleTransferActions.length>0)){
       el.classList.add('unplayable');
     }
     myHandBox.appendChild(el);
   });
   layoutHandArc(myHandBox);
 
-  // панель действий (пас / перевести оба сразу / взять карты)
+  // панель действий (выбор отбиться/перевести / пас / перевести оба сразу / взять карты)
   const actionBar=document.getElementById('actionBar');
   actionBar.innerHTML='';
   if(isHumanTurn){
     const passAction=legalForHuman.find(a=>a.type==='pass');
     const takeAction=legalForHuman.find(a=>a.type==='take');
+    if(pendingChoiceCard){
+      const defendA=defendActions.find(a=>sameCard(a.card,pendingChoiceCard));
+      const transferA=singleTransferActions.find(a=>sameCard(a.cards[0],pendingChoiceCard));
+      const lbl=document.createElement('span'); lbl.className='choice-label';
+      lbl.textContent=`${cardToString(pendingChoiceCard)} —`;
+      actionBar.appendChild(lbl);
+      const dBtn=document.createElement('button'); dBtn.className='defend'; dBtn.textContent='Отбиться';
+      dBtn.addEventListener('click', ()=>{ pendingChoiceCard=null; doHumanAction(defendA); });
+      actionBar.appendChild(dBtn);
+      const tBtn=document.createElement('button'); tBtn.className='transfer'; tBtn.textContent='Перевести';
+      tBtn.addEventListener('click', ()=>{ pendingChoiceCard=null; doHumanAction(transferA); });
+      actionBar.appendChild(tBtn);
+      const cBtn=document.createElement('button'); cBtn.className='cancel'; cBtn.textContent='Отмена';
+      cBtn.addEventListener('click', ()=>{ pendingChoiceCard=null; renderInteractive(); });
+      actionBar.appendChild(cBtn);
+    }
     if(comboTransferAction){
       const btn=document.createElement('button'); btn.className='transfer';
       btn.textContent=`Перевести оба (${comboTransferAction.cards.length})`;
@@ -1434,6 +1492,7 @@ let netLastLegal = [];
 let netLastPlayers = [];
 let netLastLog = [];
 let netWaitingRoom = null; // последний roomUpdate — состав ещё не начавшейся комнаты
+let netPendingChoiceCard = null; // карта, для которой ждём выбора «отбиться / перевести» (issue #22)
 
 function netSend(obj){
   if(!netWs || netWs.readyState!==WebSocket.OPEN){ netSetLobbyStatus('нет соединения — сообщение не отправлено'); return; }
@@ -1659,22 +1718,38 @@ function renderNetwork(){
   const isMyTurn = !finished && netLastLegal.length>0;
   const netSingleTransfers=netLastLegal.filter(a=>a.type==='transfer' && a.cards.length===1);
   const netComboTransfer=netLastLegal.find(a=>a.type==='transfer' && a.cards.length>1);
+  const netDefends=netLastLegal.filter(a=>a.type==='defend');
+  // Тот же выбор «отбиться / перевести», что и в игре против ботов (issue #22).
+  if(netPendingChoiceCard){
+    const stillDual = netDefends.some(a=>sameCard(a.card,netPendingChoiceCard))
+      && netSingleTransfers.some(a=>sameCard(a.cards[0],netPendingChoiceCard));
+    if(!isMyTurn || !stillDual) netPendingChoiceCard=null;
+  }
   (sortHandForDisplay(you?.hand||[], st.trumpSuit)).forEach(c=>{
     const el=cardEl(c,true);
-    let matched=null, isTransfer=false;
+    let matched=null, isTransfer=false, isDual=false;
     if(isMyTurn){
-      matched = netLastLegal.find(a=>a.type==='attack' && a.card.suit===c.suit && a.card.rank===c.rank)
-        || netLastLegal.find(a=>a.type==='defend' && a.card.suit===c.suit && a.card.rank===c.rank);
-      if(!matched){
-        const st2=netSingleTransfers.find(a=>a.cards[0].suit===c.suit && a.cards[0].rank===c.rank);
-        if(st2){ matched=st2; isTransfer=true; }
+      const defendA=netDefends.find(a=>sameCard(a.card,c));
+      const transferA=netSingleTransfers.find(a=>sameCard(a.cards[0],c));
+      if(defendA && transferA){
+        isDual=true;
+        el.classList.add('playable','dual-action');
+        if(sameCard(netPendingChoiceCard,c)) el.classList.add('choice-pending');
+        el.title='Можно отбиться или перевести — нажмите, чтобы выбрать';
+        el.addEventListener('click', ()=>{
+          netPendingChoiceCard = sameCard(netPendingChoiceCard,c) ? null : {suit:c.suit, rank:c.rank};
+          renderNetwork();
+        });
+      } else {
+        matched = netLastLegal.find(a=>a.type==='attack' && sameCard(a.card,c)) || defendA || null;
+        if(!matched && transferA){ matched=transferA; isTransfer=true; }
       }
     }
     if(matched){
       el.classList.add('playable');
       if(isTransfer) el.classList.add('transferable');
       el.addEventListener('click', ()=> netSend({type:'action', action:matched}));
-    } else if(isMyTurn){
+    } else if(!isDual && isMyTurn){
       el.classList.add('unplayable');
     }
     myHandBox.appendChild(el);
@@ -1686,6 +1761,22 @@ function renderNetwork(){
   if(isMyTurn){
     const takeAction=netLastLegal.find(a=>a.type==='take');
     const passAction=netLastLegal.find(a=>a.type==='pass');
+    if(netPendingChoiceCard){
+      const defendA=netDefends.find(a=>sameCard(a.card,netPendingChoiceCard));
+      const transferA=netSingleTransfers.find(a=>sameCard(a.cards[0],netPendingChoiceCard));
+      const lbl=document.createElement('span'); lbl.className='choice-label';
+      lbl.textContent=`${cardToString(netPendingChoiceCard)} —`;
+      actionBar.appendChild(lbl);
+      const dBtn=document.createElement('button'); dBtn.className='defend'; dBtn.textContent='Отбиться';
+      dBtn.addEventListener('click', ()=>{ netPendingChoiceCard=null; netSend({type:'action',action:defendA}); });
+      actionBar.appendChild(dBtn);
+      const tBtn=document.createElement('button'); tBtn.className='transfer'; tBtn.textContent='Перевести';
+      tBtn.addEventListener('click', ()=>{ netPendingChoiceCard=null; netSend({type:'action',action:transferA}); });
+      actionBar.appendChild(tBtn);
+      const cBtn=document.createElement('button'); cBtn.className='cancel'; cBtn.textContent='Отмена';
+      cBtn.addEventListener('click', ()=>{ netPendingChoiceCard=null; renderNetwork(); });
+      actionBar.appendChild(cBtn);
+    }
     if(netComboTransfer){ const btn=document.createElement('button'); btn.className='transfer'; btn.textContent=`Перевести оба (${netComboTransfer.cards.length})`; btn.addEventListener('click',()=>netSend({type:'action',action:netComboTransfer})); actionBar.appendChild(btn); }
     if(takeAction){ const btn=document.createElement('button'); btn.className='take'; btn.textContent='Взять карты'; btn.addEventListener('click',()=>netSend({type:'action',action:takeAction})); actionBar.appendChild(btn); }
     if(passAction){ const btn=document.createElement('button'); btn.className='pass'; btn.textContent = st.phase==='need-attack' ? 'Пас (не подкидываю)' : 'Пас'; btn.addEventListener('click',()=>netSend({type:'action',action:passAction})); actionBar.appendChild(btn); }
