@@ -1201,9 +1201,16 @@ const HUMAN_ID = 'p1';
 let igame = null;          // текущая партия в интерактивном режиме
 let botTimer = null;       // таймер хода бота
 let interactiveBusy = false;
+// Карта, по которой игрок кликнул и для которой доступны сразу два действия —
+// «отбиться» и «перевести» (issue #22: козырь того же ранга, что и карта на
+// столе). Пока она выставлена, в панели действий показываем явный выбор.
+let pendingChoiceCard = null;
+
+function sameCard(a,b){ return !!a && !!b && a.suit===b.suit && a.rank===b.rank; }
 
 function startInteractiveGame(){
   stopBotTimer();
+  pendingChoiceCard = null;
   const numPlayers=Number(document.getElementById('numPlayers').value);
   const deckSize=Number(document.getElementById('deckSize').value);
   const throwInPolicy=document.getElementById('throwInPolicy').value;
