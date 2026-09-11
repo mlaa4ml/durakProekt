@@ -1715,22 +1715,38 @@ function renderNetwork(){
   const isMyTurn = !finished && netLastLegal.length>0;
   const netSingleTransfers=netLastLegal.filter(a=>a.type==='transfer' && a.cards.length===1);
   const netComboTransfer=netLastLegal.find(a=>a.type==='transfer' && a.cards.length>1);
+  const netDefends=netLastLegal.filter(a=>a.type==='defend');
+  // Тот же выбор «отбиться / перевести», что и в игре против ботов (issue #22).
+  if(netPendingChoiceCard){
+    const stillDual = netDefends.some(a=>sameCard(a.card,netPendingChoiceCard))
+      && netSingleTransfers.some(a=>sameCard(a.cards[0],netPendingChoiceCard));
+    if(!isMyTurn || !stillDual) netPendingChoiceCard=null;
+  }
   (sortHandForDisplay(you?.hand||[], st.trumpSuit)).forEach(c=>{
     const el=cardEl(c,true);
-    let matched=null, isTransfer=false;
+    let matched=null, isTransfer=false, isDual=false;
     if(isMyTurn){
-      matched = netLastLegal.find(a=>a.type==='attack' && a.card.suit===c.suit && a.card.rank===c.rank)
-        || netLastLegal.find(a=>a.type==='defend' && a.card.suit===c.suit && a.card.rank===c.rank);
-      if(!matched){
-        const st2=netSingleTransfers.find(a=>a.cards[0].suit===c.suit && a.cards[0].rank===c.rank);
-        if(st2){ matched=st2; isTransfer=true; }
+      const defendA=netDefends.find(a=>sameCard(a.card,c));
+      const transferA=netSingleTransfers.find(a=>sameCard(a.cards[0],c));
+      if(defendA && transferA){
+        isDual=true;
+        el.classList.add('playable','dual-action');
+        if(sameCard(netPendingChoiceCard,c)) el.classList.add('choice-pending');
+        el.title='Можно отбиться или перевести — нажмите, чтобы выбрать';
+        el.addEventListener('click', ()=>{
+          netPendingChoiceCard = sameCard(netPendingChoiceCard,c) ? null : {suit:c.suit, rank:c.rank};
+          renderNetwork();
+        });
+      } else {
+        matched = netLastLegal.find(a=>a.type==='attack' && sameCard(a.card,c)) || defendA || null;
+        if(!matched && transferA){ matched=transferA; isTransfer=true; }
       }
     }
     if(matched){
       el.classList.add('playable');
       if(isTransfer) el.classList.add('transferable');
       el.addEventListener('click', ()=> netSend({type:'action', action:matched}));
-    } else if(isMyTurn){
+    } else if(!isDual && isMyTurn){
       el.classList.add('unplayable');
     }
     myHandBox.appendChild(el);
@@ -1742,6 +1758,22 @@ function renderNetwork(){
   if(isMyTurn){
     const takeAction=netLastLegal.find(a=>a.type==='take');
     const passAction=netLastLegal.find(a=>a.type==='pass');
+    if(netPendingChoiceCard){
+      const defendA=netDefends.find(a=>sameCard(a.card,netPendingChoiceCard));
+      const transferA=netSingleTransfers.find(a=>sameCard(a.cards[0],netPendingChoiceCard));
+      const lbl=document.createElement('span'); lbl.className='choice-label';
+      lbl.textContent=`${cardToString(netPendingChoiceCard)} —`;
+      actionBar.appendChild(lbl);
+      const dBtn=document.createElement('button'); dBtn.className='defend'; dBtn.textContent='Отбиться';
+      dBtn.addEventListener('click', ()=>{ netPendingChoiceCard=null; netSend({type:'action',action:defendA}); });
+      actionBar.appendChild(dBtn);
+      const tBtn=document.createElement('button'); tBtn.className='transfer'; tBtn.textContent='Перевести';
+      tBtn.addEventListener('click', ()=>{ netPendingChoiceCard=null; netSend({type:'action',action:transferA}); });
+      actionBar.appendChild(tBtn);
+      const cBtn=document.createElement('button'); cBtn.className='cancel'; cBtn.textContent='Отмена';
+      cBtn.addEventListener('click', ()=>{ netPendingChoiceCard=null; renderNetwork(); });
+      actionBar.appendChild(cBtn);
+    }
     if(netComboTransfer){ const btn=document.createElement('button'); btn.className='transfer'; btn.textContent=`Перевести оба (${netComboTransfer.cards.length})`; btn.addEventListener('click',()=>netSend({type:'action',action:netComboTransfer})); actionBar.appendChild(btn); }
     if(takeAction){ const btn=document.createElement('button'); btn.className='take'; btn.textContent='Взять карты'; btn.addEventListener('click',()=>netSend({type:'action',action:takeAction})); actionBar.appendChild(btn); }
     if(passAction){ const btn=document.createElement('button'); btn.className='pass'; btn.textContent = st.phase==='need-attack' ? 'Пас (не подкидываю)' : 'Пас'; btn.addEventListener('click',()=>netSend({type:'action',action:passAction})); actionBar.appendChild(btn); }
