@@ -7,7 +7,12 @@
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { DurakGame } from '../src/game.js';
-import { simpleBotDecide } from '../src/bots/simpleBot.js';
+import {
+  createBotBrain,
+  normalizeBotLevel,
+  botLevelLabel,
+  DEFAULT_BOT_LEVEL,
+} from '../src/bots/index.js';
 
 // Через сколько мс после разрыва связи игрока в УЖЕ ИДУЩЕЙ партии начинает
 // подменять бот. Настраивается через переменную окружения — удобно для тестов.
@@ -50,6 +55,13 @@ export class Room extends EventEmitter {
     this.label = options.label || null;
     this.numPlayers = options.numPlayers;
     this.ruleOverrides = options.ruleOverrides || {};
+    // Уровень игры ботов в этой комнате — выбирается в лобби при создании
+    // комнаты ('simple' | 'smart'). Для конкретного бота его можно
+    // переопределить при addBot(level).
+    this.botLevel = normalizeBotLevel(options.botLevel || DEFAULT_BOT_LEVEL);
+    // Писать ли в лог партии объяснение каждого хода бота ("почему он так сходил").
+    // Умеет объяснять пока только умный уровень; простой молчит в любом случае.
+    this.botExplain = options.botExplain !== false;
     this.createdAt = Date.now();
     // seats[i].playerId соответствует game.players[i].id — порядок мест
     // фиксируется в момент старта партии и больше не меняется.
@@ -87,8 +99,34 @@ export class Room extends EventEmitter {
       finished: this.isFinished,
       deckSize: this.ruleOverrides.deckSize,
       throwInPolicy: this.ruleOverrides.throwInPolicy,
+      botLevel: this.botLevel,
+      botExplain: this.botExplain,
       createdAt: this.createdAt,
     };
+  }
+
+  // Поменять настройки ботов в ещё не начавшейся комнате (уровень по умолчанию
+  // и нужны ли объяснения ходов в логе). Право — только у создателя комнаты,
+  // проверяется в index.js.
+  setBotOptions({ botLevel, botExplain } = {}) {
+    if (this.isStarted) throw new Error('Партия в этой комнате уже началась');
+    if (botLevel !== undefined) this.botLevel = normalizeBotLevel(botLevel);
+    if (botExplain !== undefined) this.botExplain = botExplain !== false;
+    // Уже сидящим за столом ботам, которым уровень не задавали явно,
+    // подтягиваем новый уровень комнаты.
+    for (const seat of this.seats) {
+      if (seat.botControlled && !seat.botLevelExplicit) {
+        seat.botLevel = this.botLevel;
+        seat.name = this._botName(seat.botNumber, seat.botLevel);
+      }
+    }
+    this._broadcastRoomState();
+    this.emit('changed');
+    return { botLevel: this.botLevel, botExplain: this.botExplain };
+  }
+
+  _botName(botNumber, level) {
+    return `Бот ${botNumber} (${botLevelLabel(level).toLowerCase()})`;
   }
 
   addPlayer(name, socket) {
@@ -102,6 +140,12 @@ export class Room extends EventEmitter {
       connected: true,
       botControlled: false,
       botTakeoverTimer: null,
+      // Уровень, с которым за это место будет играть бот (если игрок отвалится
+      // и его подменят) — берём текущий уровень комнаты.
+      botLevel: this.botLevel,
+      botLevelExplicit: false,
+      botNumber: null,
+      brain: null,
     };
     this.seats.push(seat);
     socket.playerId = playerId;
@@ -118,17 +162,25 @@ export class Room extends EventEmitter {
   // дожидаясь живых игроков. Бот-место работает по тем же правилам, что и
   // "разорвавший связь и подменённый ботом" игрок (см. _maybeAutoPlay), просто
   // с самого начала, без реального сокета и без таймера подмены.
-  addBot() {
+  // level (необязателен) — уровень игры именно этого бота; если не задан,
+  // используется уровень, выбранный для комнаты в лобби.
+  addBot(level) {
     if (this.isFull) throw new Error('Комната уже заполнена');
     if (this.isStarted) throw new Error('Партия в этой комнате уже началась');
     const botNumber = this.seats.filter((s) => s.botControlled).length + 1;
+    const explicit = level !== undefined && level !== null && level !== '';
+    const botLevel = normalizeBotLevel(explicit ? level : this.botLevel);
     const seat = {
       playerId: randomUUID(),
-      name: `Бот ${botNumber}`,
+      name: this._botName(botNumber, botLevel),
       socket: null,
       connected: false, // не считается за "живого" игрока для очистки пустых комнат
       botControlled: true,
       botTakeoverTimer: null,
+      botLevel,
+      botLevelExplicit: explicit,
+      botNumber,
+      brain: null, // создаётся лениво при первом ходе (у умного бота в нём живёт память карт)
     };
     this.seats.push(seat);
     this._touchEmptyState();
@@ -155,10 +207,10 @@ export class Room extends EventEmitter {
   // партию (комната становится полной → _startGame() срабатывает как обычно).
   // Право вызывать это есть только у создателя комнаты — проверяется в index.js,
   // здесь только сама механика.
-  fillWithBots() {
+  fillWithBots(level) {
     if (this.isStarted) throw new Error('Партия в этой комнате уже началась');
     if (this.isFull) throw new Error('Комната уже заполнена');
-    while (!this.isFull) this.addBot();
+    while (!this.isFull) this.addBot(level);
   }
 
   reconnect(playerId, socket) {
@@ -167,6 +219,7 @@ export class Room extends EventEmitter {
     seat.socket = socket;
     seat.connected = true;
     seat.botControlled = false;
+    seat.brain = null; // за место снова играет человек — память бота больше не нужна
     if (seat.botTakeoverTimer) {
       clearTimeout(seat.botTakeoverTimer);
       seat.botTakeoverTimer = null;
@@ -222,7 +275,8 @@ export class Room extends EventEmitter {
     this.broadcastState();
     seat.botTakeoverTimer = setTimeout(() => {
       seat.botControlled = true;
-      this._log(`${seat.name} долго не отвечает — временно ходит бот вместо него.`);
+      seat.brain = null; // новая память: бот начинает наблюдать с текущего момента
+      this._log(`${seat.name} долго не отвечает — временно ходит бот (${botLevelLabel(seat.botLevel || this.botLevel)}) вместо него.`);
       this._maybeAutoPlay();
       this.broadcastState();
     }, DISCONNECT_BOT_TAKEOVER_MS);
@@ -244,8 +298,24 @@ export class Room extends EventEmitter {
   _startGame() {
     const playerDefs = this.seats.map((s) => ({ id: s.playerId, name: s.name }));
     this.game = new DurakGame(playerDefs, { ...this.ruleOverrides, numPlayers: this.numPlayers });
+    const botSeats = this.seats.filter((s) => s.botControlled);
+    if (botSeats.length > 0) {
+      this._log(`Боты за столом: ${botSeats.map((s) => `${s.name} — уровень «${botLevelLabel(s.botLevel)}»`).join('; ')}.`);
+      if (this.botExplain && botSeats.some((s) => s.botLevel === 'smart')) {
+        this._log('Объяснения ходов ботов включены — их рассуждения будут появляться здесь же в логе.');
+      }
+    }
     this.broadcastState();
     this._maybeAutoPlay();
+  }
+
+  // "Мозг" бота для конкретного места. У умного уровня внутри живёт память карт,
+  // поэтому экземпляр создаётся один раз на место и переиспользуется между ходами.
+  _brainFor(seat) {
+    if (!seat.brain || seat.brain.level !== normalizeBotLevel(seat.botLevel || this.botLevel)) {
+      seat.brain = createBotBrain(seat.botLevel || this.botLevel);
+    }
+    return seat.brain;
   }
 
   // Если сейчас ход отключённого (и уже переданного боту) игрока — доигрываем за него.
@@ -261,12 +331,16 @@ export class Room extends EventEmitter {
       if (!this.game || this.game.phase === 'finished') return;
       const legal = this.game.getLegalActions(seat.playerId);
       if (legal.length === 0) return;
-      const stateForBot = {
-        trumpSuit: this.game.trumpSuit,
-        players: this.game.players.map((p) => ({ id: p.id, hand: p.hand })),
-      };
-      const action = simpleBotDecide(stateForBot, seat.playerId, legal);
+      // Полное состояние глазами самого бота: чужие руки замаскированы (никакого
+      // подглядывания), зато видны стол, бито, прикуп и количество карт у соперников —
+      // именно на этом умный бот и строит свой подсчёт карт.
+      const stateForBot = this.game.getState(seat.playerId);
+      const { action, reason, analysis } = this._brainFor(seat).decide(stateForBot, seat.playerId, legal);
       if (action) this.game.applyAction(seat.playerId, action);
+      if (this.botExplain && reason) {
+        this._log(`🤖 ${seat.name}: ${reason}`);
+        if (analysis) this._log(`   └ расклад: ${analysis}`);
+      }
       this.broadcastState();
       this._maybeAutoPlay();
     }, BOT_MOVE_DELAY_MS);
@@ -310,7 +384,15 @@ export class Room extends EventEmitter {
       label: this.label,
       numPlayers: this.numPlayers,
       hostPlayerId: this.hostPlayerId,
-      seats: this.seats.map((s) => ({ id: s.playerId, name: s.name, connected: s.connected, botControlled: s.botControlled })),
+      botLevel: this.botLevel,
+      botExplain: this.botExplain,
+      seats: this.seats.map((s) => ({
+        id: s.playerId,
+        name: s.name,
+        connected: s.connected,
+        botControlled: s.botControlled,
+        botLevel: s.botControlled ? s.botLevel : null,
+      })),
     };
     for (const seat of this.seats) this._send(seat.socket, payload);
   }
@@ -322,6 +404,7 @@ export class Room extends EventEmitter {
       name: s.name,
       connected: s.connected,
       botControlled: s.botControlled,
+      botLevel: s.botControlled ? s.botLevel : null,
     }));
     for (const seat of this.seats) {
       this._send(seat.socket, {
