@@ -237,12 +237,21 @@ function handleMessage(socket, msg) {
       return;
     }
 
+    case 'botOptions': {
+      if (!socket.roomId) return send(socket, { type: 'error', message: 'Вы не в комнате' });
+      const room = manager.get(socket.roomId);
+      if (!room) return send(socket, { type: 'error', message: 'Комната не найдена' });
+      if (room.hostPlayerId !== socket.playerId) return send(socket, { type: 'error', message: 'Настраивать ботов может только создатель комнаты' });
+      room.setBotOptions({ botLevel: msg.botLevel, botExplain: msg.botExplain });
+      return;
+    }
+
     case 'addBot': {
       if (!socket.roomId) return send(socket, { type: 'error', message: 'Вы не в комнате' });
       const room = manager.get(socket.roomId);
       if (!room) return send(socket, { type: 'error', message: 'Комната не найдена' });
       if (room.hostPlayerId !== socket.playerId) return send(socket, { type: 'error', message: 'Добавлять ботов может только создатель комнаты' });
-      room.addBot();
+      room.addBot(msg.botLevel);
       return;
     }
 
