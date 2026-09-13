@@ -336,9 +336,12 @@ function decideDefense(ctx) {
   const cheapest = defendsSorted[0];
 
   // 1. Стол отбить целиком нечем — не разбрасываемся картами, берём сразу.
-  //    Но если неотбитых карт много, а у меня их почти не осталось, взятие
-  //    всё равно неизбежно; экономия имеет смысл именно при >=2 неотбитых.
-  if (!plan.allBeatable && undefended.length >= 2) {
+  //    Это верно только в дуэли: при 3+ игроках подкидывать могут несколько
+  //    соперников, состав стола ещё меняется, и раннее "беру" лишь раздувает руку —
+  //    там выгоднее отбиваться, пока получается.
+  const activeOpponents = (state.players || []).filter((p) => !p.out).length - 1;
+  const duel = activeOpponents <= 1;
+  if (duel && !plan.allBeatable && undefended.length >= 2) {
     if (transfer && countTrumps(transfer.cards, trumpSuit) === 0) {
       return {
         action: transfer,
