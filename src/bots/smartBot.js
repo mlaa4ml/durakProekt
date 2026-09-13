@@ -353,29 +353,30 @@ function decideDefense(ctx) {
     };
   }
 
-  // 3. Не стоит жечь крупный козырь ради мелкой карты, пока идёт "прикупная" фаза
-  //    и у меня ещё нормальная рука — выгоднее взять.
+  // 3. Не стоит жечь крупный козырь (K/A) ради мелкой карты, когда козырей мало
+  //    и взятие почти ничего не стоит (на руке и так мало карт, прикуп ещё есть).
   if (wouldUseTrump && take && !endgame) {
     const trumpsLeft = countTrumps(hand, trumpSuit);
-    const expensive = cheapest.card.rank >= 12;
-    const cheapAttack = attackCard.suit !== trumpSuit && attackCard.rank <= 11;
-    if (expensive && cheapAttack && trumpsLeft <= 2) {
+    const expensive = cheapest.card.rank >= 13;
+    const cheapAttack = attackCard.suit !== trumpSuit && attackCard.rank <= 10;
+    if (expensive && cheapAttack && trumpsLeft === 1 && hand.length <= 2) {
       return {
         action: take,
-        reason: `за мелкую ${describe(attackCard)} пришлось бы отдать крупный козырь ${describe(cheapest.card)} — выгоднее взять и сохранить козырь на концовку`,
+        reason: `за мелкую ${describe(attackCard)} пришлось бы отдать последний крупный козырь ${describe(cheapest.card)} — выгоднее взять и сохранить его на концовку`,
       };
     }
   }
 
-  // 4. В эндшпиле считаем, чем останемся: если после защиты соперник добьёт нас
-  //    следующей же картой, а взятие оставляет шанс — берём.
-  if (cheapest && endgame && opp && opp.certain && take) {
+  // 4. В эндшпиле с полностью просчитанной рукой соперника: если защита оставляет
+  //    меня с картами, которые он в любом случае добьёт, а взятие даёт шанс
+  //    перехватить ход — беру. Работает только когда расклад известен точно.
+  if (cheapest && endgame && opp && opp.certain && take && opp.possible.length <= 3) {
     const rest = hand.filter((c) => cardKey(c) !== cardKey(cheapest.card));
-    const oppCanKillRest = opp.possible.some((oc) => rest.length > 0 && !anyBeats(rest, oc, trumpSuit));
-    if (oppCanKillRest && rest.length <= 2) {
+    const hopeless = rest.length > 0 && opp.possible.every((oc) => !anyBeats(rest, oc, trumpSuit));
+    if (hopeless) {
       return {
         action: take,
-        reason: `знаю руку соперника (${opp.possible.map(describe).join(' ')}) — если отобьюсь ${describe(cheapest.card)}, следующий его ход я уже не покрою; беру и перехватываю ход позже`,
+        reason: `рука соперника просчитана (${opp.possible.map(describe).join(' ')}) — отбившись ${describe(cheapest.card)}, я не покрою уже ни один его следующий ход; беру, чтобы получить карты и шанс перехватить`,
       };
     }
   }
