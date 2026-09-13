@@ -322,7 +322,9 @@ function decideDefense(ctx) {
   const cheapest = defendsSorted[0];
 
   // 1. Стол отбить целиком нечем — не разбрасываемся картами, берём сразу.
-  if (!plan.allBeatable && undefended.length > 1) {
+  //    Но если неотбитых карт много, а у меня их почти не осталось, взятие
+  //    всё равно неизбежно; экономия имеет смысл именно при >=2 неотбитых.
+  if (!plan.allBeatable && undefended.length >= 2) {
     if (transfer && countTrumps(transfer.cards, trumpSuit) === 0) {
       return {
         action: transfer,
