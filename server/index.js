@@ -150,11 +150,18 @@ function handleMessage(socket, msg) {
       return;
     }
 
+    case 'botLevels': {
+      send(socket, { type: 'botLevels', levels: BOT_LEVELS, default: DEFAULT_BOT_LEVEL });
+      return;
+    }
+
     case 'createRoom': {
-      const { label, name, numPlayers, deckSize, throwInPolicy } = msg;
+      const { label, name, numPlayers, deckSize, throwInPolicy, botLevel, botExplain } = msg;
       const room = manager.createRoom({
         label: label && String(label).trim() ? String(label).trim() : null,
         numPlayers: numPlayers || 2,
+        botLevel: botLevel || DEFAULT_BOT_LEVEL,
+        botExplain: botExplain !== false,
         ruleOverrides: {
           deckSize: deckSize || 24,
           throwInPolicy: throwInPolicy || 'all',
