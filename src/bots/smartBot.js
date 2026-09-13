@@ -285,9 +285,9 @@ function decideAttack(ctx) {
   }
 
   // Решаем, стоит ли подкидывать вообще.
-  const holdBecauseTrump = best.isTrump;
-  const holdBecauseValuable = best.topOfSuit && !endgame;
-  const holdBecauseHigh = best.card.rank >= 12 && !endgame && best.card.suit !== trumpSuit && !tableOpen;
+  const holdBecauseTrump = best.isTrump && !endgame;
+  const holdBecauseValuable = best.topOfSuit && !endgame && best.card.rank >= 12;
+  const holdBecauseHigh = best.card.rank >= 13 && !endgame && best.card.suit !== trumpSuit && !tableOpen;
   if (holdBecauseTrump || holdBecauseValuable || holdBecauseHigh) {
     const why = holdBecauseTrump
       ? `осталось кинуть только козырь ${describe(best.card)} — берегу его`
