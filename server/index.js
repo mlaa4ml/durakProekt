@@ -6,14 +6,22 @@
 //
 //   клиент -> сервер:
 //     {type:'listRooms'}
-//     {type:'createRoom', label, name, numPlayers, deckSize, throwInPolicy}
+//     {type:'createRoom', label, name, numPlayers, deckSize, throwInPolicy, botLevel, botExplain}
+//                                        // botLevel — уровень игры ботов в этой комнате:
+//                                        //   'simple' (прежний бот) | 'smart' (считает карты,
+//                                        //   помнит вышедшее и карты соперника, строит план);
+//                                        // botExplain — писать ли в лог партии объяснения ходов бота
 //     {type:'join',   roomId, name}
 //     {type:'rejoin', roomId, playerId}
 //     {type:'leave'}                    // только для ещё не начавшейся партии
-//     {type:'fillWithBots'}             // только создатель комнаты: занять все свободные места
+//     {type:'botOptions', botLevel, botExplain} // только создатель: поменять уровень ботов /
+//                                        // включить-выключить объяснения до старта партии
+//     {type:'fillWithBots', botLevel}   // только создатель комнаты: занять все свободные места
 //                                        // ботами и сразу начать партию
-//     {type:'addBot'}                   // только создатель: добавить одного бота на свободное место
+//     {type:'addBot', botLevel}         // только создатель: добавить одного бота на свободное место
+//                                        // (botLevel необязателен — по умолчанию уровень комнаты)
 //     {type:'removeBot', playerId}      // только создатель: убрать ранее добавленного бота
+//     {type:'botLevels'}                // справочник доступных уровней ботов для лобби
 //     {type:'action', action: {...}}    // тот же формат, что и getLegalActions()
 //
 //   сервер -> клиент:
