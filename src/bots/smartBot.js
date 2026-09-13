@@ -170,8 +170,6 @@ export class BotMemory {
     const unknown = this.unknownCards(state, myId);
     const trumpCardKnown = (state.talonCount || 0) > 0 && state.trumpCard;
     const certain = (state.talonCount || 0) === 0 && active.length === 1 && !trumpCardKnown;
-    const decode = (k) => ({ suit: k.slice(0, k.length - String(Number(k.slice(1))).length) , rank: 0 });
-    void decode;
     const knownCards = this._decodeKeys(known);
     return {
       certain,
