@@ -321,8 +321,17 @@ $('createRoomBtn').addEventListener('click', () => {
     numPlayers: Number($('createNumPlayers').value),
     deckSize: Number($('createDeckSize').value),
     throwInPolicy: $('createThrowIn').value,
+    botLevel: $('createBotLevel').value,
+    botExplain: $('createBotExplain').checked,
   });
 });
+$('addBotBtn').addEventListener('click', () => send({ type: 'addBot', botLevel: $('botLevelSel').value }));
+$('fillBotsBtn').addEventListener('click', () => send({ type: 'fillWithBots', botLevel: $('botLevelSel').value }));
+$('applyBotOptionsBtn').addEventListener('click', () => send({
+  type: 'botOptions',
+  botLevel: $('botLevelSel').value,
+  botExplain: $('botExplainChk').checked,
+}));
 $('joinRoomBtn').addEventListener('click', () => {
   send({ type: 'join', roomId: $('joinRoomId').value.trim().toUpperCase(), name: $('joinName').value });
 });
