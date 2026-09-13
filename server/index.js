@@ -30,7 +30,9 @@
 //                                        // старт/уборка) — присылается всем, кто сейчас
 //                                        // не сидит ни в одной комнате
 //     {type:'joined', playerId, roomId, seatsFilled, seatsTotal}
-//     {type:'roomUpdate', roomId, label, numPlayers, hostPlayerId, seats:[{id,name,connected,botControlled}]}
+//     {type:'botLevels', levels:[{id,label,description}], default}
+//     {type:'roomUpdate', roomId, label, numPlayers, hostPlayerId, botLevel, botExplain,
+//                         seats:[{id,name,connected,botControlled,botLevel}]}
 //                                        // состав ещё не начавшейся комнаты — шлётся всем, кто
 //                                        // уже сидит в ней, при любом изменении состава (join/addBot/leave).
 //                                        // hostPlayerId — кто сейчас может звать ботов.
