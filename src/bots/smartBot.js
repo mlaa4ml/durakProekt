@@ -299,7 +299,12 @@ function decideAttack(ctx) {
   // сильную карту. В игре на 3+ человек это особенно важно: пока ты бережёшь
   // "гвозди", соседи успевают сбросить всё и выйти.
   const handOverloaded = hand.length >= 6;
-  const holdBecauseTrump = best.isTrump && !endgame;
+  const activeOpponents = (state.players || []).filter((p) => !p.out).length - 1;
+  const duel = activeOpponents <= 1;
+  // Мелкий козырь при перегруженной руке и игре на 3+ человек держать вредно:
+  // пока бережёшь его "на потом", соседи успевают разгрузиться и выйти.
+  const dumpSmallTrump = !duel && handOverloaded && best.card.rank <= 10;
+  const holdBecauseTrump = best.isTrump && !endgame && !dumpSmallTrump;
   const holdBecauseValuable = best.topOfSuit && !endgame && !handOverloaded && !tableOpen && best.card.rank >= 12;
   const holdBecauseHigh = best.card.rank >= 13 && !endgame && !handOverloaded && best.card.suit !== trumpSuit && !tableOpen;
   if (holdBecauseTrump || holdBecauseValuable || holdBecauseHigh) {
