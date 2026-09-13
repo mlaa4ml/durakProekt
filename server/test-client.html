@@ -209,7 +209,7 @@ function renderRooms(rooms) {
     const tr = document.createElement('tr');
     const statusText = r.finished ? 'завершена' : r.started ? 'идёт' : 'ждёт игроков';
     tr.innerHTML = `<td>${r.roomId}</td><td>${r.label || '—'}</td><td>${r.seatsFilled}/${r.numPlayers}</td>` +
-      `<td>${r.deckSize} карт, ${r.throwInPolicy}, ${statusText}</td><td></td>`;
+      `<td>${r.deckSize} карт, ${r.throwInPolicy}, боты: ${r.botLevel === 'smart' ? 'умные' : 'простые'}, ${statusText}</td><td></td>`;
     const td = tr.lastElementChild;
     if (!r.started) {
       const btn = document.createElement('button');
