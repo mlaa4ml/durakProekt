@@ -55,6 +55,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
 import { RoomManager } from './rooms.js';
+import { BOT_LEVELS, DEFAULT_BOT_LEVEL } from '../src/bots/index.js';
 
 const PORT = process.env.PORT || 8080;
 const manager = new RoomManager();
