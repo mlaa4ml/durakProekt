@@ -42,7 +42,19 @@
   <select id="createNumPlayers"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
   <select id="createDeckSize"><option>24</option><option>36</option><option>52</option></select>
   <select id="createThrowIn"><option value="all">все игроки</option><option value="neighbors">соседи</option><option value="attackerOnly">только атакующий</option></select>
+  <select id="createBotLevel" title="уровень игры ботов в комнате"><option value="simple">боты: простые</option><option value="smart">боты: умные (считают карты)</option></select>
+  <label class="muted" title="бот будет писать в лог партии, почему он сделал такой ход"><input type="checkbox" id="createBotExplain" checked /> объяснения ходов ботов в логе</label>
   <button id="createRoomBtn">Создать</button>
+</fieldset>
+
+<fieldset>
+  <legend>Боты в моей комнате (только создатель, до старта партии)</legend>
+  <select id="botLevelSel"><option value="simple">простой</option><option value="smart">умный (считает карты)</option></select>
+  <button id="addBotBtn">Добавить бота</button>
+  <button id="fillBotsBtn">Заполнить ботами и начать</button>
+  <label class="muted"><input type="checkbox" id="botExplainChk" checked /> объяснять ходы в логе</label>
+  <button id="applyBotOptionsBtn">Применить настройки</button>
+  <div id="roomSeatsBox" class="muted">вы пока не в комнате</div>
 </fieldset>
 
 <fieldset>
