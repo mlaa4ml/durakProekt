@@ -246,13 +246,22 @@ function decideAttack(ctx) {
   }
 
   // 2. Добивание "по количеству": у соперника мало карт, стол уже открыт —
-  //    подкидываем всё, что можно, чтобы перегрузить его руку.
+  //    подкидываем, чтобы перегрузить его руку. Но козырь ради этого не отдаём
+  //    (если можно спасовать) — в игре на 3+ человек такой размен обычно в минус.
   if (tableOpen && oppHandCount <= 2) {
-    const cheap = sorted.find((a) => a.card.suit !== trumpSuit) || sorted[0];
-    return {
-      action: cheap,
-      reason: `у соперника всего ${oppHandCount} карт(ы) — подкидываю ${describe(cheap.card)}, чтобы он не успел отбиться и забрал стол`,
-    };
+    const cheap = sorted.find((a) => a.card.suit !== trumpSuit);
+    if (cheap) {
+      return {
+        action: cheap,
+        reason: `у соперника всего ${oppHandCount} карт(ы) — подкидываю ${describe(cheap.card)}, чтобы он не успел отбиться и забрал стол`,
+      };
+    }
+    if (!pass) {
+      return {
+        action: sorted[0],
+        reason: `у соперника ${oppHandCount} карт(ы), а у меня только козыри — хожу ${describe(sorted[0].card)}`,
+      };
+    }
   }
 
   // 3. Обычная атака: ищем самую дешёвую карту, которую не жалко.
