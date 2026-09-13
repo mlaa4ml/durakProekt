@@ -224,6 +224,26 @@ function renderRooms(rooms) {
   if (rooms.length === 0) tbody.innerHTML = '<tr><td colspan="5" class="muted">комнат пока нет</td></tr>';
 }
 
+function renderRoomSeats(room) {
+  const isHost = room.hostPlayerId === myPlayerId;
+  const seats = (room.seats || []).map((s) => {
+    const tags = [];
+    if (s.botControlled) tags.push('бот: ' + (s.botLevel === 'smart' ? 'умный' : 'простой'));
+    if (s.id === room.hostPlayerId) tags.push('создатель');
+    if (!s.connected && !s.botControlled) tags.push('offline');
+    return `${s.name}${tags.length ? ' [' + tags.join(', ') + ']' : ''}`;
+  }).join(' · ');
+  $('roomSeatsBox').textContent =
+    `Комната ${room.roomId}: ${room.seats.length}/${room.numPlayers} — ${seats || 'пусто'}` +
+    ` · уровень ботов по умолчанию: ${room.botLevel === 'smart' ? 'умный' : 'простой'}` +
+    ` · объяснения ходов: ${room.botExplain ? 'вкл' : 'выкл'}` +
+    (isHost ? '' : ' (настраивать может только создатель)');
+  if (isHost) {
+    $('botLevelSel').value = room.botLevel || 'simple';
+    $('botExplainChk').checked = room.botExplain !== false;
+  }
+}
+
 function renderGame() {
   if (!lastState) return;
   const you = lastState.players.find((p) => p.id === myPlayerId);
