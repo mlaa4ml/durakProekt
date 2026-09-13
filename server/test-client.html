@@ -182,6 +182,16 @@ function handleMessage(msg) {
     return;
   }
 
+  if (msg.type === 'botLevels') {
+    logLine('Доступные уровни ботов: ' + msg.levels.map((l) => `${l.id} — ${l.label} (${l.description})`).join(' | '));
+    return;
+  }
+
+  if (msg.type === 'roomUpdate') {
+    renderRoomSeats(msg);
+    return;
+  }
+
   if (msg.type === 'state') {
     lastState = msg.state;
     lastLegal = msg.legalActions || [];
