@@ -269,7 +269,7 @@ function handleMessage(socket, msg) {
       const room = manager.get(socket.roomId);
       if (!room) return send(socket, { type: 'error', message: 'Комната не найдена' });
       if (room.hostPlayerId !== socket.playerId) return send(socket, { type: 'error', message: 'Заполнить ботами и начать может только создатель комнаты' });
-      room.fillWithBots();
+      room.fillWithBots(msg.botLevel);
       return;
     }
 
