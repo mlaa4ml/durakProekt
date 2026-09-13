@@ -294,9 +294,14 @@ function decideAttack(ctx) {
   }
 
   // Решаем, стоит ли подкидывать вообще.
+  // Если рука уже перегружена (карт много) — придерживать бессмысленно:
+  // главная опасность в дураке это остаться с картами на руках, а не отдать
+  // сильную карту. В игре на 3+ человек это особенно важно: пока ты бережёшь
+  // "гвозди", соседи успевают сбросить всё и выйти.
+  const handOverloaded = hand.length >= 6;
   const holdBecauseTrump = best.isTrump && !endgame;
-  const holdBecauseValuable = best.topOfSuit && !endgame && best.card.rank >= 12;
-  const holdBecauseHigh = best.card.rank >= 13 && !endgame && best.card.suit !== trumpSuit && !tableOpen;
+  const holdBecauseValuable = best.topOfSuit && !endgame && !handOverloaded && !tableOpen && best.card.rank >= 12;
+  const holdBecauseHigh = best.card.rank >= 13 && !endgame && !handOverloaded && best.card.suit !== trumpSuit && !tableOpen;
   if (holdBecauseTrump || holdBecauseValuable || holdBecauseHigh) {
     const why = holdBecauseTrump
       ? `осталось кинуть только козырь ${describe(best.card)} — берегу его`
