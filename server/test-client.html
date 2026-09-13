@@ -137,6 +137,7 @@ function connect() {
   ws.addEventListener('open', () => {
     $('connStatus').textContent = 'подключено';
     logLine('WebSocket открыт: ' + url);
+    send({ type: 'botLevels' });
     send({ type: 'listRooms' });
   });
   ws.addEventListener('close', () => {
