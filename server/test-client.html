@@ -253,7 +253,7 @@ function renderGame() {
     if (p.id === lastState.attacker) flags.push('атакует');
     if (p.id === lastState.defender) flags.push('защита');
     if (!p.connected) flags.push('offline');
-    if (p.botControlled) flags.push('бот вместо игрока');
+    if (p.botControlled) flags.push('бот' + (p.botLevel ? ' (' + (p.botLevel === 'smart' ? 'умный' : 'простой') + ')' : ''));
     return `${p.name}${p.id === myPlayerId ? ' (вы)' : ''} — ${flags.join(', ') || 'ждёт'}`;
   }).join(' · ');
   $('playersBox').innerHTML = rosterLine;
