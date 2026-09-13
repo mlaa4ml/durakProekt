@@ -1,5 +1,7 @@
 import { createDeck, shuffle, cardToString, rankName } from './deck.js';
 import { resolveRules } from './rules.js';
+import { simpleBotDecide } from './bots/simpleBot.js';
+import { advancedBotDecide } from './bots/advancedBot.js';
 
 function canBeat(attackCard, defendCard, trumpSuit) {
   if (defendCard.suit === attackCard.suit) return defendCard.rank > attackCard.rank;
