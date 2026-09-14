@@ -2408,7 +2408,7 @@ function buildGame(){
   const numPlayers=Number(document.getElementById('numPlayers').value);
   const deckSize=Number(document.getElementById('deckSize').value);
   const throwInPolicy=document.getElementById('throwInPolicy').value;
-  game=runFullGame(numPlayers, deckSize, throwInPolicy);
+  game=runFullGame(numPlayers, deckSize, throwInPolicy, selectedBotLevel(), botExplainEnabled());
   cursor=0;
   document.getElementById('scrubber').max=String(game.snapshots.length-1);
   document.getElementById('scrubber').value='0';
@@ -2517,15 +2517,5 @@ function render(){
   document.getElementById('btnLast').disabled = cursor>=game.snapshots.length-1;
 }
 
-function stop(){ if(playTimer){ clearInterval(playTimer); playTimer=null; document.getElementById('btnPlay').textContent='▶'; } }
-
-document.getElementById('newGameBtn').addEventListener('click', ()=>{
-  if(mode==='view'){ stop(); buildGame(); } else { startInteractiveGame(); }
-  showGame();
-});
-document.getElementById('showAll').addEventListener('change', ()=>{
-  if(mode==='view') render(); else renderInteractive();
-});
-document.getElementById('trumpSide').addEventListener('change', ()=>{
-
-...[обрезано, всего 120339 символов]
+function stop(){ if(playTimer){ clearInterval(playTim
+...[обрезано, всего 120478 символов]
