@@ -1609,9 +1609,17 @@ function scheduleBotStep(){
     if(!igame || igame.phase==='finished') { interactiveBusy=false; renderInteractive(); return; }
     const legal=igame.getLegalActions(turnPlayer.id);
     if(legal.length===0){ interactiveBusy=false; scheduleBotStep(); return; }
-    const stateForBot={trumpSuit:igame.trumpSuit, talonCount:igame.talon.length, players: igame.players.map(pl=>({id:pl.id, hand:pl.hand}))};
-    const action=simpleBotDecide(stateForBot, turnPlayer.id, legal);
-    if(action) igame.applyAction(turnPlayer.id, action);
+    let brain=igameBrains.get(turnPlayer.id);
+    if(!brain){ brain=createBotBrain(igameBotLevel); igameBrains.set(turnPlayer.id, brain); }
+    const {action, reason, analysis}=brain.decide(buildBotState(igame, turnPlayer.id), turnPlayer.id, legal);
+    if(action){
+      // Объяснение пишем в лог ДО хода — иначе оно окажется после строки о самом ходе.
+      if(igameBotExplain && reason){
+        igame._log(`🤖 ${turnPlayer.name}: ${reason}`);
+        if(analysis) igame._log(`   └ расклад: ${analysis}`);
+      }
+      igame.applyAction(turnPlayer.id, action);
+    }
     interactiveBusy=false;
     scheduleBotStep();
   }, 550);
@@ -2515,12 +2523,5 @@ document.getElementById('trumpSide').addEventListener('change', ()=>{
 
 // Раскладка карт на столе на мобильном (скролл вбок / перенос вниз).
 // Применяется сразу же, без пересдачи — это просто настройка отображения.
-(function initTableLayoutPref(){
-  const sel = document.getElementById('tableLayoutMobile');
-  const board = document.getElementById('tableBoard');
-  const KEY = 'durak.tableLayoutMobile';
-  const saved = localStorage.getItem(KEY);
-  if(saved === 'scroll' || saved === 'wrap') sel.value = saved;
-  function apply(){
-    board.classList.rem
-...[обрезано, всего 120332 символов]
+(function initTableLayoutP
+...[обрезано, всего 120350 символов]
