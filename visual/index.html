@@ -1176,9 +1176,348 @@ function simpleBotDecide(state, playerId, legalActions){
   return legalActions[0];
 }
 
-function runFullGame(numPlayers, deckSize, throwInPolicy){
-  const players=Array.from({length:numPlayers},(_,i)=>({id:`p${i+1}`, name:`Игрок ${i+1}`}));
+/* ============ Уровни ботов: простой и умный (issue #24, доделано в #25) ============
+   Умный бот (порт src/bots/smartBot.js — тот же алгоритм, что играет на сервере):
+   помнит, какие карты ушли в бито и какие забрал соперник, считает множество
+   ещё неизвестных карт, анализирует стол перед защитой и в концовке (прикуп пуст,
+   соперник один) фактически играет с открытыми картами. Каждое решение он
+   сопровождает объяснением, которое клиент пишет в лог партии. */
+
+const BOT_LEVELS=[
+  {id:'simple', label:'Простой', description:'Базовые эвристики: бережёт козыри, кидает младшее, не считает карты.'},
+  {id:'smart', label:'Умный (считает карты)', description:'Помнит вышедшие карты и карты соперника, анализирует стол, строит план на концовку.'},
+];
+const DEFAULT_BOT_LEVEL='simple';
+function normalizeBotLevel(level){ return BOT_LEVELS.some(l=>l.id===level) ? level : DEFAULT_BOT_LEVEL; }
+function botLevelLabel(level){ const f=BOT_LEVELS.find(l=>l.id===normalizeBotLevel(level)); return f ? f.label : level; }
+
+// Состояние в том же формате, который на сервере отдаёт game.getState(playerId):
+// свои карты видны, у остальных — только количество карт на руке.
+function buildBotState(game, playerId){
+  return {
+    phase: game.phase,
+    trumpSuit: game.trumpSuit,
+    trumpCard: game.trumpCard,
+    talonCount: game.talon.length,
+    discardCount: game.discardCount,
+    table: game.table.map(t=>({attack:t.attack, defense:t.defense})),
+    tableGoingToDefender: game.tookCards===true,
+    attacker: game.players[game.attackerIndex] ? game.players[game.attackerIndex].id : null,
+    defender: game.players[game.defenderIndex] ? game.players[game.defenderIndex].id : null,
+    players: game.players.map(p=>{
+      const info={id:p.id, name:p.name, handCount:p.hand.length, out:p.out};
+      if(p.id===playerId) info.hand=p.hand.slice();
+      return info;
+    }),
+  };
+}
+
+function sbCardKey(card){ return `${card.suit}${card.rank}`; }
+function sbBeats(attackCard, defendCard, trumpSuit){
+  if(defendCard.suit===attackCard.suit) return defendCard.rank>attackCard.rank;
+  return defendCard.suit===trumpSuit && attackCard.suit!==trumpSuit;
+}
+function sbTableCards(state){
+  const res=[];
+  for(const t of state.table||[]){ if(t.attack) res.push(t.attack); if(t.defense) res.push(t.defense); }
+  return res;
+}
+function sbMyHand(state, playerId){
+  const me=(state.players||[]).find(p=>p.id===playerId);
+  return me && me.hand ? me.hand : [];
+}
+// Размер колоды выводим из самого состояния: все карты партии лежат либо в
+// прикупе, либо в бито, либо в руках, либо на столе.
+function sbInferDeckSize(state){
+  const inHands=(state.players||[]).reduce((s,p)=>s+(p.handCount||0),0);
+  const total=(state.talonCount||0)+(state.discardCount||0)+inHands+sbTableCards(state).length;
+  if(RANKS_BY_DECK_SIZE[total]) return total;
+  if(total<=24) return 24;
+  if(total<=36) return 36;
+  return 52;
+}
+function sbFullDeck(deckSize){
+  const ranks=RANKS_BY_DECK_SIZE[deckSize]||RANKS_BY_DECK_SIZE[36];
+  const cards=[];
+  for(const suit of SUITS) for(const rank of ranks) cards.push({suit, rank});
+  return cards;
+}
+
+// Память бота между ходами: один экземпляр на одно место за столом.
+class BotMemory{
+  constructor(){
+    this.seen=new Set();
+    this.discarded=new Set();
+    this.known=new Map();     // playerId -> Set(ключей карт, которые точно у него)
+    this._prevTableKeys=[];
+    this._prevGoingToDefender=false;
+    this._prevDefenderId=null;
+  }
+  knownOf(playerId){ return this.known.get(playerId)||new Set(); }
+  _forget(key){ for(const set of this.known.values()) set.delete(key); }
+  observe(state, myId){
+    const onTableKeys=sbTableCards(state).map(sbCardKey);
+    const onTableSet=new Set(onTableKeys);
+    for(const k of onTableKeys) this.seen.add(k);
+    for(const c of sbMyHand(state, myId)){ const k=sbCardKey(c); this.seen.add(k); this._forget(k); }
+    for(const k of onTableKeys) this._forget(k);
+    // Карты, которые лежали на столе в прошлый раз и исчезли: либо в бито,
+    // либо их забрал защищавшийся — тогда мы точно знаем его карты.
+    const gone=this._prevTableKeys.filter(k=>!onTableSet.has(k));
+    if(gone.length>0){
+      if(this._prevGoingToDefender && this._prevDefenderId && this._prevDefenderId!==myId){
+        let set=this.known.get(this._prevDefenderId);
+        if(!set){ set=new Set(); this.known.set(this._prevDefenderId, set); }
+        for(const k of gone) set.add(k);
+      } else if(this._prevGoingToDefender && this._prevDefenderId===myId){
+        // Забрал я сам — карты и так видны в моей руке.
+      } else {
+        for(const k of gone) this.discarded.add(k);
+      }
+    }
+    this._prevTableKeys=onTableKeys;
+    this._prevGoingToDefender=state.tableGoingToDefender===true;
+    this._prevDefenderId=state.defender||null;
+    for(const p of state.players||[]){
+      const set=this.known.get(p.id);
+      if(!set) continue;
+      if(p.out){ set.clear(); continue; }
+      while(set.size>(p.handCount||0)) set.delete(set.values().next().value);
+    }
+  }
+  unknownCards(state, myId){
+    const deckSize=sbInferDeckSize(state);
+    const excluded=new Set([...this.discarded]);
+    for(const c of sbMyHand(state, myId)) excluded.add(sbCardKey(c));
+    for(const c of sbTableCards(state)) excluded.add(sbCardKey(c));
+    for(const set of this.known.values()) for(const k of set) excluded.add(k);
+    if(state.trumpCard && (state.talonCount||0)>0) excluded.add(sbCardKey(state.trumpCard));
+    return sbFullDeck(deckSize).filter(c=>!excluded.has(sbCardKey(c)));
+  }
+  opponentCards(state, myId, oppId){
+    const active=(state.players||[]).filter(p=>!p.out && p.id!==myId);
+    const known=[...this.knownOf(oppId)];
+    const unknown=this.unknownCards(state, myId);
+    const trumpCardKnown=(state.talonCount||0)>0 && state.trumpCard;
+    const certain=(state.talonCount||0)===0 && active.length===1 && !trumpCardKnown;
+    const knownCards=known.map(k=>({suit:k[0], rank:Number(k.slice(1))}));
+    return { certain, known:knownCards, possible: certain ? unknown.slice() : knownCards.concat(unknown) };
+  }
+}
+
+function sbAnyBeats(cards, attackCard, trumpSuit){ return cards.some(c=>sbBeats(attackCard, c, trumpSuit)); }
+// Хватит ли руки, чтобы отбить ВЕСЬ стол (жадно, самой дешёвой подходящей картой).
+function sbPlanDefense(undefendedAttacks, hand, trumpSuit){
+  const left=hand.slice();
+  let cost=0;
+  for(const attack of undefendedAttacks){
+    const options=left.filter(c=>sbBeats(attack,c,trumpSuit)).sort((a,b)=>cardValue(a,trumpSuit)-cardValue(b,trumpSuit));
+    if(options.length===0) return {allBeatable:false, cost};
+    const used=options[0];
+    cost+=cardValue(used,trumpSuit);
+    left.splice(left.findIndex(c=>sbCardKey(c)===sbCardKey(used)),1);
+  }
+  return {allBeatable:true, cost};
+}
+function sbUnbeatableBy(card, possible, trumpSuit){ return !sbAnyBeats(possible, card, trumpSuit); }
+function sbCountTrumps(cards, trumpSuit){ return cards.filter(c=>c.suit===trumpSuit).length; }
+function sbDescribe(card){ return cardToString(card); }
+
+function sbDecideAttack(ctx){
+  const {state, trumpSuit, attacks, pass, hand, opp, oppInfo, endgame}=ctx;
+  const sorted=attacks.slice().sort((a,b)=>cardValue(a.card,trumpSuit)-cardValue(b.card,trumpSuit));
+  const mustAttack=!pass;
+  const oppHandCount=oppInfo?oppInfo.handCount:6;
+  const tableOpen=(state.table||[]).length>0;
+
+  // 1. Добивающий ход: карта, которую соперник по расчётам отбить не может.
+  if(opp && opp.possible.length>0){
+    const killers=sorted.filter(a=>sbUnbeatableBy(a.card, opp.possible, trumpSuit));
+    if(killers.length>0 && (opp.certain||endgame)){
+      const pick=killers[0];
+      return {action:pick, reason: opp.certain
+        ? `прикуп пуст, вся рука соперника мне известна (${opp.possible.map(sbDescribe).join(' ')}) — ${sbDescribe(pick.card)} ему бить нечем, он заберёт карты`
+        : `по моим подсчётам ${sbDescribe(pick.card)} соперник отбить не может — атакую именно ей`};
+    }
+  }
+
+  // 2. Добивание "по количеству": у соперника мало карт — перегружаем его руку.
+  if(tableOpen && oppHandCount<=2){
+    const cheap=sorted.find(a=>a.card.suit!==trumpSuit);
+    if(cheap) return {action:cheap, reason:`у соперника всего ${oppHandCount} карт(ы) — подкидываю ${sbDescribe(cheap.card)}, чтобы он не успел отбиться и забрал стол`};
+    if(!pass) return {action:sorted[0], reason:`у соперника ${oppHandCount} карт(ы), а у меня только козыри — хожу ${sbDescribe(sorted[0].card)}`};
+  }
+
+  // 3. Обычная атака: кидаем самое ненужное, придерживая козыри и "гвозди".
+  const unseen=opp?opp.possible:[];
+  const scored=sorted.map(a=>{
+    const card=a.card;
+    let score=cardValue(card,trumpSuit);
+    const isTrump=card.suit===trumpSuit;
+    if(isTrump) score+=60;
+    const topOfSuit=unseen.length>0 && !unseen.some(c=>c.suit===card.suit && c.rank>card.rank);
+    if(topOfSuit && !endgame) score+=25;
+    const sameRank=hand.filter(c=>c.rank===card.rank).length;
+    if(sameRank>1) score-=8;
+    if(unseen.length>0 && sbUnbeatableBy(card, unseen, trumpSuit)) score-=40;
+    return {action:a, card, score, isTrump, topOfSuit};
+  }).sort((x,y)=>x.score-y.score);
+  const best=scored[0];
+
+  if(mustAttack){
+    return {action:best.action, reason:`ходить обязан — начинаю с самой дешёвой карты ${sbDescribe(best.card)}`+(best.isTrump?' (некозырных вариантов нет)':'')};
+  }
+
+  const handOverloaded=hand.length>=6;
+  const activeOpponents=(state.players||[]).filter(p=>!p.out).length-1;
+  const duel=activeOpponents<=1;
+  const dumpSmallTrump=!duel && handOverloaded && best.card.rank<=10;
+  const holdBecauseTrump=best.isTrump && !endgame && !dumpSmallTrump;
+  const holdBecauseValuable=best.topOfSuit && !endgame && !handOverloaded && !tableOpen && best.card.rank>=12;
+  const holdBecauseHigh=best.card.rank>=13 && !endgame && !handOverloaded && best.card.suit!==trumpSuit && !tableOpen;
+  if(holdBecauseTrump||holdBecauseValuable||holdBecauseHigh){
+    const why=holdBecauseTrump
+      ? `осталось кинуть только козырь ${sbDescribe(best.card)} — берегу его`
+      : holdBecauseValuable
+        ? `${sbDescribe(best.card)} — старшая оставшаяся в масти ${best.card.suit}, ей ещё выиграю заход`
+        : `${sbDescribe(best.card)} слишком крупная, пока в прикупе ${state.talonCount} карт — придержу`;
+    return {action:pass, reason:`пас: ${why}`};
+  }
+
+  return {action:best.action, reason:`подкидываю ${sbDescribe(best.card)} — самая ненужная карта в руке`+(endgame?' (прикуп пуст, надо разгружаться)':'')};
+}
+
+function sbDecideDefense(ctx){
+  const {state, trumpSuit, defends, transfers, take, hand, opp, endgame}=ctx;
+  const undefended=(state.table||[]).filter(t=>t.defense===null).map(t=>t.attack);
+  const plan=sbPlanDefense(undefended, hand, trumpSuit);
+
+  const transferSorted=transfers.slice().sort((a,b)=>{
+    const at=sbCountTrumps(a.cards,trumpSuit), bt=sbCountTrumps(b.cards,trumpSuit);
+    if(at!==bt) return at-bt;
+    return a.cards.length-b.cards.length;
+  });
+  const transfer=transferSorted[0];
+  const defendsSorted=defends.slice().sort((a,b)=>cardValue(a.card,trumpSuit)-cardValue(b.card,trumpSuit));
+  const cheapest=defendsSorted[0];
+
+  // 1. Весь стол отбить нечем — в дуэли выгоднее взять сразу, не разбрасываясь картами.
+  const activeOpponents=(state.players||[]).filter(p=>!p.out).length-1;
+  const duel=activeOpponents<=1;
+  if(duel && !plan.allBeatable && undefended.length>=2){
+    if(transfer && sbCountTrumps(transfer.cards,trumpSuit)===0){
+      return {action:transfer, reason:`весь стол (${undefended.map(sbDescribe).join(' ')}) мне не отбить, но могу перевести ${transfer.cards.map(sbDescribe).join(' ')} — перевожу, чтобы не брать`};
+    }
+    if(take){
+      return {action:take, reason:`на столе ${undefended.length} карт(ы) (${undefended.map(sbDescribe).join(' ')}), отбить все нечем — беру сразу, чтобы не потерять ещё и козыри`};
+    }
+  }
+
+  if(!cheapest){
+    if(transfer) return {action:transfer, reason:`отбиться нечем, но есть перевод ${transfer.cards.map(sbDescribe).join(' ')} — перевожу`};
+    if(take) return {action:take, reason:'отбиться нечем — беру карты'};
+  }
+
+  const wouldUseTrump=cheapest && cheapest.card.suit===trumpSuit;
+  const attackCard=undefended[0];
+
+  // 2. Перевод вместо траты козыря.
+  if(transfer && wouldUseTrump && sbCountTrumps(transfer.cards,trumpSuit)===0){
+    return {action:transfer, reason:`бить ${sbDescribe(attackCard)} пришлось бы козырем ${sbDescribe(cheapest.card)} — вместо этого перевожу ${transfer.cards.map(sbDescribe).join(' ')}`};
+  }
+
+  // 3. Не жжём последний крупный козырь ради мелкой карты.
+  if(wouldUseTrump && take && !endgame){
+    const trumpsLeft=sbCountTrumps(hand,trumpSuit);
+    const expensive=cheapest.card.rank>=13;
+    const cheapAttack=attackCard.suit!==trumpSuit && attackCard.rank<=10;
+    if(expensive && cheapAttack && trumpsLeft===1 && hand.length<=2){
+      return {action:take, reason:`за мелкую ${sbDescribe(attackCard)} пришлось бы отдать последний крупный козырь ${sbDescribe(cheapest.card)} — выгоднее взять и сохранить его на концовку`};
+    }
+  }
+
+  // 4. Эндшпиль с просчитанной рукой соперника: защита безнадёжна — берём и ждём перехвата.
+  if(cheapest && endgame && opp && opp.certain && take && opp.possible.length<=3){
+    const rest=hand.filter(c=>sbCardKey(c)!==sbCardKey(cheapest.card));
+    const hopeless=rest.length>0 && opp.possible.every(oc=>!sbAnyBeats(rest, oc, trumpSuit));
+    if(hopeless){
+      return {action:take, reason:`рука соперника просчитана (${opp.possible.map(sbDescribe).join(' ')}) — отбившись ${sbDescribe(cheapest.card)}, я не покрою уже ни один его следующий ход; беру, чтобы получить карты и шанс перехватить`};
+    }
+  }
+
+  if(cheapest){
+    return {action:cheapest, reason:`бью ${sbDescribe(attackCard)} самой дешёвой подходящей — ${sbDescribe(cheapest.card)}`+(wouldUseTrump?' (некозырной нет, но стол отбиваю целиком)':'')};
+  }
+  if(take) return {action:take, reason:'подходящих карт нет — беру'};
+  return null;
+}
+
+function smartBotDecide(state, playerId, legalActions, memory){
+  if(!legalActions || legalActions.length===0) return {action:null, reason:'', analysis:''};
+  const mem=memory||new BotMemory();
+  mem.observe(state, playerId);
+
+  const trumpSuit=state.trumpSuit;
+  const hand=sbMyHand(state, playerId);
+  const endgame=(state.talonCount||0)===0;
+  const attacks=legalActions.filter(a=>a.type==='attack');
+  const defends=legalActions.filter(a=>a.type==='defend');
+  const transfers=legalActions.filter(a=>a.type==='transfer');
+  const take=legalActions.find(a=>a.type==='take');
+  const pass=legalActions.find(a=>a.type==='pass');
+
+  const oppId=(defends.length>0||transfers.length>0||take) ? state.attacker : state.defender;
+  const oppInfo=(state.players||[]).find(p=>p.id===oppId && p.id!==playerId)||null;
+  const opp=oppInfo ? mem.opponentCards(state, playerId, oppInfo.id) : null;
+  const ctx={state, trumpSuit, hand, attacks, defends, transfers, take, pass, opp, oppInfo, endgame, mem};
+
+  let result=null;
+  if(defends.length>0 || (take && state.phase==='defender-to-act')) result=sbDecideDefense(ctx);
+  if(!result && attacks.length>0) result=sbDecideAttack(ctx);
+  if(!result && transfers.length>0) result={action:transfers[0], reason:'перевожу — других разумных вариантов нет'};
+  if(!result && take) result={action:take, reason:'беру карты — отбиваться нечем'};
+  if(!result && pass) result={action:pass, reason:'пас — подкидывать нечего'};
+  if(!result) result={action:legalActions[0], reason:'единственный доступный ход'};
+
+  const unknown=mem.unknownCards(state, playerId);
+  const trumpsOut=unknown.filter(c=>c.suit===trumpSuit).length;
+  const knownOpp=opp && opp.known.length>0 ? `; помню у соперника: ${opp.known.map(sbDescribe).join(' ')}` : '';
+  const certainNote=opp && opp.certain ? '; рука соперника просчитана полностью' : '';
+  result.analysis=`в игре ещё ${unknown.length} неизвестных карт, из них козырей ${trumpsOut}; в прикупе ${state.talonCount}, в бито ${state.discardCount}${knownOpp}${certainNote}`;
+  return result;
+}
+
+// "Мозг" одного места за столом: у умного уровня внутри живёт своя память карт.
+function createBotBrain(level){
+  const id=normalizeBotLevel(level);
+  if(id==='smart'){
+    const memory=new BotMemory();
+    return {level:id, memory, decide(state, playerId, legal){
+      const res=smartBotDecide(state, playerId, legal, memory);
+      return {action:res.action, reason:res.reason||'', analysis:res.analysis||''};
+    }};
+  }
+  return {level:id, memory:null, decide(state, playerId, legal){
+    return {action:simpleBotDecide(state, playerId, legal), reason:'', analysis:''};
+  }};
+}
+
+// Настройки ботов из панели «Настройки партии» (лобби локальной игры).
+function selectedBotLevel(){
+  const el=document.getElementById('botLevel');
+  return normalizeBotLevel(el?el.value:DEFAULT_BOT_LEVEL);
+}
+function botExplainEnabled(){
+  const el=document.getElementById('botExplain');
+  return el ? el.checked : false;
+}
+
+function runFullGame(numPlayers, deckSize, throwInPolicy, botLevel, botExplain){
+  const level=normalizeBotLevel(botLevel);
+  const players=Array.from({length:numPlayers},(_,i)=>({id:`p${i+1}`, name:`Игрок ${i+1} [${botLevelLabel(level)}]`}));
   const game=new DurakGame(players, {numPlayers, deckSize, throwInPolicy});
+  // Своя память на каждое место — умный бот копит знание о картах по ходу партии.
+  const brains=new Map(players.map(p=>[p.id, createBotBrain(level)]));
   let safety=0;
   while(game.phase!=='finished' && safety<8000){
     safety++;
@@ -1187,9 +1526,12 @@ function runFullGame(numPlayers, deckSize, throwInPolicy){
       if(p.out) continue;
       const legal=game.getLegalActions(p.id);
       if(legal.length===0) continue;
-      const stateForBot={trumpSuit:game.trumpSuit, talonCount:game.talon.length, players: game.players.map(pl=>({id:pl.id, hand:pl.hand}))};
-      const action=simpleBotDecide(stateForBot, p.id, legal);
+      const {action, reason, analysis}=brains.get(p.id).decide(buildBotState(game, p.id), p.id, legal);
       if(!action) continue;
+      if(botExplain && reason){
+        game._log(`🤖 ${p.name}: ${reason}`);
+        if(analysis) game._log(`   └ расклад: ${analysis}`);
+      }
       game.applyAction(p.id, action);
       acted=true; break;
     }
