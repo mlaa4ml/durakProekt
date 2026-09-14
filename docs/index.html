@@ -1151,7 +1151,14 @@ function simpleBotDecide(state, playerId, legalActions){
   const endgame=state.talonCount===0;
   const attacks=legalActions.filter(a=>a.type==='attack');
   const defends=legalActions.filter(a=>a.type==='defend');
-  const transfer=legalActions.find(a=>a.type==='transfer');
+  const transfers=legalActions.filter(a=>a.type==='transfer');
+  transfers.sort((a,b)=>{
+    const aTrump=a.cards.some(c=>c.suit===trumpSuit)?1:0;
+    const bTrump=b.cards.some(c=>c.suit===trumpSuit)?1:0;
+    if(aTrump!==bTrump) return aTrump-bTrump;
+    return a.cards.length-b.cards.length;
+  });
+  const transfer=transfers[0];
   const take=legalActions.find(a=>a.type==='take');
   const pass=legalActions.find(a=>a.type==='pass');
   if(attacks.length>0){
@@ -1167,7 +1174,8 @@ function simpleBotDecide(state, playerId, legalActions){
   if(defends.length>0){
     defends.sort((a,b)=>cardValue(a.card,trumpSuit)-cardValue(b.card,trumpSuit));
     const cheapest=defends[0];
-    if(cheapest.card.suit===trumpSuit && transfer) return transfer;
+    const wouldUseTrump=cheapest.card.suit===trumpSuit;
+    if(wouldUseTrump && transfer) return transfer;
     return cheapest;
   }
   if(transfer) return transfer;
