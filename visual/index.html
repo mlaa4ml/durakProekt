@@ -1546,6 +1546,12 @@ const HUMAN_ID = 'p1';
 let igame = null;          // текущая партия в интерактивном режиме
 let botTimer = null;       // таймер хода бота
 let interactiveBusy = false;
+// Уровень ботов и режим объяснений, зафиксированные на старте текущей партии,
+// плюс "мозги" ботов: у умного уровня внутри живёт память карт, поэтому
+// экземпляр должен переживать все ходы партии (issue #24/#25).
+let igameBotLevel = DEFAULT_BOT_LEVEL;
+let igameBotExplain = false;
+let igameBrains = new Map();
 // Карта, по которой игрок кликнул и для которой доступны сразу два действия —
 // «отбиться» и «перевести» (issue #22: козырь того же ранга, что и карта на
 // столе). Пока она выставлена, в панели действий показываем явный выбор.
@@ -2516,13 +2522,5 @@ document.getElementById('trumpSide').addEventListener('change', ()=>{
   const saved = localStorage.getItem(KEY);
   if(saved === 'scroll' || saved === 'wrap') sel.value = saved;
   function apply(){
-    board.classList.remove('layout-scroll','layout-wrap');
-    board.classList.add('layout-' + sel.value);
-    localStorage.setItem(KEY, sel.value);
-  }
-  sel.addEventListener('change', apply);
-  apply();
-})();
-document.getElementById('groupHandToggle').addEventListener('change', ()=>{
-  updateTrumpSideRowVisibility(
-...[обрезано, всего 125770 символов]
+    board.classList.rem
+...[обрезано, всего 120332 символов]
