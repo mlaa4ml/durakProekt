@@ -633,6 +633,17 @@
           </label>
         </div>
         <div class="settings-row">
+          <label>Уровень ботов
+            <select id="botLevel">
+              <option value="simple" selected>Простой</option>
+              <option value="smart">Умный (считает карты)</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-row">
+          <label><input type="checkbox" id="botExplain" /> боты объясняют свои ходы в логе игры</label>
+        </div>
+        <div class="settings-row">
           <label><input type="checkbox" id="groupHandToggle" checked /> группировать карты в руке по мастям</label>
         </div>
         <div class="settings-row" id="trumpSideRow">
@@ -2516,12 +2527,5 @@ document.getElementById('showAll').addEventListener('change', ()=>{
   if(mode==='view') render(); else renderInteractive();
 });
 document.getElementById('trumpSide').addEventListener('change', ()=>{
-  if(mode==='view') render();
-  else if(mode==='interactive') renderInteractive();
-  else if(netGameStarted) renderNetwork();
-});
 
-// Раскладка карт на столе на мобильном (скролл вбок / перенос вниз).
-// Применяется сразу же, без пересдачи — это просто настройка отображения.
-(function initTableLayoutP
-...[обрезано, всего 120350 символов]
+...[обрезано, всего 120339 символов]
