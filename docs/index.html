@@ -1211,8 +1211,7 @@ function runFullGame(numPlayers, deckSize, throwInPolicy){
       if(p.out) continue;
       const legal=game.getLegalActions(p.id);
       if(legal.length===0) continue;
-      const stateForBot={trumpSuit:game.trumpSuit, talonCount:game.talon.length, players: game.players.map(pl=>({id:pl.id, hand:pl.hand}))};
-      const action=simpleBotDecide(stateForBot, p.id, legal);
+      const action=simpleBotDecide(game.getState(p.id), p.id, legal);
       if(!action) continue;
       game.applyAction(p.id, action);
       acted=true; break;
