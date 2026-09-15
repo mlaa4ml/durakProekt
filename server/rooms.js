@@ -261,11 +261,7 @@ export class Room extends EventEmitter {
       if (!this.game || this.game.phase === 'finished') return;
       const legal = this.game.getLegalActions(seat.playerId);
       if (legal.length === 0) return;
-      const stateForBot = {
-        trumpSuit: this.game.trumpSuit,
-        players: this.game.players.map((p) => ({ id: p.id, hand: p.hand })),
-      };
-      const action = simpleBotDecide(stateForBot, seat.playerId, legal);
+      const action = simpleBotDecide(this.game.getState(seat.playerId), seat.playerId, legal);
       if (action) this.game.applyAction(seat.playerId, action);
       this.broadcastState();
       this._maybeAutoPlay();
