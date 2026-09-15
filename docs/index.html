@@ -853,6 +853,32 @@ class DurakGame {
     this._log(`Игра началась. Козырь: ${cardToString(this.trumpCard)}`);
     this._log(`Первый ход: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
   }
+  // Публичное состояние игры «глазами» конкретного игрока — полный аналог
+  // getState(forPlayerId) из src/game.js. Чужие руки маскируются: hand отдаётся
+  // только самому игроку (или всем сразу, если forPlayerId === null).
+  // Именно это состояние нужно передавать ботам, чтобы они не «подглядывали»
+  // в руку человека и при этом видели стол, фазу, отбой и размеры рук.
+  getState(forPlayerId = null){
+    return {
+      phase:this.phase,
+      trumpSuit:this.trumpSuit, trumpCard:this.trumpCard,
+      talonCount:this.talon.length, discardCount:this.discardCount,
+      table:this.table.map(t=>({attack:t.attack, defense:t.defense})),
+      tableGoingToDefender:this.tookCards===true,
+      attacker:this.players[this.attackerIndex]?.id,
+      defender:this.players[this.defenderIndex]?.id,
+      players:this.players.map(p=>({
+        id:p.id,
+        name:p.name,
+        handCount:p.hand.length,
+        out:p.out,
+        finishRank:p.finishRank,
+        hand: forPlayerId===null || forPlayerId===p.id ? p.hand : undefined,
+      })),
+      durak:this.durak,
+      finished:this.phase==='finished',
+    };
+  }
   _captureState(){
     return {
       phase:this.phase,
@@ -1187,8 +1213,9 @@ function runFullGame(numPlayers, deckSize, throwInPolicy){
       if(p.out) continue;
       const legal=game.getLegalActions(p.id);
       if(legal.length===0) continue;
-      const stateForBot={trumpSuit:game.trumpSuit, talonCount:game.talon.length, players: game.players.map(pl=>({id:pl.id, hand:pl.hand}))};
-      const action=simpleBotDecide(stateForBot, p.id, legal);
+      // Боту отдаём то же маскированное состояние, что и движок: чужие руки скрыты
+      // (issue #27), зато видны стол, фаза, отбой, атакующий/защитник и размеры рук.
+      const action=simpleBotDecide(game.getState(p.id), p.id, legal);
       if(!action) continue;
       game.applyAction(p.id, action);
       acted=true; break;
@@ -1256,8 +1283,9 @@ function scheduleBotStep(){
     if(!igame || igame.phase==='finished') { interactiveBusy=false; renderInteractive(); return; }
     const legal=igame.getLegalActions(turnPlayer.id);
     if(legal.length===0){ interactiveBusy=false; scheduleBotStep(); return; }
-    const stateForBot={trumpSuit:igame.trumpSuit, talonCount:igame.talon.length, players: igame.players.map(pl=>({id:pl.id, hand:pl.hand}))};
-    const action=simpleBotDecide(stateForBot, turnPlayer.id, legal);
+    // Боту отдаём то же маскированное состояние, что и движок: рука человека
+    // и других ботов скрыта (issue #27), доступны стол/фаза/отбой/handCount.
+    const action=simpleBotDecide(igame.getState(turnPlayer.id), turnPlayer.id, legal);
     if(action) igame.applyAction(turnPlayer.id, action);
     interactiveBusy=false;
     scheduleBotStep();
