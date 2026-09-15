@@ -437,15 +437,15 @@ const SMART_PROFILE = {
 
 ### Сводная таблица
 
-| Этап | Issue (заголовок) | Файлы | Главный критерий |
-|---|---|---|---|
-| 1 | Бенчмарк ботов и реестр уровней | `src/cli/botMatch.js`, `src/bots/index.js`, `package.json`, CI | 50/50 на simple vs simple |
-| 2 | Память бота: CardTracker | `src/bots/memory.js`, тесты | точное восстановление руки в эндшпиле |
-| 3 | Умный бот: анализ и политика | `src/bots/analysis.js`, `src/bots/smartBot.js` | ≤ 45 % «дурака» vs simple |
-| 4 | Локальный клиент: подключить умного бота | `visual/index.html`, `docs/index.html`, `scripts/sync-client.*` | играбельно в браузере, состояние не «читерское» |
-| 5 | Локальный клиент: выбор уровня и объяснения | те же | чек-лист UI |
-| 6 | Сетевая версия | `server/*` | smoke зелёный |
-| 7 | Документация | `README.md`, `CODESPACES.md` | описано всё вышеперечисленное |
+| Этап | Issue (заголовок) | Заведена | Файлы | Главный критерий |
+|---|---|---|---|---|
+| 1 | Бенчмарк ботов и реестр уровней | [#31](https://github.com/mlaa4ml/durakProekt/issues/31) | `src/cli/botMatch.js`, `src/bots/index.js`, `package.json`, CI | 50/50 на simple vs simple |
+| 2 | Память бота: CardTracker | [#32](https://github.com/mlaa4ml/durakProekt/issues/32) | `src/bots/memory.js`, тесты | точное восстановление руки в эндшпиле |
+| 3 | Умный бот: анализ и политика | [#33](https://github.com/mlaa4ml/durakProekt/issues/33) | `src/bots/analysis.js`, `src/bots/smartBot.js` | ≤ 45 % «дурака» vs simple |
+| 4 | Локальный клиент: подключить умного бота | текст готов в `SMART_BOT_ISSUES.md` | `visual/index.html`, `docs/index.html`, `scripts/sync-client.*` | играбельно в браузере, состояние не «читерское» |
+| 5 | Локальный клиент: выбор уровня и объяснения | текст готов в `SMART_BOT_ISSUES.md` | те же | чек-лист UI |
+| 6 | Сетевая версия | текст готов в `SMART_BOT_ISSUES.md` | `server/*` | smoke зелёный |
+| 7 | Документация | текст готов в `SMART_BOT_ISSUES.md` | `README.md`, `CODESPACES.md` | описано всё вышеперечисленное |
 
 ---
 
