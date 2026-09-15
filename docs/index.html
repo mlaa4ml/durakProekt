@@ -1279,8 +1279,7 @@ function scheduleBotStep(){
     if(!igame || igame.phase==='finished') { interactiveBusy=false; renderInteractive(); return; }
     const legal=igame.getLegalActions(turnPlayer.id);
     if(legal.length===0){ interactiveBusy=false; scheduleBotStep(); return; }
-    const stateForBot={trumpSuit:igame.trumpSuit, talonCount:igame.talon.length, players: igame.players.map(pl=>({id:pl.id, hand:pl.hand}))};
-    const action=simpleBotDecide(stateForBot, turnPlayer.id, legal);
+    const action=simpleBotDecide(igame.getState(turnPlayer.id), turnPlayer.id, legal);
     if(action) igame.applyAction(turnPlayer.id, action);
     interactiveBusy=false;
     scheduleBotStep();
