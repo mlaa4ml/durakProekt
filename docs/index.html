@@ -853,6 +853,30 @@ class DurakGame {
     this._log(`Игра началась. Козырь: ${cardToString(this.trumpCard)}`);
     this._log(`Первый ход: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
   }
+  getState(forPlayerId = null) {
+    return {
+      phase: this.phase,
+      trumpSuit: this.trumpSuit,
+      trumpCard: this.trumpCard,
+      talonCount: this.talon.length,
+      discardCount: this.discardCount,
+      table: this.table.map((t) => ({ attack: t.attack, defense: t.defense })),
+      tableGoingToDefender: this.tookCards === true,
+      attacker: this.players[this.attackerIndex]?.id,
+      defender: this.players[this.defenderIndex]?.id,
+      players: this.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        handCount: p.hand.length,
+        out: p.out,
+        finishRank: p.finishRank,
+        hand: forPlayerId === null || forPlayerId === p.id ? p.hand : undefined,
+      })),
+      durak: this.durak,
+      finished: this.phase === 'finished',
+    };
+  }
+
   _captureState(){
     return {
       phase:this.phase,
