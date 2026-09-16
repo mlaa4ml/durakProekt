@@ -55,6 +55,33 @@ jobs:
             }
           done
 
+      - name: Бенчмарк ботов — botMatch (калибровка simple vs simple)
+        run: |
+          set -e
+          if [ ! -f src/cli/botMatch.js ]; then
+            echo "В этой ветке нет src/cli/botMatch.js — пропускаю (см. issue #31)."
+            exit 0
+          fi
+          out=$(node src/cli/botMatch.js 400 simple simple 24 2)
+          echo "$out"
+          echo "$out" | grep -q "Ошибок движка: 0" || {
+            echo "::error::botMatch — ненулевое число ошибок движка"; exit 1;
+          }
+          echo "$out" | grep -q "Зависших (упёрлись в предохранитель): 0" || {
+            echo "::error::botMatch — есть зависшие партии"; exit 1;
+          }
+
+      - name: Клиенты идентичны — visual/index.html == docs/index.html
+        run: |
+          set -e
+          if cmp -s visual/index.html docs/index.html; then
+            echo "OK: visual/index.html и docs/index.html идентичны ($(wc -c < visual/index.html) байт)."
+          else
+            echo "::error::visual/index.html и docs/index.html разошлись — выполните 'npm run sync-client' и закоммитьте docs/index.html"
+            diff -u <(head -c 4000 visual/index.html) <(head -c 4000 docs/index.html) | head -40 || true
+            exit 1
+          fi
+
       - name: Сервер — /health, /, /visual
         run: |
           set -e
