@@ -442,10 +442,13 @@ const SMART_PROFILE = {
 | 1 | Бенчмарк ботов и реестр уровней | [#31](https://github.com/mlaa4ml/durakProekt/issues/31) | `src/cli/botMatch.js`, `src/bots/index.js`, `package.json`, CI | 50/50 на simple vs simple |
 | 2 | Память бота: CardTracker | [#32](https://github.com/mlaa4ml/durakProekt/issues/32) | `src/bots/memory.js`, тесты | точное восстановление руки в эндшпиле |
 | 3 | Умный бот: анализ и политика | [#33](https://github.com/mlaa4ml/durakProekt/issues/33) | `src/bots/analysis.js`, `src/bots/smartBot.js` | ≤ 45 % «дурака» vs simple |
-| 4 | Локальный клиент: подключить умного бота | текст готов в `SMART_BOT_ISSUES.md` | `visual/index.html`, `docs/index.html`, `scripts/sync-client.*` | играбельно в браузере, состояние не «читерское» |
-| 5 | Локальный клиент: выбор уровня и объяснения | текст готов в `SMART_BOT_ISSUES.md` | те же | чек-лист UI |
-| 6 | Сетевая версия | текст готов в `SMART_BOT_ISSUES.md` | `server/*` | smoke зелёный |
-| 7 | Документация | текст готов в `SMART_BOT_ISSUES.md` | `README.md`, `CODESPACES.md` | описано всё вышеперечисленное |
+| 4 | Локальный клиент: подключить умного бота | [#38](https://github.com/mlaa4ml/durakProekt/issues/38) | `visual/index.html`, `docs/index.html`, `scripts/sync-client.*` | играбельно в браузере, состояние не «читерское» |
+| 5 | Локальный клиент: выбор уровня и объяснения | [#39](https://github.com/mlaa4ml/durakProekt/issues/39) | те же | чек-лист UI |
+| 6 | Сетевая версия | [#40](https://github.com/mlaa4ml/durakProekt/issues/40) | `server/*` | smoke зелёный |
+| 7 | Документация | [#41](https://github.com/mlaa4ml/durakProekt/issues/41) | `README.md`, `CODESPACES.md` | описано всё вышеперечисленное |
+
+Все семь issue заведены: этапы 1–3 — в прогоне по [#29](https://github.com/mlaa4ml/durakProekt/issues/29),
+этапы 4–7 — в прогоне по [#36](https://github.com/mlaa4ml/durakProekt/issues/36).
 
 ---
 
