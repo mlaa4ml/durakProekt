@@ -232,12 +232,12 @@ function main() {
   }
   console.log('');
   console.log('--- Доля "дурака" по местам ---');
+  const seatsDir0 = seatLevels(levelA, levelB, numPlayers, 0);
+  const seatsDir1 = seatLevels(levelA, levelB, numPlayers, 1);
   durakBySeat.forEach((count, seat) => {
     console.log(
       `Место ${seat + 1}: ${count} (${pct(count, decided)})` +
-        (numPlayers === 2 || true
-          ? `  [сторона 0: ${seatLevels(levelA, levelB, numPlayers, 0)[seat]}, сторона 1: ${seatLevels(levelA, levelB, numPlayers, 1)[seat]}]`
-          : ''),
+        `  [в 1-й половине матча тут ${seatsDir0[seat]}, во 2-й — ${seatsDir1[seat]}]`,
     );
   });
 
