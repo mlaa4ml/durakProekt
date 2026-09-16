@@ -223,13 +223,33 @@ export class CardTracker {
     let allAttributed = true;
 
     // --- 1. стол закрылся: карты ушли в бито или к защитнику ---
-    const left = [...prev.tableKeys].filter((k) => !cur.tableKeys.has(k));
+    // Важно: между двумя моими наблюдениями я успеваю сделать СВОЙ ход, и карта,
+    // которую я тогда положил (защита/атака/перевод), могла уйти со стола до того,
+    // как я увидел следующее состояние. На столе я её не видел никогда, но точно знаю,
+    // что она покинула мою руку → считаем её частью закрывшегося стола.
+    const goneFromTable = [...prev.tableKeys].filter((k) => !cur.tableKeys.has(k));
+    const myGone = [...(this.prevMyHand || [])].filter(
+      (k) => !this.myHand.has(k) && !cur.tableKeys.has(k) && !prev.tableKeys.has(k)
+    );
+    const left = [...new Set([...goneFromTable, ...myGone])];
     if (left.length > 0) {
       const discardDelta = cur.discardCount - prev.discardCount;
-      // `tableGoingToDefender` в ПРЕДЫДУЩЕМ снимке — это уже принятое решение «беру»,
-      // карты физически уйдут защитнику. Иначе ориентируемся на точный счётчик бито.
-      const toDefender = prev.tableGoingToDefender || discardDelta < left.length;
-      if (toDefender) {
+      // Куда ушёл стол:
+      //   discardDelta === 0            → бито не росло, значит всё забрал защитник;
+      //   discardDelta === left.length  → ровно эти карты и ушли в отбой;
+      //   иначе                          → между наблюдениями закрылось несколько столов
+      //                                    (бывает при 3+ игроках) — честное «не знаю».
+      let mode;
+      if (discardDelta === 0) mode = 'defender';
+      else if (!prev.tableGoingToDefender && discardDelta === left.length) mode = 'discard';
+      else mode = 'unknown';
+
+      if (mode === 'unknown') {
+        for (const k of left) this.onTable.delete(k);
+        this.unseenDiscardCount += discardDelta;
+        // Ни одного нового «точного» факта: карты остаются в пуле неизвестного.
+        for (const id of cur.order) this._forgetAssumptions(id);
+      } else if (mode === 'defender') {
         const defId = prev.defender;
         this._ensurePlayer(defId);
         takenNow.set(defId, (takenNow.get(defId) || 0) + left.length);
