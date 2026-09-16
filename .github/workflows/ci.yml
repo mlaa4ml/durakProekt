@@ -41,6 +41,15 @@ jobs:
       - name: Версии
         run: node -v && npm -v
 
+      - name: Юнит-тесты (node:test, если в ветке есть test/)
+        run: |
+          set -e
+          if [ -d test ]; then
+            node --test test/
+          else
+            echo "В этой ветке нет каталога test/ — пропускаю."
+          fi
+
       - name: Движок — подробный лог одной партии
         run: |
           node src/cli/playVerbose.js 2 24 | tail -20

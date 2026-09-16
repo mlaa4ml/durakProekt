@@ -5,6 +5,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "test": "node --test test/",
     "play": "node src/cli/playVerbose.js 2 24",
     "simulate": "node src/cli/simulate.js 1000 2 24",
     "bot-match": "node src/cli/botMatch.js 1000 simple simple 24 2",
