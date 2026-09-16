@@ -55,6 +55,23 @@ jobs:
             }
           done
 
+      - name: Матч ботов — калибровочный прогон
+        run: |
+          set -e
+          echo "=== botMatch simple vs simple ==="
+          out=$(node src/cli/botMatch.js 400 simple simple 24 2)
+          echo "$out"
+          echo "$out" | grep -q "Ошибок движка: 0" || {
+            echo "::error::botMatch — ненулевое число ошибок движка"; exit 1;
+          }
+          echo "$out" | grep -q "Зависших (упёрлись в предохранитель): 0" || {
+            echo "::error::botMatch — есть зависшие партии"; exit 1;
+          }
+
+      - name: Проверка синхронизации клиентов (visual vs docs)
+        run: |
+          bash scripts/sync-client.sh --check
+
       - name: Сервер — /health, /, /visual
         run: |
           set -e
