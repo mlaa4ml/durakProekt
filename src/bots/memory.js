@@ -25,16 +25,6 @@ export function cardKey(card) {
   return `${card.rank}${card.suit}`;
 }
 
-function sameCard(a, b) {
-  return !!a && !!b && a.rank === b.rank && a.suit === b.suit;
-}
-
-function setAdd(map, key, value) {
-  if (!map.has(key)) map.set(key, new Set());
-  map.get(key).add(value);
-  return map.get(key);
-}
-
 function getSet(map, key) {
   if (!map.has(key)) map.set(key, new Set());
   return map.get(key);
