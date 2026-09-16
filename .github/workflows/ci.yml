@@ -8,8 +8,11 @@
 #
 # Что проверяется:
 #   1. движок и боты офлайн (playVerbose + simulate на разных конфигурациях);
-#   2. HTTP-эндпоинты сервера: /health, /, /visual;
-#   3. если в ветке есть `npm run smoke` (scripts/smoke.js) — прогоняется и он
+#   2. бенчмарк ботов `botMatch` (калибровочный прогон simple vs simple: 0 ошибок, 0 зависаний);
+#   3. идентичность клиентов: `visual/index.html` и `docs/index.html` байт-в-байт
+#      (расхождение валит сборку; чинится `npm run sync-client`);
+#   4. HTTP-эндпоинты сервера: /health, /, /visual;
+#   5. если в ветке есть `npm run smoke` (scripts/smoke.js) — прогоняется и он
 #      (полная партия по WebSocket).
 
 name: CI
