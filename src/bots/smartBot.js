@@ -376,7 +376,7 @@ export class SmartBot {
     // Если бью некозырной, но при этом отдаю единственную старшую в масти,
     // а атака мелкая и колода ещё есть — дешевле забрать.
     if (
-      this.profile.holdTrumpsWhileTalon &&
+      this.profile.holdHighCardsWhileTalon &&
       take &&
       !endgame &&
       !usesTrump &&
