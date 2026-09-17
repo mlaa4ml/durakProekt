@@ -89,6 +89,9 @@ function playChecked(levels, deckSize, numPlayers, { explain = false } = {}) {
         `${p.id}: нелегальное действие ${JSON.stringify(action)} (легальны: ${JSON.stringify(legal)})`,
       );
 
+      // Бот не имеет права править состояние, которое ему показали.
+      assert.equal(JSON.stringify(state), before, `${p.id}: бот изменил показанное ему состояние`);
+
       // (3) Объяснения.
       if (explain && brain.actualLevel === 'smart') {
         assert.equal(typeof decision.reason, 'string');
