@@ -357,7 +357,7 @@ export class SmartBot {
 
     // 4. Не жжём крупный козырь (K/A) ради мелкой карты, пока идёт прикуп и взятие дёшево.
     if (
-      this.profile.holdTrumpsWhileTalon &&
+      this.profile.avoidBurningBigTrump &&
       take &&
       !endgame &&
       usesTrump &&
