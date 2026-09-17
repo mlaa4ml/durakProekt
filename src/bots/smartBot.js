@@ -32,7 +32,9 @@ import {
 
 /** Профиль эвристик. Каждый флаг — отдельное правило раздела 5.3, включается/выключается для A/B. */
 export const SMART_PROFILE = {
-  holdTrumpsWhileTalon: true,   // беречь козыри и крупные карты, пока идёт прикуп
+  holdTrumpsWhileTalon: true,   // беречь козыри при подкидывании, пока идёт прикуп
+  holdHighCardsWhileTalon: true,// беречь крупные некозырные (Q+), пока идёт прикуп
+  avoidBurningBigTrump: true,   // лучше взять, чем спалить козырного K/A ради мелочи
   finishOffWeakOpponent: true,  // добивать соперника картой, которую он (по подсчётам) не бьёт
   takeWhenTableUnbeatable: true,// брать сразу, если весь стол не отбить
   exactEndgame: true,           // точный счёт, когда прикуп пуст
