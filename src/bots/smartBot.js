@@ -247,16 +247,15 @@ export class SmartBot {
     // 3–5. Придерживание. Козырь бережём, пока это имеет смысл; крупную карту —
     // только пока идёт прикуп. В эндшпиле и при «соперник уже забирает» придерживание слабеет.
     let shouldHold = false;
-    if (this.profile.holdTrumpsWhileTalon) {
-      if (isTrump) {
-        // Козырь отдаём, только если он уже никем не бьётся (тогда это чистая нагрузка сопернику).
-        shouldHold = !(endgame && this._nobodyCanBeat(card, hand, trumpSuit));
-      } else if (isHigh) {
-        // Крупную некозырную придерживаем, пока есть прикуп и соперник не забирает стол.
-        shouldHold = !endgame && !takingNow;
-      }
-    } else if (isTrump) {
-      shouldHold = !endgame;
+    if (isTrump) {
+      // Козырь: придерживаем, пока идёт прикуп. Когда колода пуста, козырь — лучшая
+      // нагрузка для соперника, и держать его «на всякий случай» уже поздно.
+      shouldHold = this.profile.holdTrumpsWhileTalon
+        ? !endgame && !this._nobodyCanBeat(card, hand, trumpSuit)
+        : false;
+    } else if (isHigh && this.profile.holdHighCardsWhileTalon) {
+      // Крупную некозырную придерживаем, пока есть прикуп и соперник не забирает стол.
+      shouldHold = !endgame && !takingNow;
     }
 
     // 4. Если защитнику уже нечем отбиваться (он берёт или у него кончились карты) —
