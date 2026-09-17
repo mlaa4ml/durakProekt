@@ -92,10 +92,12 @@ test('planDefense: козырь используется, только когд�
   assert.equal(res.trumpsUsed, 1);
 });
 
-test('unbeatableCards без памяти: непобиваемым считается только старший козырь', () => {
+test('unbeatableCards без памяти: непобиваемы только верхние козыри подряд', () => {
+  // 14♣ и 13♣ — два старших козыря, побить их нечем (туз у меня же).
+  // 14♠ — некозырный туз: его кроет любой оставшийся козырь, значит он побиваем.
   const hand = [c(14, T), c(13, T), c(14, '♠')];
-  const res = unbeatableCards(hand, T, null, { deckSize: 24 });
-  assert.deepEqual(res.map((x) => `${x.rank}${x.suit}`), ['14♣']);
+  const res = unbeatableCards(hand, T, null, { deckSize: 24 }).map((x) => `${x.rank}${x.suit}`).sort();
+  assert.deepEqual(res, ['14♣', '13♣'].sort());
 });
 
 test('unbeatableCards с памятью: когда все козыри вышли, старшая в масти непобиваема', () => {
