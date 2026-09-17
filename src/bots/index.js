@@ -1,17 +1,18 @@
 // Реестр уровней ботов и фабрика «мозгов».
 //
-// Этап 1 плана умного бота (issue #31): здесь появляется ЕДИНАЯ точка правды про то,
+// Этап 1 плана умного бота (issue #31): здесь появилась ЕДИНАЯ точка правды про то,
 // какие уровни ботов существуют, как они называются и как получить объект, принимающий
-// решения. Сам умный бот появится позже (этапы 2–3), поэтому сейчас реально реализован
-// только уровень `simple` — тонкая обёртка над `simpleBotDecide` из `./simpleBot.js`.
-// Уровень `smart` зарегистрирован в списке (чтобы UI и CLI уже умели о нём говорить),
-// но его «мозг» пока ПАДАЕТ ОБРАТНО на простую логику — это осознанное поведение
-// этапа 1, а не недосмотр: см. поле `fallback` у возвращаемого объекта.
+// решения.
+// Этап 3 (issue #33): уровень `smart` стал НАСТОЯЩИМ — его «мозг» собран из памяти
+// (`./memory.js`), анализа (`./analysis.js`) и политики (`./smartBot.js`). Отката на
+// простую логику для него больше нет, поэтому `fallback` у него всегда false.
 //
 // Важное ограничение: `src/bots/simpleBot.js` не меняется ни на одном этапе — на нём
-// висят simulate/playVerbose/smoke/сервер/локальный клиент.
+// висят simulate/playVerbose/smoke/сервер/локальный клиент, и он же служит эталоном,
+// с которым умный бот сравнивается в `src/cli/botMatch.js`.
 
 import { simpleBotDecide } from './simpleBot.js';
+import { SmartBot } from './smartBot.js';
 
 export const BOT_LEVELS = [
   {
@@ -28,9 +29,9 @@ export const BOT_LEVELS = [
 
 export const DEFAULT_BOT_LEVEL = 'simple';
 
-// Уровни, «мозг» которых реально реализован на текущем этапе.
-// Всё остальное из BOT_LEVELS создаётся с откатом на DEFAULT_BOT_LEVEL.
-export const IMPLEMENTED_BOT_LEVELS = ['simple'];
+// Уровни, «мозг» которых реально реализован. С этапа 3 это и `simple`, и `smart`.
+// Всё, чего здесь нет, создаётся с откатом на DEFAULT_BOT_LEVEL.
+export const IMPLEMENTED_BOT_LEVELS = ['simple', 'smart'];
 
 export function isBotLevel(id) {
   return BOT_LEVELS.some((l) => l.id === id);
@@ -78,11 +79,29 @@ function createSimpleBrain(requestedLevel, options) {
   };
 }
 
+// «Мозг» умного бота: помнит вышедшие карты и умеет объяснять ходы.
+// Внутри — SmartBot из ./smartBot.js; интерфейс тот же, что у простого,
+// поэтому вызывающему коду (CLI, клиент, сервер) знать об уровне ничего не нужно.
+function createSmartBrain(options) {
+  const explain = options.explain === true;
+  const bot = new SmartBot({ explain, profile: options.profile });
+  return {
+    level: 'smart',
+    actualLevel: 'smart',
+    fallback: false,
+    explain,
+    profile: bot.profile,
+    reset(state = null, meId = null) { bot.reset(state, meId); },
+    observe(state, meId = null) { bot.observe(state, meId); },
+    decide(state, playerId, legalActions) { return bot.decide(state, playerId, legalActions); },
+  };
+}
+
 /**
  * Фабрика «мозга» бота.
  *
  * @param {string} level  идентификатор уровня (`simple` | `smart`), нестрогий
- * @param {object} options  { explain?: boolean, ... } — зарезервировано под умного бота
+ * @param {object} options  { explain?: boolean, profile?: object }
  * @returns {{ level: string, actualLevel: string, fallback: boolean,
  *             reset: Function, observe: Function, decide: Function }}
  *
@@ -93,8 +112,7 @@ export function createBotBrain(level, options = {}) {
   const requested = normalizeBotLevel(level);
   switch (requested) {
     case 'smart':
-      // Этап 1: умного бота ещё нет — осознанно откатываемся на простого.
-      return createSimpleBrain(requested, options);
+      return createSmartBrain(options);
     case 'simple':
     default:
       return createSimpleBrain('simple', options);
