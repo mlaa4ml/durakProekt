@@ -274,7 +274,12 @@ export class SmartBot {
       if (endgame) {
         return { action: choice, reason: `Подкидываю ${cardToString(card)} — колода пуста, сейчас главное избавляться от карт.` };
       }
-      return { action: choice, reason: `Подкидываю ${cardToString(card)} — недорогая карта, её не жалко.` };
+      return {
+        action: choice,
+        reason: isHigh
+          ? `Подкидываю ${cardToString(card)} — держать крупную карту про запас невыгодно, лучше разгрузить руку сейчас.`
+          : `Подкидываю ${cardToString(card)} — недорогая карта, её не жалко.`,
+      };
     }
 
     // 6. Пас: подкидывание сейчас только навредит (отдали бы козырь или крупную карту).
