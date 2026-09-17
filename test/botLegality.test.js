@@ -65,7 +65,7 @@ function playChecked(levels, deckSize, numPlayers, { explain = false } = {}) {
       const legal = game.getLegalActions(p.id);
       if (legal.length === 0) continue;
 
-      const state = game.getState(p.id);
+      const state = cloneState(game.getState(p.id));
 
       // (2) Инвариант «бот не подглядывает»: чужих рук в состоянии нет.
       for (const other of state.players) {
@@ -75,7 +75,7 @@ function playChecked(levels, deckSize, numPlayers, { explain = false } = {}) {
           assert.equal(other.hand, undefined, `в состоянии для ${p.id} видна рука ${other.id}`);
         }
       }
-      deepFreeze(state);
+      const before = JSON.stringify(state);
 
       const brain = brains.get(p.id);
       brain.observe(state, p.id);
