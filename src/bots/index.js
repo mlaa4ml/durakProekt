@@ -29,9 +29,9 @@ export const BOT_LEVELS = [
 
 export const DEFAULT_BOT_LEVEL = 'simple';
 
-// Уровни, «мозг» которых реально реализован на текущем этапе.
-// Всё остальное из BOT_LEVELS создаётся с откатом на DEFAULT_BOT_LEVEL.
-export const IMPLEMENTED_BOT_LEVELS = ['simple'];
+// Уровни, «мозг» которых реально реализован. С этапа 3 это и `simple`, и `smart`.
+// Всё, чего здесь нет, создаётся с откатом на DEFAULT_BOT_LEVEL.
+export const IMPLEMENTED_BOT_LEVELS = ['simple', 'smart'];
 
 export function isBotLevel(id) {
   return BOT_LEVELS.some((l) => l.id === id);
