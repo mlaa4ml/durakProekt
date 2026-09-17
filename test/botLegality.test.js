@@ -32,12 +32,11 @@ const CONFIGS = [
   { deckSize: 52, numPlayers: 3 },
 ];
 
-function deepFreeze(o) {
-  if (o && typeof o === 'object' && !Object.isFrozen(o)) {
-    Object.freeze(o);
-    for (const v of Object.values(o)) deepFreeze(v);
-  }
-  return o;
+function cloneState(state) {
+  // getState() отдаёт СВОЙ массив руки по ссылке, поэтому замораживать его нельзя —
+  // сломается сам движок. Вместо этого даём боту глубокую копию: так он физически
+  // не может испортить состояние игры, а мы дополнительно сверяем копию до и после.
+  return structuredClone(state);
 }
 
 /**
