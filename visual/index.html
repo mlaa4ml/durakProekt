@@ -2036,6 +2036,398 @@ function gamePhase(state, handSize = 6) {
   return talon > handSize * active ? 'debut' : 'middle';
 }
 
+/* ---------- Политика умного бота (копия src/bots/smartBot.js) ---------- */
+
+/** Профиль эвристик. Каждый флаг — отдельное правило раздела 5.3, включается/выключается для A/B. */
+const SMART_PROFILE = {
+  holdTrumpsWhileTalon: true,    // беречь козыри при подкидывании, пока идёт прикуп (+1.3 п.п. без него)
+  holdHighCardsWhileTalon: false,// ВЫКЛЮЧЕН: придерживание Q+ стоило 12.6 п.п. — некозырную мелочь
+                                 // выгоднее сбрасывать сразу, иначе рука к эндшпилю забита старьём
+  avoidBurningBigTrump: true,    // лучше взять, чем спалить козырного K/A ради мелочи
+  finishOffWeakOpponent: true,   // добивать соперника картой, которую он (по подсчётам) не бьёт
+  takeWhenTableUnbeatable: true, // брать сразу, если весь стол не отбить
+  exactEndgame: true,            // точный счёт, когда прикуп пуст
+  dumpPairs: true,               // разгружаться парами/тройками одного ранга (+3.2 п.п. без него)
+};
+
+const HIGH_RANK = 12;  // дама и старше
+const BIG_TRUMP = 13;  // козырные король и туз
+
+const list = (cards) => cards.map(cardToString).join(', ');
+
+function myHandOf(state, playerId) {
+  const me = (state.players || []).find((p) => p.id === playerId);
+  return me && Array.isArray(me.hand) ? me.hand : [];
+}
+
+function handCountOf(state, id) {
+  const p = (state.players || []).find((x) => x.id === id);
+  return p ? p.handCount || 0 : 0;
+}
+
+const PHASE_LABEL = { debut: 'начало партии', middle: 'середина партии', endgame: 'эндшпиль' };
+
+/**
+ * Умный бот. Один экземпляр = один игрок в одной партии (в нём живёт память).
+ */
+class SmartBot {
+  constructor(options = {}) {
+    this.profile = { ...SMART_PROFILE, ...(options.profile || {}) };
+    this.explain = options.explain === true;
+    this.meId = options.meId || null;
+    this.tracker = null;
+  }
+
+  reset(state = null, meId = null) {
+    if (meId) this.meId = meId;
+    this.tracker = null;
+    if (state) this.observe(state, this.meId);
+    return this;
+  }
+
+  observe(state, meId = null) {
+    if (meId) this.meId = meId;
+    if (!state) return;
+    try {
+      if (!this.tracker) this.tracker = CardTracker.fromState(state, this.meId);
+      else this.tracker.observe(state);
+    } catch {
+      // Память — вспомогательный слой. Если она почему-то не смогла разобрать состояние,
+      // бот продолжает играть «вслепую», но НИКОГДА не падает и не ходит нелегально.
+      this.tracker = null;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  //  Знания о сопернике (только то, что выведено из наблюдений)
+  // ------------------------------------------------------------------
+
+  _opponentKnownHand(oppId) {
+    if (!this.tracker || !oppId) return null;
+    try {
+      if (!this.tracker.isOpponentHandCertain(oppId)) return null;
+      return this.tracker.toCards(this.tracker.opponentKnownCards(oppId));
+    } catch {
+      return null;
+    }
+  }
+
+  /** true — соперник ТОЧНО не побьёт эту карту (рука восстановлена полностью). */
+  _opponentSurelyCannotBeat(oppId, card, trumpSuit) {
+    const known = this._opponentKnownHand(oppId);
+    if (!known) return false;
+    return !known.some((c) => beats(c, card, trumpSuit));
+  }
+
+  /** true — карту вообще некому побить: ни одной бьющей карты нет вне моей руки. */
+  _nobodyCanBeat(card, hand, trumpSuit) {
+    if (!this.tracker) return false;
+    try {
+      return unbeatableCards(hand, trumpSuit, this.tracker).some(
+        (c) => c.rank === card.rank && c.suit === card.suit,
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  //  Общий «расклад» для объяснений
+  // ------------------------------------------------------------------
+
+  _analysisText(state, hand, trumpSuit, oppId) {
+    const phase = gamePhase(state);
+    const strength = handStrength(hand, trumpSuit, this.tracker);
+    const parts = [PHASE_LABEL[phase]];
+    parts.push(state.talonCount > 0 ? `в колоде ещё ${state.talonCount} карт` : 'колода пуста');
+    parts.push(`у меня ${hand.length} карт (козырей ${strength.trumpCount})`);
+    if (strength.unbeatableCount > 0) {
+      parts.push(`непробиваемых на руках ${strength.unbeatableCount}`);
+    }
+    const known = this._opponentKnownHand(oppId);
+    if (known && known.length) {
+      // Называть чужие карты можно ТОЛЬКО когда они выведены из наблюдений однозначно.
+      parts.push(`соперник держит ${list(known)}`);
+    } else if (oppId) {
+      parts.push(`у соперника ${handCountOf(state, oppId)} карт`);
+    }
+    return parts.join(', ');
+  }
+
+  // ------------------------------------------------------------------
+  //  Точка входа
+  // ------------------------------------------------------------------
+
+  decide(state, playerId, legalActions) {
+    if (!legalActions || legalActions.length === 0) return { action: null };
+    if (playerId) this.meId = playerId;
+
+    let picked;
+    try {
+      picked = this._choose(state, playerId, legalActions);
+    } catch {
+      picked = null;
+    }
+    // Страховка: что бы ни случилось внутри эвристик, наружу уходит действие ИЗ СПИСКА легальных.
+    if (!picked || !legalActions.includes(picked.action)) {
+      picked = { action: legalActions[0], reason: 'Играю первым доступным ходом.' };
+    }
+    if (!this.explain) return { action: picked.action };
+
+    const hand = myHandOf(state, playerId);
+    const oppId = playerId === state.defender ? state.attacker : state.defender;
+    return {
+      action: picked.action,
+      reason: picked.reason,
+      analysis: this._analysisText(state, hand, state.trumpSuit, oppId),
+    };
+  }
+
+  _choose(state, playerId, legalActions) {
+    const defends = legalActions.filter((a) => a.type === 'defend');
+    const transfers = legalActions.filter((a) => a.type === 'transfer');
+    const take = legalActions.find((a) => a.type === 'take');
+    if (defends.length > 0 || transfers.length > 0 || take) {
+      return this._decideDefense(state, playerId, legalActions, { defends, transfers, take });
+    }
+    return this._decideAttack(state, playerId, legalActions);
+  }
+
+  // ------------------------------------------------------------------
+  //  Ход и подкидывание
+  // ------------------------------------------------------------------
+
+  _decideAttack(state, playerId, legalActions) {
+    const trumpSuit = state.trumpSuit;
+    const hand = myHandOf(state, playerId);
+    const attacks = legalActions.filter((a) => a.type === 'attack');
+    const pass = legalActions.find((a) => a.type === 'pass');
+
+    if (attacks.length === 0) {
+      return { action: pass || legalActions[0], reason: 'Подкинуть нечего — пропускаю ход.' };
+    }
+
+    const mustAttack = !pass;
+    const defenderId = state.defender;
+    const defenderCards = handCountOf(state, defenderId);
+    const endgame = (state.talonCount || 0) === 0;
+    const takingNow = state.tableGoingToDefender === true; // соперник уже решил забрать
+
+    // Сколько карт каждого ранга у меня на руках — «топливо» для разгрузки парами.
+    const rankCount = new Map();
+    for (const c of hand) rankCount.set(c.rank, (rankCount.get(c.rank) || 0) + 1);
+
+    // 1. Добивание: у соперника мало карт и есть та, которую он не отобьёт.
+    if (this.profile.finishOffWeakOpponent && defenderCards > 0 && defenderCards <= 2) {
+      const killers = attacks.filter(
+        (a) =>
+          this._opponentSurelyCannotBeat(defenderId, a.card, trumpSuit) ||
+          this._nobodyCanBeat(a.card, hand, trumpSuit),
+      );
+      if (killers.length > 0) {
+        // Из «неотбиваемых» отдаём самую дешёвую — дорогие пригодятся дальше.
+        killers.sort((a, b) => cardPower(a.card, trumpSuit) - cardPower(b.card, trumpSuit));
+        const known = this._opponentKnownHand(defenderId);
+        return {
+          action: killers[0],
+          reason: known
+            ? `Хожу ${cardToString(killers[0].card)} — соперник этой картой не отобьётся, а карт у него всего ${defenderCards}.`
+            : `Хожу ${cardToString(killers[0].card)} — такой карты, чтобы её побить, уже ни у кого не осталось.`,
+        };
+      }
+    }
+
+    // 2. Сортировка кандидатов: дешевле — лучше; парные ранги идут вперёд (разгрузка).
+    const scored = attacks.map((a) => {
+      let score = cardPower(a.card, trumpSuit);
+      if (this.profile.dumpPairs && (rankCount.get(a.card.rank) || 0) >= 2) score -= 3;
+      return { a, score };
+    });
+    scored.sort((x, y) => x.score - y.score || cardPower(x.a.card, trumpSuit) - cardPower(y.a.card, trumpSuit));
+    const choice = scored[0].a;
+    const card = choice.card;
+    const isTrump = card.suit === trumpSuit;
+    const isHigh = card.rank >= HIGH_RANK;
+
+    if (mustAttack) {
+      return { action: choice, reason: `Захожу ${cardToString(card)} — это самая дешёвая карта, с которой не жалко начать.` };
+    }
+
+    // 3–5. Придерживание. Козырь бережём, пока это имеет смысл; крупную карту —
+    // только пока идёт прикуп. В эндшпиле и при «соперник уже забирает» придерживание слабеет.
+    let shouldHold = false;
+    if (isTrump) {
+      // Козырь: придерживаем, пока идёт прикуп. Когда колода пуста, козырь — лучшая
+      // нагрузка для соперника, и держать его «на всякий случай» уже поздно.
+      shouldHold = this.profile.holdTrumpsWhileTalon
+        ? !endgame && !this._nobodyCanBeat(card, hand, trumpSuit)
+        : false;
+    } else if (isHigh && this.profile.holdHighCardsWhileTalon) {
+      // Крупную некозырную придерживаем, пока есть прикуп и соперник не забирает стол.
+      shouldHold = !endgame && !takingNow;
+    }
+
+    // 4. Если защитнику уже нечем отбиваться (он берёт или у него кончились карты) —
+    //    грузим стол по максимуму: каждая подкинутая карта уходит ему, а у меня руки чище.
+    if (takingNow && !isTrump) shouldHold = false;
+    if (defenderCards === 0) shouldHold = false;
+
+    if (!shouldHold) {
+      if (takingNow) {
+        return { action: choice, reason: `Подкидываю ${cardToString(card)} — соперник всё равно забирает стол, пусть берёт больше.` };
+      }
+      if (endgame) {
+        return { action: choice, reason: `Подкидываю ${cardToString(card)} — колода пуста, сейчас главное избавляться от карт.` };
+      }
+      return {
+        action: choice,
+        reason: isHigh
+          ? `Подкидываю ${cardToString(card)} — держать крупную карту про запас невыгодно, лучше разгрузить руку сейчас.`
+          : `Подкидываю ${cardToString(card)} — недорогая карта, её не жалко.`,
+      };
+    }
+
+    // 6. Пас: подкидывание сейчас только навредит (отдали бы козырь или крупную карту).
+    return {
+      action: pass,
+      reason: isTrump
+        ? 'Пропускаю: подкинуть могу только козырем, а его лучше приберечь.'
+        : 'Пропускаю: остались только крупные карты, пока их отдавать рано.',
+    };
+  }
+
+  // ------------------------------------------------------------------
+  //  Защита: отбиться / перевести / взять
+  // ------------------------------------------------------------------
+
+  _decideDefense(state, playerId, legalActions, { defends, transfers, take }) {
+    const trumpSuit = state.trumpSuit;
+    const hand = myHandOf(state, playerId);
+    const table = state.table || [];
+    const undefended = table.filter((t) => t && t.attack && !t.defense);
+    const endgame = (state.talonCount || 0) === 0;
+    const attackerId = state.attacker;
+
+    const plan = planDefense(table, hand, trumpSuit);
+
+    // Перевод: предпочитаем не отдавать козырь и переводить минимумом карт.
+    const sortedTransfers = [...transfers].sort((a, b) => {
+      const at = a.cards.some((c) => c.suit === trumpSuit) ? 1 : 0;
+      const bt = b.cards.some((c) => c.suit === trumpSuit) ? 1 : 0;
+      if (at !== bt) return at - bt;
+      return a.cards.length - b.cards.length;
+    });
+    const transfer = sortedTransfers[0];
+    const cheapTransfer = transfer && !transfer.cards.some((c) => c.suit === trumpSuit) ? transfer : null;
+
+    // 1. Весь стол не отбить и неотбитых уже несколько — берём сразу,
+    //    не разбазаривая карты на заведомо проигранную защиту.
+    if (this.profile.takeWhenTableUnbeatable && take && !plan.canDefendAll && undefended.length >= 2) {
+      if (cheapTransfer) {
+        return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — весь стол мне не отбить, пусть отбивается следующий.` };
+      }
+      return { action: take, reason: 'Беру карты: весь стол мне всё равно не отбить, нет смысла тратить карты впустую.' };
+    }
+
+    if (defends.length === 0) {
+      if (cheapTransfer) {
+        return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться нечем, зато ход уходит дальше.` };
+      }
+      if (transfer) {
+        return { action: transfer, reason: `Перевожу ${list(transfer.cards)} — отбиться нечем.` };
+      }
+      return { action: take, reason: 'Беру карты: отбиться нечем.' };
+    }
+
+    // 2. Бьём минимальной достаточной картой; козырь — только если некозырной нет.
+    const sortedDefends = [...defends].sort(
+      (a, b) => cardPower(a.card, trumpSuit) - cardPower(b.card, trumpSuit),
+    );
+    const best = sortedDefends[0];
+    const target = undefended[0] ? undefended[0].attack : best.against;
+    const usesTrump = best.card.suit === trumpSuit;
+
+    // 3. Перевод дешевле защиты козырем — переводим.
+    if (usesTrump && cheapTransfer) {
+      return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — иначе пришлось бы тратить козырь.` };
+    }
+
+    // 5. Эндшпиль: колода пуста, считаем по-простому и точно.
+    if (this.profile.exactEndgame && endgame) {
+      const known = this._opponentKnownHand(attackerId);
+      // Отбился — рука стала меньше; взял — больше. Когда карт мало, это решает партию.
+      if (plan.canDefendAll) {
+        return {
+          action: best,
+          reason: known
+            ? `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, а я знаю, что осталось у соперника, и отбиваюсь весь стол.`
+            : `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, брать карты сейчас нельзя.`,
+        };
+      }
+      if (take) {
+        return { action: take, reason: 'Беру карты: колода пуста, а отбить весь стол уже не получится.' };
+      }
+    }
+
+    // 4. Не жжём крупный козырь (K/A) ради мелкой карты, пока идёт прикуп и взятие дёшево.
+    if (
+      this.profile.avoidBurningBigTrump &&
+      take &&
+      !endgame &&
+      usesTrump &&
+      best.card.rank >= BIG_TRUMP &&
+      target &&
+      target.suit !== trumpSuit &&
+      target.rank < HIGH_RANK &&
+      table.length <= 2
+    ) {
+      return {
+        action: take,
+        reason: `Беру карты: отбиться можно было бы только крупным козырем, а он дороже, чем ${cardToString(target)}.`,
+      };
+    }
+
+    // Если бью некозырной, но при этом отдаю единственную старшую в масти,
+    // а атака мелкая и колода ещё есть — дешевле забрать.
+    if (
+      this.profile.holdHighCardsWhileTalon &&
+      take &&
+      !endgame &&
+      !usesTrump &&
+      best.card.rank >= HIGH_RANK &&
+      table.length <= 2 &&
+      hand.length >= 6
+    ) {
+      const control = suitControl(hand, best.card.suit, this.tracker);
+      if (control.controlled && control.myBest && control.myBest.rank === best.card.rank) {
+        return {
+          action: take,
+          reason: `Беру карты: единственная старшая карта масти ${best.card.suit} пригодится мне позже больше, чем сейчас.`,
+        };
+      }
+    }
+
+    return {
+      action: best,
+      reason: usesTrump
+        ? `Бью ${cardToString(target)} козырем ${cardToString(best.card)} — некозырной подходящей карты нет.`
+        : `Бью ${cardToString(target)} картой ${cardToString(best.card)} — это самый дешёвый способ отбиться.`,
+    };
+  }
+}
+
+/** Фабрика в стиле `createBotBrain` — удобно для реестра уровней. */
+function createSmartBot(options = {}) {
+  return new SmartBot(options);
+}
+
+/** Разовое решение без сохранения памяти (для тестов и «одноразовых» вызовов). */
+function smartBotDecide(state, playerId, legalActions, options = {}) {
+  const bot = new SmartBot(options);
+  bot.observe(state, playerId);
+  return bot.decide(state, playerId, legalActions);
+}
+
 /* ---------- Реестр уровней ботов (копия src/bots/index.js) ---------- */
 
 const BOT_LEVELS = [
@@ -2747,494 +3139,5 @@ function renderNetwork(){
   if(finished){
     hintBox.textContent='Партия завершена. Можно выйти в лобби и сыграть ещё раз.';
   } else if(isMyTurn){
-    hintBox.textContent = st.phase==='defender-to-act' ? 'Ваш ход: отбейтесь картой, переведите или заберите карты.' : 'Ваш ход: подкиньте карту или пасуйте.';
-  } else {
-    hintBox.textContent = 'Ждём ход соперника…';
-  }
-  markYourTurn(isMyTurn);
-
-  const logBox=document.getElementById('fullLog');
-  logBox.textContent = netLastLog.join('\n'); // сервер шлёт только хвост лога (последние 20 строк)
-}
-
-/* ============ Переключение режимов ============ */
-
-let mode='view'; // 'view' | 'interactive' | 'network'
-
-/* ============ Переключение «настройки» / «стол» ============ */
-const MODE_LABELS = {view:'просмотр ботов', interactive:'игра против ботов', network:'игра по сети'};
-function hasActiveGame(){
-  if(mode==='view') return !!game;
-  if(mode==='interactive') return !!igame;
-  if(mode==='network') return netGameStarted;
-  return false;
-}
-function updateResumeButton(){
-  document.getElementById('resumeGameBtn').classList.toggle('hidden', !hasActiveGame());
-}
-function showSetup(){
-  updateResumeButton(); // состояние партии могло измениться, пока экран настроек был скрыт (боты продолжают ходить)
-  document.getElementById('setupScreen').classList.remove('hidden');
-  document.getElementById('gameScreen').classList.add('hidden');
-}
-function showGame(){
-  document.getElementById('setupScreen').classList.add('hidden');
-  document.getElementById('gameScreen').classList.remove('hidden');
-  document.getElementById('gameModeLabel').textContent = MODE_LABELS[mode] || '';
-  // пока экран был скрыт (display:none), замеры карт возвращали 0 — пересчитываем дугу заново
-  layoutHandArc(document.getElementById('myHand'));
-}
-document.getElementById('backToSetupBtn').addEventListener('click', showSetup);
-document.getElementById('resumeGameBtn').addEventListener('click', ()=>{ if(hasActiveGame()) showGame(); });
-
-function setMode(newMode){
-  if(mode===newMode) return;
-  mode=newMode;
-  stop(); // остановить автопроигрывание режима просмотра, если шло
-  stopBotTimer();
-  document.getElementById('modeViewBtn').classList.toggle('active', mode==='view');
-  document.getElementById('modeInteractiveBtn').classList.toggle('active', mode==='interactive');
-  document.getElementById('modeNetworkBtn').classList.toggle('active', mode==='network');
-  document.getElementById('viewTransport').classList.toggle('hidden', mode!=='view');
-  document.getElementById('scrubber').classList.toggle('hidden', mode!=='view');
-  document.getElementById('localControls').classList.toggle('hidden', mode==='network');
-  document.getElementById('localControlsBtn').classList.toggle('hidden', mode==='network');
-  document.getElementById('networkStatusBar').classList.toggle('hidden', mode!=='network');
-  netUpdatePanels(); // прячет/показывает блок «Подключение к серверу» — актуально при ЛЮБОМ переключении режима, не только при входе в сетевой
-  document.getElementById('footerNote').textContent = mode==='view'
-    ? 'Ходят боты друг против друга — это инструмент проверки правил, не финальный интерфейс.'
-    : mode==='interactive'
-    ? 'Вы играете за «Вы» (первый игрок), остальные — боты. Переключатель «показать все карты» оставляет карты ботов открытыми — удобно для поиска багов в правилах.'
-    : 'Партия идёт на отдельном сервере — карты соперников вам не видны, только их количество.';
-  if(mode==='view'){ buildGame(); showGame(); }
-  else if(mode==='interactive'){ startInteractiveGame(); showGame(); }
-  else { if(netGameStarted){ renderNetwork(); showGame(); } else showSetup(); }
-}
-
-/* ============ Визуализация ============ */
-
-// Раскладывает карты руки дугой: центральная карта ниже и без наклона,
-// к краям карты приподнимаются и разворачиваются. Работает по фактической
-// ширине карты (--hand-card-w меняется через clamp()), поэтому пересчитывается
-// при каждой отрисовке руки и при ресайзе окна.
-function layoutHandArc(container){
-  if(!container) return;
-  const cards = Array.from(container.children).filter(el=>el.classList.contains('card'));
-  const n = cards.length;
-  if(n===0){ container.style.height=''; return; }
-  // Отключаем transition на время замера/расстановки: getBoundingClientRect()
-  // ниже форсирует синхронный reflow, а карты только что вставлены с ещё
-  // не заданными --tx/--ty/--tr (т.е. дефолт 0,0,0) — без этого браузер
-  // фиксирует два разных состояния стиля и на КАЖДОЙ перерисовке руки
-  // проигрывает transition с нуля до дуги, из-за чего карты «мерцают».
-  cards.forEach(el=>{ el.style.transition='none'; });
-  const w = cards[0].getBoundingClientRect().width || 60;
-  const h = cards[0].getBoundingClientRect().height || 84;
-  const avail = container.clientWidth || w*n;
-  const stepDeg = n>1 ? Math.min(9, 56/(n-1)) : 0;
-  const stepX = n>1 ? Math.max(w*0.22, Math.min(w*0.62, (avail - w) / (n-1))) : 0;
-  const mid = (n-1)/2;
-  // Форма дуги: центральная карта приподнята над базовой линией, к краям
-  // подъём плавно сходит на нет — у самых крайних карт --ty=0 (они стоят
-  // ровно на базовой линии контейнера). Так --ty никогда не становится
-  // положительным, и карты физически не могут провалиться НИЖЕ контейнера
-  // в панель действий/подсказку хода, даже при большой руке. Итоговый
-  // подъём центра ограничен потолком в 85% высоты карты.
-  let curveMag = h*0.055;
-  const maxExtent = h*0.85;
-  if(mid*mid*curveMag > maxExtent) curveMag = maxExtent / (mid*mid || 1);
-  const extent = mid*mid*curveMag;
-  cards.forEach((el,i)=>{
-    const off = i - mid;
-    el.style.setProperty('--tr', (off*stepDeg).toFixed(2)+'deg');
-    el.style.setProperty('--tx', (off*stepX).toFixed(1)+'px');
-    el.style.setProperty('--ty', (-(mid*mid - off*off)*curveMag).toFixed(1)+'px');
-    el.style.marginLeft = (-w/2)+'px';
-    // Возрастающий z-index слева направо: каждая следующая карта лежит
-    // ПОВЕРХ предыдущей — обычный порядок веера. Раньше было наоборот
-    // (выше всех — центральная), из-за чего у крайних карт перекрывался
-    // не тот угол и веер выглядел «сломанным».
-    el.style.setProperty('--zi', String(i+1));
-  });
-  container.style.height = (h + extent + 12) + 'px';
-  // форсируем применение новой раскладки без анимации, затем возвращаем transition
-  void container.offsetHeight;
-  cards.forEach(el=>{ el.style.transition=''; });
-}
-window.addEventListener('resize', ()=>{
-  clearTimeout(window.__handArcResize);
-  window.__handArcResize = setTimeout(()=> layoutHandArc(document.getElementById('myHand')), 120);
-});
-
-/* ============ HUD партии (issue #19) ============
-   Раньше вверху стола была одна длинная строка
-   «Атакует: X · Защищается: Y · козырь ♠»: на телефоне она переносилась,
-   счётчики колоды и «бито» жили отдельно мелким текстом по краям стола, и
-   ничто не связывало имя в строке с местом соперника за столом.
-   Теперь тот же смысл выводится набором цветных чипов; цвета совпадают с
-   бейджами ролей (.role-tag.attacker/.defender) и кольцами вокруг мест,
-   поэтому «кто атакует / кто защищается» читается одним взглядом.
-   Функция общая для всех трёх режимов (просмотр ботов / против ботов / сеть). */
-function hudEsc(s){ return String(s==null?'':s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-function hudSuitHtml(suit){
-  return `<span class="suit${RED_SUITS.has(suit)?' red':''}">${hudEsc(suit)}</span>`;
-}
-function renderStatusHud(o){
-  const box=document.getElementById('statusLine');
-  if(!box) return;
-  if(o.finished){
-    box.innerHTML = '<span class="hud-chip finished">'+
-      (o.durakName ? 'партия окончена — дурак: <b>'+hudEsc(o.durakName)+'</b>' : 'партия окончена — ничья')+
-      '</span>';
-    return;
-  }
-  const chips=[];
-  if(o.trumpSuit) chips.push(`<span class="hud-chip trump">козырь ${hudSuitHtml(o.trumpSuit)}</span>`);
-  chips.push(`<span class="hud-chip attacker"><span class="dot"></span>атакует <b>${hudEsc(o.attackerName||'?')}</b></span>`);
-  chips.push(`<span class="hud-chip defender"><span class="dot"></span>защищается <b>${hudEsc(o.defenderName||'?')}</b></span>`);
-  chips.push(`<span class="hud-chip">колода <b>${o.talonCount==null?'?':o.talonCount}</b></span>`);
-  chips.push(`<span class="hud-chip">бито <b>${o.discardCount||0}</b></span>`);
-  box.innerHTML = chips.join('');
-}
-// Подсветка «сейчас ходите вы»: окантовка стола + контрастная подсказка +
-// отдельный чип в HUD. Вызывается уже после того, как режим посчитал,
-// действительно ли ход за игроком.
-function markYourTurn(on){
-  const table=document.getElementById('tableBoard');
-  if(table) table.classList.toggle('your-turn', !!on);
-  const hint=document.getElementById('turnHint');
-  if(hint) hint.classList.toggle('my-turn', !!on);
-  const box=document.getElementById('statusLine');
-  if(box && on && !box.querySelector('.hud-chip.you')){
-    const chip=document.createElement('span');
-    chip.className='hud-chip you'; chip.innerHTML='<b>ваш ход</b>';
-    box.appendChild(chip);
-  }
-}
-
-function cardEl(card, faceUp=true){
-  if(!faceUp){ const d=document.createElement('div'); d.className='card-back'; return d; }
-  const d=document.createElement('div');
-  const red = RED_SUITS.has(card.suit);
-  d.className='card ' + (red?'brick':'ink');
-  const idx = `<div class="r">${rankName(card.rank)}</div><div class="s">${card.suit}</div>`;
-  d.innerHTML = `<div class="corner">${idx}</div><div class="corner br">${idx}</div>`;
-  return d;
-}
-
-// Группировка руки по мастям (внутри масти — по возрастанию ранга).
-// Козырная масть ставится в начало или в конец, по выбору игрока.
-// Если игрок выключил группировку в настройках — карты остаются в исходном
-// порядке (как пришли в руку), а строка «Козыри в руке» тогда не нужна.
-const SUIT_ORDER_BASE = ['♠','♣','♥','♦'];
-function trumpSidePref(){
-  const el = document.getElementById('trumpSide');
-  return el ? el.value : 'right';
-}
-function groupHandPref(){
-  const el = document.getElementById('groupHandToggle');
-  return el ? el.checked : true;
-}
-function updateTrumpSideRowVisibility(){
-  document.getElementById('trumpSideRow').classList.toggle('hidden', !groupHandPref());
-}
-function sortHandForDisplay(hand, trumpSuit){
-  if(!groupHandPref()) return hand.slice();
-  const side = trumpSidePref();
-  const others = SUIT_ORDER_BASE.filter(s=>s!==trumpSuit);
-  const order = side==='left' ? [trumpSuit, ...others] : [...others, trumpSuit];
-  return hand.slice().sort((a,b)=>{
-    const oa=order.indexOf(a.suit), ob=order.indexOf(b.suit);
-    if(oa!==ob) return oa-ob;
-    return a.rank-b.rank;
-  });
-}
-// Крайние (левое/правое) места при 4+ соперниках рисуем вертикальным веером —
-// иначе при 5-6 игроках карты по бокам вылезают за стол по горизонтали.
-function oppWrapClass(seatIdx, totalOpponents, out){
-  const vertical = totalOpponents>=4 && (seatIdx===0 || seatIdx===totalOpponents-1);
-  return 'opp' + (out?' out':'') + (vertical?' vertical':'');
-}
-
-// Строка роли ("атакует"/"защита"/"думает…") — рисуется в отдельном
-// вынесенном из потока блоке (.role-row), чтобы её появление/исчезновение
-// не меняло ширину карточки игрока и не двигало соседей по дуге.
-function roleTagsHtml(isAttacker, isDefender, isThinking){
-  return (isAttacker?'<span class="role-tag attacker">атакует</span>':'')+
-    (isDefender?'<span class="role-tag defender">защита</span>':'')+
-    (isThinking?'<span class="role-tag" style="background:#3a6b52;color:var(--cream);">думает…</span>':'');
-}
-function appendRoleRow(wrap, html){
-  if(!html) return;
-  const row=document.createElement('div'); row.className='role-row'; row.innerHTML=html;
-  wrap.appendChild(row);
-}
-
-// Раньше при скрытых картах рисовался веер из N рубашек — его ширина росла
-// вместе с числом карт в руке соперника, а т.к. в мобильной раскладке .opp
-// стоят в одном flex-ряду, это "толкало" соседних игроков и сдвигало позиции
-// на каждой раздаче/отбое. Теперь при скрытых картах рисуем один рубашечный
-// значок фиксированного размера + бейдж с количеством — ширина .opp больше
-// не зависит от числа карт, позиции игроков стабильны. Когда включено
-// "показать все карты" (режим проверки правил), по-прежнему рисуем настоящий
-// веер лицевых карт — там важно видеть реальную раскладку.
-function renderOppHandArea(wrap, count, faceUp, hand, trumpSuit){
-  if(faceUp && hand){
-    const fan=document.createElement('div'); fan.className='fan';
-    sortHandForDisplay(hand, trumpSuit).forEach(c=> fan.appendChild(cardEl(c, true)) );
-    wrap.appendChild(fan);
-  } else {
-    const box=document.createElement('div'); box.className='hand-count';
-    const back=document.createElement('div'); back.className='card-back-mini'; box.appendChild(back);
-    const chip=document.createElement('div'); chip.className='count-chip'; chip.textContent=String(count); box.appendChild(chip);
-    wrap.appendChild(box);
-  }
-}
-
-let game=null, cursor=0, playTimer=null;
-
-function buildGame(){
-  const numPlayers=Number(document.getElementById('numPlayers').value);
-  const deckSize=Number(document.getElementById('deckSize').value);
-  const throwInPolicy=document.getElementById('throwInPolicy').value;
-  game=runFullGame(numPlayers, deckSize, throwInPolicy);
-  cursor=0;
-  document.getElementById('scrubber').max=String(game.snapshots.length-1);
-  document.getElementById('scrubber').value='0';
-  renderFullLog();
-  render();
-}
-
-function renderFullLog(){
-  const box=document.getElementById('fullLog');
-  box.innerHTML = game.log.map((line,i)=>`<span data-i="${i}">${i===cursor?'<span class="cur">'+line+'</span>':line}</span>`).join('\n');
-}
-
-function render(){
-  const snap = game.snapshots[cursor].state;
-  const desc = game.snapshots[cursor].description;
-  const showAll = document.getElementById('showAll').checked;
-  const viewerId = showAll ? null : snap.players[0].id;
-
-  document.getElementById('eventDesc').textContent = desc;
-  document.getElementById('stepCounter').textContent = `шаг ${cursor+1} / ${game.snapshots.length}`;
-  document.getElementById('scrubber').value = String(cursor);
-
-  const attackerName = snap.players[snap.attackerIndex]?.name;
-  const defenderName = snap.players[snap.defenderIndex]?.name;
-  renderStatusHud({
-    finished: snap.finished,
-    durakName: snap.durak ? snap.players.find(p=>p.id===snap.durak)?.name : null,
-    attackerName, defenderName,
-    trumpSuit: snap.trumpSuit,
-    talonCount: snap.talonCount,
-    discardCount: snap.discardCount,
-  });
-  markYourTurn(false); // режим просмотра ботов — «вашего хода» здесь не бывает
-
-  // opponents = все, кроме первого игрока (используем первого как "мою" позицию для примера)
-  const oppBox=document.getElementById('opponents');
-  oppBox.innerHTML='';
-  oppBox.dataset.count = String(snap.players.length-1);
-  snap.players.slice(1).forEach((p,i)=>{
-    const realIdx=i+1;
-    const wrap=document.createElement('div'); wrap.className=oppWrapClass(i, snap.players.length-1, p.out);
-    const label=document.createElement('div'); label.className='label';
-    label.textContent = p.name;
-    wrap.appendChild(label);
-    appendRoleRow(wrap, roleTagsHtml(realIdx===snap.attackerIndex, realIdx===snap.defenderIndex, false));
-    const faceUp = showAll;
-    renderOppHandArea(wrap, p.hand.length, faceUp, p.hand, snap.trumpSuit);
-    if(p.out){ const b=document.createElement('div'); b.className='finish-badge'; b.textContent=`место ${p.finishRank}`; wrap.appendChild(b); }
-    else { const cnt=document.createElement('div'); cnt.className='finish-badge'; cnt.textContent=`${p.hand.length} карт`; wrap.appendChild(cnt); }
-    oppBox.appendChild(wrap);
-  });
-
-  // talon
-  const talonStack=document.getElementById('talonStack');
-  talonStack.innerHTML='';
-  const stackDepth = Math.min(4, Math.ceil(snap.talonCount/6));
-  for(let i=0;i<Math.max(stackDepth, snap.talonCount>0?1:0); i++){
-    const b=document.createElement('div'); b.className='card-back';
-    b.style.position='absolute'; b.style.left=(i*2)+'px'; b.style.top=(i*2)+'px';
-    talonStack.appendChild(b);
-  }
-  if(snap.talonCount>0){
-    const peek=document.createElement('div'); peek.className='trump-peek';
-    peek.appendChild(cardEl(snap.trumpCard, true));
-    talonStack.appendChild(peek);
-  }
-  document.getElementById('talonCount').textContent = snap.talonCount>0 ? `в колоде: ${snap.talonCount}` : 'колода пуста';
-
-  // trick area
-  const trickArea=document.getElementById('trickArea');
-  trickArea.innerHTML='';
-  trickArea.classList.toggle('taking-cards', snap.tableGoingToDefender===true);
-  if(snap.tableGoingToDefender){
-    const label=document.createElement('div'); label.className='taking-label';
-    label.textContent=`→ забирает ${defenderName}`;
-    trickArea.appendChild(label);
-  }
-  if(snap.table.length===0){
-    trickArea.innerHTML += '<span style="font-family:var(--mono);font-size:11px;opacity:.5;">стол пуст</span>';
-  }
-  snap.table.forEach(t=>{
-    const pair=document.createElement('div'); pair.className='trick-pair';
-    const a=cardEl(t.attack,true); a.classList.add('attack-card'); a.style.transform='rotate(-6deg)';
-    pair.appendChild(a);
-    if(t.defense){ const d=cardEl(t.defense,true); d.classList.add('defense-card'); d.style.transform='rotate(8deg)'; pair.appendChild(d); }
-    trickArea.appendChild(pair);
-  });
-
-  // discard
-  document.getElementById('discardPile').textContent = snap.discardCount>0 ? `${snap.discardCount}` : '—';
-
-  // my hand (viewer = player 1, if showAll off; if showAll on we still show p1 as "hand" for concreteness)
-  const me = snap.players[0];
-  document.getElementById('myHandLabel').textContent =
-    `${me.name}${0===snap.attackerIndex?' — атакует':''}${0===snap.defenderIndex?' — защищается':''}`;
-  const myHandBox=document.getElementById('myHand');
-  myHandBox.innerHTML='';
-  sortHandForDisplay(me.hand, snap.trumpSuit).forEach(c=> myHandBox.appendChild(cardEl(c,true)) );
-  layoutHandArc(myHandBox);
-
-  renderFullLog();
-
-  document.getElementById('btnPrev').disabled = cursor<=0;
-  document.getElementById('btnFirst').disabled = cursor<=0;
-  document.getElementById('btnNext').disabled = cursor>=game.snapshots.length-1;
-  document.getElementById('btnLast').disabled = cursor>=game.snapshots.length-1;
-}
-
-function stop(){ if(playTimer){ clearInterval(playTimer); playTimer=null; document.getElementById('btnPlay').textContent='▶'; } }
-
-document.getElementById('newGameBtn').addEventListener('click', ()=>{
-  if(mode==='view'){ stop(); buildGame(); } else { startInteractiveGame(); }
-  showGame();
-});
-document.getElementById('showAll').addEventListener('change', ()=>{
-  if(mode==='view') render(); else renderInteractive();
-});
-document.getElementById('trumpSide').addEventListener('change', ()=>{
-  if(mode==='view') render();
-  else if(mode==='interactive') renderInteractive();
-  else if(netGameStarted) renderNetwork();
-});
-
-// Раскладка карт на столе на мобильном (скролл вбок / перенос вниз).
-// Применяется сразу же, без пересдачи — это просто настройка отображения.
-(function initTableLayoutPref(){
-  const sel = document.getElementById('tableLayoutMobile');
-  const board = document.getElementById('tableBoard');
-  const KEY = 'durak.tableLayoutMobile';
-  const saved = localStorage.getItem(KEY);
-  if(saved === 'scroll' || saved === 'wrap') sel.value = saved;
-  function apply(){
-    board.classList.remove('layout-scroll','layout-wrap');
-    board.classList.add('layout-' + sel.value);
-    localStorage.setItem(KEY, sel.value);
-  }
-  sel.addEventListener('change', apply);
-  apply();
-})();
-document.getElementById('groupHandToggle').addEventListener('change', ()=>{
-  updateTrumpSideRowVisibility();
-  if(mode==='view') render();
-  else if(mode==='interactive') renderInteractive();
-  else if(netGameStarted) renderNetwork();
-});
-updateTrumpSideRowVisibility();
-document.getElementById('modeViewBtn').addEventListener('click', ()=> setMode('view'));
-document.getElementById('modeInteractiveBtn').addEventListener('click', ()=> setMode('interactive'));
-document.getElementById('modeNetworkBtn').addEventListener('click', ()=> setMode('network'));
-
-document.getElementById('netConnectBtn').addEventListener('click', netConnect);
-document.getElementById('netRefreshRoomsBtn').addEventListener('click', ()=> netSend({type:'listRooms'}));
-document.getElementById('netCreateRoomBtn').addEventListener('click', ()=>{
-  netSend({
-    type:'createRoom',
-    label: document.getElementById('netCreateLabel').value,
-    name: document.getElementById('netCreateName').value,
-    numPlayers: Number(document.getElementById('netCreateNumPlayers').value),
-    deckSize: Number(document.getElementById('netCreateDeckSize').value),
-    throwInPolicy: document.getElementById('netCreateThrowIn').value,
-  });
-});
-document.getElementById('netJoinRoomBtn').addEventListener('click', ()=>{
-  netSend({type:'join', roomId: document.getElementById('netJoinRoomId').value.trim().toUpperCase(), name: document.getElementById('netJoinName').value});
-});
-document.getElementById('netLeaveBtn').addEventListener('click', ()=> netSend({type:'leave'}));
-document.getElementById('netFillWithBotsBtn').addEventListener('click', ()=> netSend({type:'fillWithBots'}));
-document.getElementById('netForgetBtn').addEventListener('click', netClearSession);
-document.getElementById('netRejoinBtn').addEventListener('click', ()=>{
-  const s=netLoadSession();
-  if(!s) return;
-  document.getElementById('netWsUrl').value=s.wsUrl;
-  const doRejoin=()=> netSend({type:'rejoin', roomId:s.roomId, playerId:s.playerId});
-  if(netWs && netWs.readyState===WebSocket.OPEN){ doRejoin(); return; }
-  netConnect();
-  const check=setInterval(()=>{
-    if(netWs && netWs.readyState===WebSocket.OPEN){ clearInterval(check); doRejoin(); }
-  }, 100);
-  setTimeout(()=>clearInterval(check), 5000);
-});
-netUpdateSessionUI();
-document.getElementById('btnFirst').addEventListener('click', ()=>{ stop(); cursor=0; render(); });
-document.getElementById('btnLast').addEventListener('click', ()=>{ stop(); cursor=game.snapshots.length-1; render(); });
-document.getElementById('btnPrev').addEventListener('click', ()=>{ stop(); cursor=Math.max(0,cursor-1); render(); });
-document.getElementById('btnNext').addEventListener('click', ()=>{ stop(); cursor=Math.min(game.snapshots.length-1,cursor+1); render(); });
-document.getElementById('scrubber').addEventListener('input', (e)=>{ stop(); cursor=Number(e.target.value); render(); });
-document.getElementById('btnPlay').addEventListener('click', ()=>{
-  if(playTimer){ stop(); return; }
-  document.getElementById('btnPlay').textContent='⏸';
-  playTimer=setInterval(()=>{
-    if(cursor>=game.snapshots.length-1){ stop(); return; }
-    cursor++; render();
-  }, Number(document.getElementById('speed').value));
-});
-
-if (window.matchMedia('(max-width: 680px)').matches) {
-  const sp = document.getElementById('settingsPanel');
-  if (sp) sp.open = false;
-}
-
-/* ============ Тема (светлая/тёмная/системная) ============ */
-function applyTheme(pref){
-  if(pref==='light' || pref==='dark') document.documentElement.setAttribute('data-theme', pref);
-  else document.documentElement.removeAttribute('data-theme');
-}
-(function initTheme(){
-  const saved = localStorage.getItem('durak-theme') || 'system';
-  const sel = document.getElementById('themeSelect');
-  if(sel) sel.value = saved;
-  applyTheme(saved);
-  sel?.addEventListener('change', e=>{
-    localStorage.setItem('durak-theme', e.target.value);
-    applyTheme(e.target.value);
-  });
-})();
-
-/* ============ Показ полного лога на экране стола ============ */
-function applyLogVisible(on){
-  document.getElementById('logBlock').classList.toggle('hidden', !on);
-}
-(function initLogToggle(){
-  const cb = document.getElementById('showLogToggle');
-  const saved = localStorage.getItem('durak-show-log');
-  // на телефоне по умолчанию прячем лог (занимает много места ниже стола),
-  // на десктопе — показываем; если пользователь уже выбирал сам, берём его выбор
-  const on = saved!==null ? saved==='1' : !window.matchMedia('(max-width: 680px)').matches;
-  cb.checked = on;
-  applyLogVisible(on);
-  cb.addEventListener('change', e=>{
-    localStorage.setItem('durak-show-log', e.target.checked ? '1' : '0');
-    applyLogVisible(e.target.checked);
-  });
-})();
-
-/* ============ Размер карт игрока внизу (подбирается прямо во время игры) ============ */
-(function initHandSize(){
-  const range = document.getElementById('handSizeRange');
-  const valueLabel = document.getElementById('handSizeValue');
-  const KEY = 'durak.h
-...[обрезано, всего 120924 символов]
+    hintBox.textContent = st.phase==='defe
+...[обрезано, всего 144196 символов]
