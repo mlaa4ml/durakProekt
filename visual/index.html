@@ -1202,6 +1202,328 @@ function simpleBotDecide(state, playerId, legalActions){
   return legalActions[0];
 }
 
+/* ============ Умный бот (этап 4, issue #38) ============
+   Ниже — копия src/bots/memory.js, src/bots/analysis.js, src/bots/smartBot.js
+   и реестра уровней src/bots/index.js: сняты только строки import/export
+   (локальный клиент — самодостаточная страница, здесь уже есть
+   createDeck/cardToString/SUITS из «движка» выше). Логика НЕ менялась —
+   при правках в src/bots/* этот блок нужно обновить.
+   Простой бот (simpleBotDecide выше) остаётся ровно таким же, как был. */
+
+/* ---------- Анализ позиции (копия src/bots/analysis.js) ---------- */
+
+/**
+ * Бьёт ли `defCard` карту `atkCard` — строго по правилам движка
+ * (`canBeat` в src/game.js): та же масть и старше, либо козырь по некозырю.
+ */
+function beats(defCard, atkCard, trumpSuit) {
+  if (!defCard || !atkCard) return false;
+  if (defCard.suit === atkCard.suit) return defCard.rank > atkCard.rank;
+  return defCard.suit === trumpSuit && atkCard.suit !== trumpSuit;
+}
+
+/**
+ * Числовая ценность карты: козырь всегда дороже любого некозыря.
+ * Шкала совместима с простым ботом (`cardValue`), чтобы сравнения читались одинаково.
+ */
+function cardPower(card, trumpSuit) {
+  if (!card) return 0;
+  return (card.suit === trumpSuit ? 100 : 0) + card.rank;
+}
+
+/** Сортировка копии массива карт по возрастанию ценности. */
+function sortByPower(cards, trumpSuit) {
+  return [...cards].sort((a, b) => cardPower(a, trumpSuit) - cardPower(b, trumpSuit));
+}
+
+/**
+ * Все карты, которые МОГУТ оказаться у соперников (или в прикупе).
+ * С трекером — его честный «пул неизвестного» + то, что точно забрали соперники.
+ * Без трекера — вся колода за вычетом моей руки и карт на столе.
+ */
+function outsideCards(hand, tracker = null, { deckSize = 36, table = [] } = {}) {
+  if (tracker) {
+    const res = [];
+    const seen = new Set();
+    for (const c of tracker.toCards(tracker.unknownCards())) {
+      const k = cardKey(c);
+      if (!seen.has(k)) { seen.add(k); res.push(c); }
+    }
+    for (const id of tracker.playerIds) {
+      if (id === tracker.meId) continue;
+      for (const c of tracker.toCards(tracker.opponentKnownCards(id))) {
+        const k = cardKey(c);
+        if (!seen.has(k)) { seen.add(k); res.push(c); }
+      }
+    }
+    return res;
+  }
+  const mine = new Set(hand.map(cardKey));
+  for (const t of table) {
+    if (t.attack) mine.add(cardKey(t.attack));
+    if (t.defense) mine.add(cardKey(t.defense));
+  }
+  return createDeck(deckSize).filter((c) => !mine.has(cardKey(c)));
+}
+
+/**
+ * Держу ли я старшую НЕвышедшую карту масти.
+ * @returns {{ suit, controlled: boolean, myBest: object|null, theirBest: object|null }}
+ */
+function suitControl(hand, suit, tracker = null, opts = {}) {
+  const mine = hand.filter((c) => c.suit === suit);
+  let myBest = null;
+  for (const c of mine) if (!myBest || c.rank > myBest.rank) myBest = c;
+
+  let theirBest = null;
+  if (tracker && typeof tracker.highestRemaining === 'function') {
+    theirBest = tracker.highestRemaining(suit);
+  } else {
+    for (const c of outsideCards(hand, null, opts)) {
+      if (c.suit !== suit) continue;
+      if (!theirBest || c.rank > theirBest.rank) theirBest = c;
+    }
+  }
+
+  return {
+    suit,
+    controlled: !!myBest && (!theirBest || myBest.rank > theirBest.rank),
+    myBest: myBest ? { ...myBest } : null,
+    theirBest: theirBest ? { ...theirBest } : null,
+  };
+}
+
+/**
+ * Карты руки, которые соперники уже НИЧЕМ не побьют
+ * (ни старшей в масти, ни козырем — если карта некозырная, а козыри вне моей руки ещё есть,
+ *  она побиваемой считается).
+ */
+function unbeatableCards(hand, trumpSuit, tracker = null, opts = {}) {
+  const outside = outsideCards(hand, tracker, opts);
+  return hand.filter((card) => !outside.some((o) => beats(o, card, trumpSuit)));
+}
+
+/**
+ * Оценка руки: сколько козырей, сколько «непобиваемых», средний ранг и суммарная ценность.
+ */
+function handStrength(hand, trumpSuit, tracker = null, opts = {}) {
+  const size = hand.length;
+  const trumps = hand.filter((c) => c.suit === trumpSuit);
+  const unbeatable = unbeatableCards(hand, trumpSuit, tracker, opts);
+  const avgRank = size ? hand.reduce((s, c) => s + c.rank, 0) / size : 0;
+  const power = hand.reduce((s, c) => s + cardPower(c, trumpSuit), 0);
+
+  // Пары/тройки одного ранга — «топливо» для подкидывания.
+  const byRank = new Map();
+  for (const c of hand) byRank.set(c.rank, (byRank.get(c.rank) || 0) + 1);
+  let pairs = 0;
+  for (const n of byRank.values()) if (n >= 2) pairs++;
+
+  // Козыри вне моей руки (то, чем меня ещё могут перебить).
+  const trumpsOutside = tracker && typeof tracker.trumpsLeftOutside === 'function'
+    ? tracker.trumpsLeftOutside(hand)
+    : outsideCards(hand, tracker, opts).filter((c) => c.suit === trumpSuit).length;
+
+  // Грубая скалярная оценка «насколько мне комфортно»: козыри и непобиваемые в плюс,
+  // лишние карты на руках — в минус.
+  const score = trumps.length * 2 + unbeatable.length * 1.5 + pairs * 0.5 - size * 0.5;
+
+  return {
+    size,
+    trumpCount: trumps.length,
+    trumps: trumps.map((c) => ({ ...c })),
+    unbeatableCount: unbeatable.length,
+    unbeatable: unbeatable.map((c) => ({ ...c })),
+    pairs,
+    avgRank,
+    power,
+    trumpsOutside,
+    score,
+  };
+}
+
+/**
+ * Можно ли отбить ВЕСЬ стол и какой минимальной ценой.
+ *
+ * Перебор жадный с откатом (стол не больше 6 атак — полный перебор дёшев):
+ * каждой неотбитой атаке подбираем карту, минимизируя суммарную ценность защиты.
+ *
+ * @param {Array} table   [{ attack, defense }] в формате state.table
+ * @param {Array} hand    моя рука
+ * @returns {{ canDefendAll: boolean, assignment: Array<{attack, card}>,
+ *             cost: number, trumpsUsed: number, undefendedCount: number,
+ *             beatableCount: number }}
+ */
+function planDefense(table, hand, trumpSuit) {
+  const targets = (table || []).filter((t) => t && t.attack && !t.defense).map((t) => t.attack);
+  if (targets.length === 0) {
+    return { canDefendAll: true, assignment: [], cost: 0, trumpsUsed: 0, undefendedCount: 0, beatableCount: 0 };
+  }
+
+  // Сначала самые «трудные» атаки (меньше всего вариантов ответа) — это резко режет перебор.
+  const options = targets.map((atk) => ({
+    atk,
+    cards: sortByPower(hand.filter((c) => beats(c, atk, trumpSuit)), trumpSuit),
+  }));
+  options.sort((a, b) => a.cards.length - b.cards.length);
+
+  const beatableCount = options.filter((o) => o.cards.length > 0).length;
+
+  let best = null;
+  const used = new Set();
+  const acc = [];
+
+  const rec = (i, cost) => {
+    if (best && cost >= best.cost) return;           // отсечение по цене
+    if (i === options.length) {
+      best = { cost, assignment: acc.map((x) => ({ attack: { ...x.attack }, card: { ...x.card } })) };
+      return;
+    }
+    const { atk, cards } = options[i];
+    for (const c of cards) {
+      const k = cardKey(c);
+      if (used.has(k)) continue;
+      used.add(k);
+      acc.push({ attack: atk, card: c });
+      rec(i + 1, cost + cardPower(c, trumpSuit));
+      acc.pop();
+      used.delete(k);
+    }
+  };
+  rec(0, 0);
+
+  if (!best) {
+    // Отбить всё нельзя — считаем, сколько атак вообще остаётся без ответа.
+    return {
+      canDefendAll: false,
+      assignment: [],
+      cost: Infinity,
+      trumpsUsed: 0,
+      undefendedCount: targets.length - beatableCount,
+      beatableCount,
+    };
+  }
+
+  return {
+    canDefendAll: true,
+    assignment: best.assignment,
+    cost: best.cost,
+    trumpsUsed: best.assignment.filter((x) => x.card.suit === trumpSuit).length,
+    undefendedCount: 0,
+    beatableCount,
+  };
+}
+
+/**
+ * Фаза партии (раздел 5.2 плана).
+ * @returns {'debut'|'middle'|'endgame'}
+ */
+function gamePhase(state, handSize = 6) {
+  const talon = state.talonCount || 0;
+  if (talon === 0) return 'endgame';
+  const active = (state.players || []).filter((p) => !p.out).length || 2;
+  return talon > handSize * active ? 'debut' : 'middle';
+}
+
+/* ---------- Реестр уровней ботов (копия src/bots/index.js) ---------- */
+
+const BOT_LEVELS = [
+  {
+    id: 'simple',
+    label: 'Простой',
+    description: 'Базовые эвристики, ничего не запоминает',
+  },
+  {
+    id: 'smart',
+    label: 'Умный (считает карты)',
+    description: 'Помнит вышедшие карты, анализирует стол, объясняет ходы',
+  },
+];
+
+const DEFAULT_BOT_LEVEL = 'simple';
+
+// Уровни, «мозг» которых реально реализован. С этапа 3 это и `simple`, и `smart`.
+// Всё, чего здесь нет, создаётся с откатом на DEFAULT_BOT_LEVEL.
+const IMPLEMENTED_BOT_LEVELS = ['simple', 'smart'];
+
+function isBotLevel(id) {
+  return BOT_LEVELS.some((l) => l.id === id);
+}
+
+// Неизвестное/пустое/не строка -> DEFAULT_BOT_LEVEL. Регистр и пробелы прощаются,
+// чтобы данные из CLI-аргументов и из сети не требовали отдельной валидации на месте.
+function normalizeBotLevel(x) {
+  if (typeof x !== 'string') return DEFAULT_BOT_LEVEL;
+  const id = x.trim().toLowerCase();
+  return isBotLevel(id) ? id : DEFAULT_BOT_LEVEL;
+}
+
+function botLevelLabel(id) {
+  const level = BOT_LEVELS.find((l) => l.id === normalizeBotLevel(id));
+  return level ? level.label : DEFAULT_BOT_LEVEL;
+}
+
+function botLevelDescription(id) {
+  const level = BOT_LEVELS.find((l) => l.id === normalizeBotLevel(id));
+  return level ? level.description : '';
+}
+
+// «Мозг» простого бота: состояния не имеет, наблюдения игнорирует.
+function createSimpleBrain(requestedLevel, options) {
+  const explain = options.explain === true;
+  return {
+    // Какой уровень запрашивали (для UI/логов) и какой реально работает.
+    level: requestedLevel,
+    actualLevel: 'simple',
+    fallback: requestedLevel !== 'simple',
+    explain,
+    // У простого бота нет памяти — reset/observe существуют только ради общего интерфейса,
+    // чтобы вызывающий код (CLI, клиент, сервер) не знал, какой уровень он крутит.
+    reset() {},
+    observe() {},
+    decide(state, playerId, legalActions) {
+      const action = simpleBotDecide(state, playerId, legalActions);
+      if (!action) return { action: null };
+      if (!explain) return { action };
+      // На этапе 1 объяснений по существу ещё нет: простой бот их не формирует.
+      // Отдаём честную заглушку, а не выдуманный «анализ».
+      return { action, reason: 'Простой бот: ход по базовым эвристикам.', analysis: null };
+    },
+  };
+}
+
+// «Мозг» умного бота: помнит вышедшие карты и умеет объяснять ходы.
+function createSmartBrain(options) {
+  const explain = options.explain === true;
+  const bot = new SmartBot({ explain, profile: options.profile });
+  return {
+    level: 'smart',
+    actualLevel: 'smart',
+    fallback: false,
+    explain,
+    profile: bot.profile,
+    reset(state = null, meId = null) { bot.reset(state, meId); },
+    observe(state, meId = null) { bot.observe(state, meId); },
+    decide(state, playerId, legalActions) { return bot.decide(state, playerId, legalActions); },
+  };
+}
+
+/**
+ * Фабрика «мозга» бота.
+ * decide(state, playerId, legalActions) -> { action, reason?, analysis? }
+ * где `state` — ОБЯЗАТЕЛЬНО маскированное состояние `game.getState(playerId)`.
+ */
+function createBotBrain(level, options = {}) {
+  const requested = normalizeBotLevel(level);
+  switch (requested) {
+    case 'smart':
+      return createSmartBrain(options);
+    case 'simple':
+    default:
+      return createSimpleBrain('simple', options);
+  }
+}
+
 function runFullGame(numPlayers, deckSize, throwInPolicy){
   const players=Array.from({length:numPlayers},(_,i)=>({id:`p${i+1}`, name:`Игрок ${i+1}`}));
   const game=new DurakGame(players, {numPlayers, deckSize, throwInPolicy});
