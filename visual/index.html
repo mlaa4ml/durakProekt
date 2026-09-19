@@ -1203,14 +1203,33 @@ function simpleBotDecide(state, playerId, legalActions){
 }
 
 /* ============ Умный бот (этап 4, issue #38) ============
-   Ниже — копия src/bots/memory.js, src/bots/analysis.js, src/bots/smartBot.js
-   и реестра уровней src/bots/index.js: сняты только строки import/export
-   (локальный клиент — самодостаточная страница, здесь уже есть
-   createDeck/cardToString/SUITS из «движка» выше). Логика НЕ менялась —
-   при правках в src/bots/* этот блок нужно обновить.
+   Ниже — ДОСЛОВНАЯ копия src/bots/memory.js, src/bots/analysis.js,
+   src/bots/smartBot.js и реестра уровней src/bots/index.js: сняты только
+   строки import/export (локальный клиент — самодостаточная страница, здесь
+   уже есть createDeck/cardToString/SUITS из «движка» выше).
+   Логика НЕ менялась — при правках в src/bots/* этот блок нужно пересобрать.
    Простой бот (simpleBotDecide выше) остаётся ровно таким же, как был. */
 
 /* ---------- Память умного бота (копия src/bots/memory.js) ---------- */
+// Память умного бота: CardTracker.
+//
+// Этап 2 плана умного бота (issue #32, спецификация — раздел 4 SMART_BOT_PLAN.md).
+// Трекер НИ НА ЧТО не влияет: он только наблюдает за последовательностью
+// МАСКИРОВАННЫХ состояний `game.getState(meId)` и восстанавливает по ним картину мира.
+//
+// Главный принцип файла — честность:
+//   * ТОЧНЫЕ факты (`discard`, `onTable`, `takenBy`, своя рука) записываются, только если
+//     они следуют из наблюдений однозначно. Инвариант: каждое множество точных фактов —
+//     подмножество реального положения дел, поэтому «пул неизвестного» (`unknownCards()`)
+//     ВСЕГДА надмножество любой скрытой руки. Отсюда и работает эндшпиль в дуэли:
+//     если пул совпал по размеру с рукой соперника — он равен ей в точности.
+//   * ПРЕДПОЛОЖЕНИЯ (`voidSuits`, `assumedNoRanks`) лежат отдельно и никогда не вычитаются
+//     из точных множеств. Их можно использовать для эвристик, но не для «я знаю».
+//   * Когда наблюдений не хватает (пропущенные между ходами события, противоречия),
+//     трекер говорит честное «не знаю»: сбрасывает спорный факт в неизвестность,
+//     а не додумывает.
+//
+// Движок (`src/game.js`) и простой бот (`src/bots/simpleBot.js`) этим файлом не затрагиваются.
 
 /** Ключ карты: `${rank}${suit}` (ранг — число, масть — не цифра, поэтому ключ однозначен). */
 function cardKey(card) {
@@ -1223,6 +1242,13 @@ function getSet(map, key) {
 }
 
 class CardTracker {
+  /**
+   * @param {number} deckSize   24 | 36 | 52
+   * @param {string} trumpSuit  масть козыря
+   * @param {object} trumpCard  карта под колодой {rank, suit} (уйдёт последнему добирающему)
+   * @param {string} meId       чьими глазами смотрим
+   * @param {string[]} playerIds  все игроки за столом (в порядке посадки)
+   */
   constructor(deckSize = 24, trumpSuit = null, trumpCard = null, meId = null, playerIds = []) {
     this.deckSize = deckSize;
     this.trumpCard = trumpCard ? { rank: trumpCard.rank, suit: trumpCard.suit } : null;
@@ -1822,6 +1848,19 @@ class CardTracker {
 }
 
 /* ---------- Анализ позиции (копия src/bots/analysis.js) ---------- */
+// Анализ позиции для умного бота: ЧИСТЫЕ функции без состояния.
+//
+// Этап 3 плана умного бота (issue #33, спецификация — раздел 5.1 SMART_BOT_PLAN.md).
+//
+// Правила этого файла:
+//   * ни одна функция ничего не мутирует и ничего не помнит между вызовами;
+//   * `tracker` (см. `./memory.js`) — необязательный аргумент: без него функции
+//     работают по «пессимистичному» предположению, что вне моей руки может быть
+//     любая карта колоды. Так analysis.js остаётся тестируемым в отрыве от памяти;
+//   * знание о картах берётся ТОЛЬКО из трекера (то есть из наблюдаемых состояний),
+//     никакого доступа к чужим рукам здесь нет и быть не может.
+//
+// Движок (`src/game.js`) и простой бот (`src/bots/simpleBot.js`) этим файлом не затрагиваются.
 
 /**
  * Бьёт ли `defCard` карту `atkCard` — строго по правилам движка
@@ -2037,8 +2076,30 @@ function gamePhase(state, handSize = 6) {
 }
 
 /* ---------- Политика умного бота (копия src/bots/smartBot.js) ---------- */
+// Умный бот: политика решений (раздел 5.3 SMART_BOT_PLAN.md, issue #33, этап 3).
+//
+// Устройство:
+//   память (`./memory.js`, CardTracker)  ->  анализ (`./analysis.js`, чистые функции)
+//   ->  политика (этот файл)  ->  { action, reason, analysis }.
+//
+// Жёсткие правила файла:
+//   * бот НИКОГДА не придумывает действие сам — он только ВЫБИРАЕТ объект из списка
+//     `legalActions`, который дал движок. Поэтому нелегальный ход физически невозможен;
+//   * бот видит только маскированное состояние `game.getState(meId)`; чужие руки в нём
+//     отсутствуют, и обращений к ним здесь нет — вся «осведомлённость» идёт из трекера,
+//     то есть выведена из публично наблюдаемых событий;
+//   * объяснения (`reason` / `analysis`) на русском, без терминов кода, и НЕ раскрывают
+//     того, чего бот не знает: чужие карты называются, только если трекер восстановил
+//     руку соперника точно (`isOpponentHandCertain`);
+//   * `src/bots/simpleBot.js` не трогаем — он остаётся эталоном для сравнения.
+//
+// Каждое эвристическое правило спрятано за именованным флагом профиля, чтобы его вклад
+// можно было измерить A/B-прогоном `src/cli/botMatch.js`.
 
 /** Профиль эвристик. Каждый флаг — отдельное правило раздела 5.3, включается/выключается для A/B. */
+// Значения флагов — НЕ вкусовщина, а результат A/B-прогонов (`scripts/abProfile.js`,
+// 2000 партий smart против simple, колода 24 на 2). Флаг, который не улучшает метрику,
+// по требованию issue #33 выключен; таблица цифр приложена к отчёту в issue.
 const SMART_PROFILE = {
   holdTrumpsWhileTalon: true,    // беречь козыри при подкидывании, пока идёт прикуп (+1.3 п.п. без него)
   holdHighCardsWhileTalon: false,// ВЫКЛЮЧЕН: придерживание Q+ стоило 12.6 п.п. — некозырную мелочь
@@ -2429,6 +2490,18 @@ function smartBotDecide(state, playerId, legalActions, options = {}) {
 }
 
 /* ---------- Реестр уровней ботов (копия src/bots/index.js) ---------- */
+// Реестр уровней ботов и фабрика «мозгов».
+//
+// Этап 1 плана умного бота (issue #31): здесь появилась ЕДИНАЯ точка правды про то,
+// какие уровни ботов существуют, как они называются и как получить объект, принимающий
+// решения.
+// Этап 3 (issue #33): уровень `smart` стал НАСТОЯЩИМ — его «мозг» собран из памяти
+// (`./memory.js`), анализа (`./analysis.js`) и политики (`./smartBot.js`). Отката на
+// простую логику для него больше нет, поэтому `fallback` у него всегда false.
+//
+// Важное ограничение: `src/bots/simpleBot.js` не меняется ни на одном этапе — на нём
+// висят simulate/playVerbose/smoke/сервер/локальный клиент, и он же служит эталоном,
+// с которым умный бот сравнивается в `src/cli/botMatch.js`.
 
 const BOT_LEVELS = [
   {
@@ -2496,6 +2569,8 @@ function createSimpleBrain(requestedLevel, options) {
 }
 
 // «Мозг» умного бота: помнит вышедшие карты и умеет объяснять ходы.
+// Внутри — SmartBot из ./smartBot.js; интерфейс тот же, что у простого,
+// поэтому вызывающему коду (CLI, клиент, сервер) знать об уровне ничего не нужно.
 function createSmartBrain(options) {
   const explain = options.explain === true;
   const bot = new SmartBot({ explain, profile: options.profile });
@@ -2513,6 +2588,12 @@ function createSmartBrain(options) {
 
 /**
  * Фабрика «мозга» бота.
+ *
+ * @param {string} level  идентификатор уровня (`simple` | `smart`), нестрогий
+ * @param {object} options  { explain?: boolean, profile?: object }
+ * @returns {{ level: string, actualLevel: string, fallback: boolean,
+ *             reset: Function, observe: Function, decide: Function }}
+ *
  * decide(state, playerId, legalActions) -> { action, reason?, analysis? }
  * где `state` — ОБЯЗАТЕЛЬНО маскированное состояние `game.getState(playerId)`.
  */
@@ -2560,16 +2641,16 @@ let interactiveBusy = false;
 // «отбиться» и «перевести» (issue #22: козырь того же ранга, что и карта на
 // столе). Пока она выставлена, в панели действий показываем явный выбор.
 let pendingChoiceCard = null;
-// По «мозгу» на каждого бота (issue #38): у умного бота внутри живёт память о партии,
-// поэтому мозг должен существовать столько же, сколько партия, и создаваться заново
-// на новую. Ключ — id игрока-бота, значение — объект из createBotBrain().
+// По «мозгу» на каждого бота (issue #38): мозг умного бота держит память о партии,
+// поэтому он должен жить столько же, сколько партия, и сбрасываться на новой.
+// Ключ — id игрока-бота, значение — объект из createBotBrain().
 let botBrains = new Map();
 
 function sameCard(a,b){ return !!a && !!b && a.suit===b.suit && a.rank===b.rank; }
 
-// Какой уровень ботов крутится в локальной партии.
+// Какой уровень ботов запущен в локальной партии.
 // Селектор #botLevel появится на этапе 5 (issue #39); пока его нет, уровень можно
-// задать параметром адреса (?botLevel=smart) — это удобно для ручной проверки, —
+// задать параметром адреса (?botLevel=smart) — удобно для ручной проверки, —
 // а по умолчанию работает DEFAULT_BOT_LEVEL ('simple'), то есть ровно как раньше.
 function currentBotLevel(){
   const sel=document.getElementById('botLevel');
@@ -2578,11 +2659,11 @@ function currentBotLevel(){
     const q=new URLSearchParams(location.search);
     const fromUrl=q.get('botLevel')||q.get('bot');
     if(fromUrl) return normalizeBotLevel(fromUrl);
-  }catch(e){ /* адрес недоступен — молча берём уровень по умолчанию */ }
+  }catch(e){ /* location недоступен — молча берём уровень по умолчанию */ }
   return DEFAULT_BOT_LEVEL;
 }
 
-// Создать мозги ботам на новую партию. Человек (место 0) мозга не получает.
+// Создать мозги ботам на новую партию. Человек (индекс 0) мозга не получает.
 function resetBotBrains(game){
   botBrains = new Map();
   if(!game) return;
@@ -2596,7 +2677,7 @@ function resetBotBrains(game){
   });
 }
 
-// Мозг конкретного бота; если его почему-то нет — создаём на лету, чтобы ход не сорвался.
+// Мозг конкретного бота; если его почему-то нет (партия из старого состояния) — создаём на лету.
 function brainFor(game, playerId){
   let brain=botBrains.get(playerId);
   if(!brain){
@@ -2615,6 +2696,7 @@ function startInteractiveGame(){
   const throwInPolicy=document.getElementById('throwInPolicy').value;
   const players=Array.from({length:numPlayers},(_,i)=>({id:`p${i+1}`, name: i===0 ? 'Вы' : `Бот ${i+1}`}));
   igame=new DurakGame(players, {numPlayers, deckSize, throwInPolicy});
+  resetBotBrains(igame);
   renderInteractive();
   scheduleBotStep();
 }
@@ -2652,9 +2734,15 @@ function scheduleBotStep(){
     if(!igame || igame.phase==='finished') { interactiveBusy=false; renderInteractive(); return; }
     const legal=igame.getLegalActions(turnPlayer.id);
     if(legal.length===0){ interactiveBusy=false; scheduleBotStep(); return; }
-    // Боту отдаём то же маскированное состояние, что и движок: рука человека
-    // и других ботов скрыта (issue #27), доступны стол/фаза/отбой/handCount.
-    const action=simpleBotDecide(igame.getState(turnPlayer.id), turnPlayer.id, legal);
+    // Боту отдаём ТОЛЬКО маскированное состояние движка: рука человека и других
+    // ботов в нём скрыта (issue #27/#38), доступны стол/фаза/отбой/handCount.
+    // Один и тот же объект состояния идёт и в observe (память умного бота),
+    // и в decide — никаких самодельных «всевидящих» объектов здесь больше нет.
+    const state=igame.getState(turnPlayer.id);
+    const brain=brainFor(igame, turnPlayer.id);
+    brain.observe(state, turnPlayer.id);
+    const decision=brain.decide(state, turnPlayer.id, legal) || {};
+    const action=decision.action;
     if(action) igame.applyAction(turnPlayer.id, action);
     interactiveBusy=false;
     scheduleBotStep();
@@ -2858,5 +2946,840 @@ function renderInteractive(){
   if(finished){
     hintBox.textContent='Партия завершена — нажмите «Новая партия», чтобы сыграть ещё раз.';
   } else if(isHumanTurn){
-    hintBox.textContent = igame.phase==='
-...[обрезано, всего 136148 символов]
+    hintBox.textContent = igame.phase==='defender-to-act'
+      ? 'Ваш ход: отбейтесь картой, переведите или заберите карты.'
+      : 'Ваш ход: подкиньте карту или пасуйте.';
+  } else {
+    hintBox.textContent = `Ходит ${igame.players[turnIdx]?.name || '...'}…`;
+  }
+  markYourTurn(isHumanTurn);
+
+  renderInteractiveLog();
+}
+
+function renderInteractiveLog(){
+  const box=document.getElementById('fullLog');
+  const n=igame.log.length;
+  box.innerHTML = igame.log.map((line,i)=>`<span data-i="${i}">${i===n-1?'<span class="cur">'+line+'</span>':line}</span>`).join('\n');
+}
+
+/* ============ Сетевой режим: игра через WebSocket-сервер ============ */
+
+const NET_SESSION_KEY = 'durak_visual_net_session';
+
+let netWs = null;
+let netPlayerId = null;
+let netRoomId = null;
+let netInRoom = false;
+let netGameStarted = false; // true, когда партия реально началась (пришло первое 'state') — до этого сидим в лобби, ждём соперников
+let netLastState = null;
+let netLastLegal = [];
+let netLastPlayers = [];
+let netLastLog = [];
+let netWaitingRoom = null; // последний roomUpdate — состав ещё не начавшейся комнаты
+let netPendingChoiceCard = null; // карта, для которой ждём выбора «отбиться / перевести» (issue #22)
+
+function netSend(obj){
+  if(!netWs || netWs.readyState!==WebSocket.OPEN){ netSetLobbyStatus('нет соединения — сообщение не отправлено'); return; }
+  netWs.send(JSON.stringify(obj));
+}
+
+function netSetLobbyStatus(text){
+  const el=document.getElementById('netLobbyStatus');
+  if(el) el.textContent=text;
+}
+
+function netUpdateStatusBar(){
+  const connected = netWs && netWs.readyState===WebSocket.OPEN;
+  document.getElementById('netStatusText').textContent = connected ? 'подключено' : 'не подключено';
+  document.getElementById('netRoomText').textContent = netInRoom ? `· комната ${netRoomId}` : '';
+  document.getElementById('netLeaveBtn').classList.toggle('hidden', !netInRoom || netGameStarted);
+}
+
+function netConnect(){
+  const url=document.getElementById('netWsUrl').value.trim();
+  if(!url) return;
+  if(netWs && (netWs.readyState===WebSocket.OPEN || netWs.readyState===WebSocket.CONNECTING)) return;
+  netSetLobbyStatus('подключаюсь…');
+  netWs=new WebSocket(url);
+  netWs.addEventListener('open', ()=>{ netSetLobbyStatus('подключено'); netUpdateStatusBar(); netSend({type:'listRooms'}); });
+  netWs.addEventListener('close', ()=>{ netSetLobbyStatus('соединение закрыто'); netUpdateStatusBar(); });
+  netWs.addEventListener('error', ()=>{ netSetLobbyStatus('ошибка соединения'); });
+  netWs.addEventListener('message', (ev)=>{ netHandleMessage(JSON.parse(ev.data)); });
+}
+
+function netHandleMessage(msg){
+  if(msg.type==='error'){ netSetLobbyStatus('Ошибка: '+msg.message); return; }
+
+  if(msg.type==='rooms'){ netRenderRooms(msg.rooms); return; }
+
+  if(msg.type==='joined'){
+    netPlayerId=msg.playerId; netRoomId=msg.roomId; netInRoom=true; netGameStarted=false;
+    netSaveSession(); netUpdateSessionUI(); netUpdateStatusBar(); netUpdatePanels();
+    return;
+  }
+
+  if(msg.type==='left'){
+    netPlayerId=null; netRoomId=null; netInRoom=false; netGameStarted=false; netLastState=null; netWaitingRoom=null;
+    netClearSession(); netUpdateStatusBar(); netUpdatePanels();
+    netSend({type:'listRooms'});
+    showSetup();
+    return;
+  }
+
+  if(msg.type==='roomUpdate'){
+    netWaitingRoom=msg;
+    renderNetWaitingRoom();
+    return;
+  }
+
+  if(msg.type==='state'){
+    netLastState=msg.state; netLastLegal=msg.legalActions||[]; netLastPlayers=msg.players||[]; netLastLog=msg.log||[];
+    const wasStarted=netGameStarted;
+    netGameStarted=true;
+    if(!wasStarted) netUpdatePanels(); // первое состояние партии — переключаем лобби на игровое поле
+    if(mode==='network'){ renderNetwork(); showGame(); }
+    return;
+  }
+}
+
+function netRenderRooms(rooms){
+  const tbody=document.querySelector('#netRoomsTable tbody');
+  tbody.innerHTML='';
+  rooms.forEach(r=>{
+    const tr=document.createElement('tr');
+    const statusText = r.finished ? 'завершена' : r.started ? 'идёт' : 'ждёт игроков';
+    tr.innerHTML = `<td>${r.roomId}</td><td>${r.label||'—'}</td><td>${r.seatsFilled}/${r.numPlayers}</td>`+
+      `<td>${r.deckSize} карт, ${r.throwInPolicy}, ${statusText}</td><td></td>`;
+    if(!r.started){
+      const btn=document.createElement('button'); btn.type='button'; btn.textContent='Войти';
+      btn.addEventListener('click', ()=>{
+        const name=document.getElementById('netJoinName').value.trim() || prompt('Ваше имя?','Игрок') || 'Игрок';
+        netSend({type:'join', roomId:r.roomId, name});
+      });
+      tr.lastElementChild.appendChild(btn);
+    }
+    tbody.appendChild(tr);
+  });
+  if(rooms.length===0) tbody.innerHTML='<tr><td colspan="5" class="muted">комнат пока нет</td></tr>';
+}
+
+function netSaveSession(){
+  if(netRoomId && netPlayerId){
+    localStorage.setItem(NET_SESSION_KEY, JSON.stringify({wsUrl:document.getElementById('netWsUrl').value.trim(), roomId:netRoomId, playerId:netPlayerId}));
+  }
+  netUpdateSessionUI();
+}
+function netClearSession(){ localStorage.removeItem(NET_SESSION_KEY); netUpdateSessionUI(); }
+function netLoadSession(){ try{ return JSON.parse(localStorage.getItem(NET_SESSION_KEY)||'null'); } catch { return null; } }
+function netUpdateSessionUI(){
+  const s=netLoadSession();
+  const box=document.getElementById('netSessionBox');
+  if(s){ box.style.display='block'; document.getElementById('netSessionInfo').textContent=`комната ${s.roomId}, сервер ${s.wsUrl}`; }
+  else{ box.style.display='none'; }
+}
+
+// Показываем либо лобби, либо игровое поле — в зависимости от того, сидим
+// ли мы уже в комнате. Сам показ экрана (лобби внутри #setupScreen vs стол
+// внутри #gameScreen) уже решают showSetup()/showGame() — здесь только лобби.
+function netUpdatePanels(){
+  const inNetwork = mode==='network';
+  document.getElementById('networkLobby').classList.toggle('hidden', !inNetwork || netGameStarted);
+  // Пока сидим в ещё не начавшейся комнате — не нужны список всех комнат и
+  // формы создания/входа, вместо них показываем состав своей комнаты.
+  document.getElementById('netWaitingRoomBox').classList.toggle('hidden', !netInRoom);
+  document.getElementById('netRoomsBox').classList.toggle('hidden', netInRoom);
+  document.getElementById('netCreateBox').classList.toggle('hidden', netInRoom);
+  document.getElementById('netJoinBox').classList.toggle('hidden', netInRoom);
+  if(netInRoom) renderNetWaitingRoom();
+  netUpdateStatusBar();
+}
+
+function renderNetWaitingRoom(){
+  const box=document.getElementById('netWaitingRoomBox');
+  if(!netInRoom || !netWaitingRoom){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  document.getElementById('netWaitingRoomTitle').textContent =
+    `· код ${netWaitingRoom.roomId}${netWaitingRoom.label?' · '+netWaitingRoom.label:''} · ${netWaitingRoom.seats.length}/${netWaitingRoom.numPlayers}`;
+  const tbody=document.querySelector('#netWaitingSeatsTable tbody');
+  tbody.innerHTML='';
+  netWaitingRoom.seats.forEach((s,i)=>{
+    const tr=document.createElement('tr');
+    const statusText = s.botControlled ? 'бот' : (s.connected ? 'в сети' : 'подключается…');
+    const nameText = s.name + (s.id===netPlayerId ? ' (вы)' : '') + (s.id===netWaitingRoom.hostPlayerId ? ' · создатель' : '');
+    tr.innerHTML = `<td>${i+1}</td><td>${nameText}</td><td>${statusText}</td>`;
+    tbody.appendChild(tr);
+  });
+  const free = netWaitingRoom.numPlayers - netWaitingRoom.seats.length;
+  const isHost = netPlayerId===netWaitingRoom.hostPlayerId;
+  const fillBtn=document.getElementById('netFillWithBotsBtn');
+  fillBtn.classList.toggle('hidden', !isHost || free<=0);
+  document.getElementById('netWaitingHint').textContent = free<=0
+    ? 'все места заняты — партия вот-вот начнётся'
+    : isHost
+      ? `свободно мест: ${free} — нажмите кнопку, чтобы отдать их ботам и начать сразу`
+      : `ждём ещё игроков (свободно: ${free}) — заполнить ботами может только создатель комнаты`;
+}
+
+function renderNetwork(){
+  if(!netLastState) return;
+  const st=netLastState;
+  const you=st.players.find(p=>p.id===netPlayerId);
+  const finished=st.finished;
+  const attacker=netLastPlayers.find(p=>p.id===st.attacker);
+  const defender=netLastPlayers.find(p=>p.id===st.defender);
+
+  renderStatusHud({
+    finished,
+    durakName: st.durak ? ((netLastPlayers.find(p=>p.id===st.durak)||{}).name || st.durak) : null,
+    attackerName: attacker?.name, defenderName: defender?.name,
+    trumpSuit: st.trumpSuit,
+    talonCount: st.talonCount,
+    discardCount: st.discardCount,
+  });
+  document.getElementById('eventDesc').textContent='';
+  document.getElementById('stepCounter').textContent='';
+
+  const oppBox=document.getElementById('opponents');
+  oppBox.innerHTML='';
+  oppBox.dataset.count = String(st.players.length-1);
+  st.players.filter(p=>p.id!==netPlayerId).forEach((p,seatIdx)=>{
+    const rosterInfo=netLastPlayers.find(rp=>rp.id===p.id) || {};
+    const wrap=document.createElement('div'); wrap.className=oppWrapClass(seatIdx, st.players.length-1, p.out);
+    const label=document.createElement('div'); label.className='label';
+    label.innerHTML = `${p.name}`+
+      (rosterInfo.connected===false?' <span class="net-roster-flag offline">офлайн</span>':'')+
+      (rosterInfo.botControlled?' <span class="net-roster-flag bot">бот вместо игрока</span>':'');
+    wrap.appendChild(label);
+    appendRoleRow(wrap, roleTagsHtml(p.id===st.attacker, p.id===st.defender, false));
+    // Сервер намеренно не присылает чужие карты — всегда рисуем компактный
+    // счётчик, настоящих карт здесь в принципе нет.
+    renderOppHandArea(wrap, p.handCount, false, null, null);
+    if(p.out){ const b=document.createElement('div'); b.className='finish-badge'; b.textContent=`место ${p.finishRank}`; wrap.appendChild(b); }
+    else { const cnt=document.createElement('div'); cnt.className='finish-badge'; cnt.textContent=`${p.handCount} карт`; wrap.appendChild(cnt); }
+    oppBox.appendChild(wrap);
+  });
+
+  const talonStack=document.getElementById('talonStack');
+  talonStack.innerHTML='';
+  const stackDepth=Math.min(4, Math.ceil(st.talonCount/6));
+  for(let i=0;i<Math.max(stackDepth, st.talonCount>0?1:0); i++){
+    const b=document.createElement('div'); b.className='card-back';
+    b.style.position='absolute'; b.style.left=(i*2)+'px'; b.style.top=(i*2)+'px';
+    talonStack.appendChild(b);
+  }
+  if(st.talonCount>0 && st.trumpCard){
+    const peek=document.createElement('div'); peek.className='trump-peek';
+    peek.appendChild(cardEl(st.trumpCard, true));
+    talonStack.appendChild(peek);
+  }
+  document.getElementById('talonCount').textContent = st.talonCount>0 ? `в колоде: ${st.talonCount}` : 'колода пуста';
+
+  const trickArea=document.getElementById('trickArea');
+  trickArea.innerHTML='';
+  trickArea.classList.toggle('taking-cards', st.tableGoingToDefender===true);
+  if(st.tableGoingToDefender){
+    const label=document.createElement('div'); label.className='taking-label';
+    label.textContent=`→ забирает ${defender?.name||'?'}`;
+    trickArea.appendChild(label);
+  }
+  if(st.table.length===0){
+    trickArea.innerHTML+='<span style="font-family:var(--mono);font-size:11px;opacity:.5;">стол пуст</span>';
+  }
+  st.table.forEach(t=>{
+    const pair=document.createElement('div'); pair.className='trick-pair';
+    const a=cardEl(t.attack,true); a.classList.add('attack-card'); a.style.transform='rotate(-6deg)';
+    pair.appendChild(a);
+    if(t.defense){ const d=cardEl(t.defense,true); d.classList.add('defense-card'); d.style.transform='rotate(8deg)'; pair.appendChild(d); }
+    trickArea.appendChild(pair);
+  });
+
+  document.getElementById('discardPile').textContent = st.discardCount>0 ? `${st.discardCount}` : '—';
+
+  document.getElementById('myHandLabel').textContent =
+    `${you?.name||'Вы'}${netPlayerId===st.attacker?' — атакует':''}${netPlayerId===st.defender?' — защищается':''}`;
+  const myHandBox=document.getElementById('myHand');
+  myHandBox.innerHTML='';
+  const isMyTurn = !finished && netLastLegal.length>0;
+  const netSingleTransfers=netLastLegal.filter(a=>a.type==='transfer' && a.cards.length===1);
+  const netComboTransfer=netLastLegal.find(a=>a.type==='transfer' && a.cards.length>1);
+  const netDefends=netLastLegal.filter(a=>a.type==='defend');
+  // Тот же выбор «отбиться / перевести», что и в игре против ботов (issue #22).
+  if(netPendingChoiceCard){
+    const stillDual = netDefends.some(a=>sameCard(a.card,netPendingChoiceCard))
+      && netSingleTransfers.some(a=>sameCard(a.cards[0],netPendingChoiceCard));
+    if(!isMyTurn || !stillDual) netPendingChoiceCard=null;
+  }
+  (sortHandForDisplay(you?.hand||[], st.trumpSuit)).forEach(c=>{
+    const el=cardEl(c,true);
+    let matched=null, isTransfer=false, isDual=false;
+    if(isMyTurn){
+      const defendA=netDefends.find(a=>sameCard(a.card,c));
+      const transferA=netSingleTransfers.find(a=>sameCard(a.cards[0],c));
+      if(defendA && transferA){
+        isDual=true;
+        el.classList.add('playable','dual-action');
+        if(sameCard(netPendingChoiceCard,c)) el.classList.add('choice-pending');
+        el.title='Можно отбиться или перевести — нажмите, чтобы выбрать';
+        el.addEventListener('click', ()=>{
+          netPendingChoiceCard = sameCard(netPendingChoiceCard,c) ? null : {suit:c.suit, rank:c.rank};
+          renderNetwork();
+        });
+      } else {
+        matched = netLastLegal.find(a=>a.type==='attack' && sameCard(a.card,c)) || defendA || null;
+        if(!matched && transferA){ matched=transferA; isTransfer=true; }
+      }
+    }
+    if(matched){
+      el.classList.add('playable');
+      if(isTransfer) el.classList.add('transferable');
+      el.addEventListener('click', ()=> netSend({type:'action', action:matched}));
+    } else if(!isDual && isMyTurn){
+      el.classList.add('unplayable');
+    }
+    myHandBox.appendChild(el);
+  });
+  layoutHandArc(myHandBox);
+
+  const actionBar=document.getElementById('actionBar');
+  actionBar.innerHTML='';
+  if(isMyTurn){
+    const takeAction=netLastLegal.find(a=>a.type==='take');
+    const passAction=netLastLegal.find(a=>a.type==='pass');
+    if(netPendingChoiceCard){
+      const defendA=netDefends.find(a=>sameCard(a.card,netPendingChoiceCard));
+      const transferA=netSingleTransfers.find(a=>sameCard(a.cards[0],netPendingChoiceCard));
+      const lbl=document.createElement('span'); lbl.className='choice-label';
+      lbl.textContent=`${cardToString(netPendingChoiceCard)} —`;
+      actionBar.appendChild(lbl);
+      const dBtn=document.createElement('button'); dBtn.className='defend'; dBtn.textContent='Отбиться';
+      dBtn.addEventListener('click', ()=>{ netPendingChoiceCard=null; netSend({type:'action',action:defendA}); });
+      actionBar.appendChild(dBtn);
+      const tBtn=document.createElement('button'); tBtn.className='transfer'; tBtn.textContent='Перевести';
+      tBtn.addEventListener('click', ()=>{ netPendingChoiceCard=null; netSend({type:'action',action:transferA}); });
+      actionBar.appendChild(tBtn);
+      const cBtn=document.createElement('button'); cBtn.className='cancel'; cBtn.textContent='Отмена';
+      cBtn.addEventListener('click', ()=>{ netPendingChoiceCard=null; renderNetwork(); });
+      actionBar.appendChild(cBtn);
+    }
+    if(netComboTransfer){ const btn=document.createElement('button'); btn.className='transfer'; btn.textContent=`Перевести оба (${netComboTransfer.cards.length})`; btn.addEventListener('click',()=>netSend({type:'action',action:netComboTransfer})); actionBar.appendChild(btn); }
+    if(takeAction){ const btn=document.createElement('button'); btn.className='take'; btn.textContent='Взять карты'; btn.addEventListener('click',()=>netSend({type:'action',action:takeAction})); actionBar.appendChild(btn); }
+    if(passAction){ const btn=document.createElement('button'); btn.className='pass'; btn.textContent = st.phase==='need-attack' ? 'Пас (не подкидываю)' : 'Пас'; btn.addEventListener('click',()=>netSend({type:'action',action:passAction})); actionBar.appendChild(btn); }
+  }
+
+  const hintBox=document.getElementById('turnHint');
+  if(finished){
+    hintBox.textContent='Партия завершена. Можно выйти в лобби и сыграть ещё раз.';
+  } else if(isMyTurn){
+    hintBox.textContent = st.phase==='defender-to-act' ? 'Ваш ход: отбейтесь картой, переведите или заберите карты.' : 'Ваш ход: подкиньте карту или пасуйте.';
+  } else {
+    hintBox.textContent = 'Ждём ход соперника…';
+  }
+  markYourTurn(isMyTurn);
+
+  const logBox=document.getElementById('fullLog');
+  logBox.textContent = netLastLog.join('\n'); // сервер шлёт только хвост лога (последние 20 строк)
+}
+
+/* ============ Переключение режимов ============ */
+
+let mode='view'; // 'view' | 'interactive' | 'network'
+
+/* ============ Переключение «настройки» / «стол» ============ */
+const MODE_LABELS = {view:'просмотр ботов', interactive:'игра против ботов', network:'игра по сети'};
+function hasActiveGame(){
+  if(mode==='view') return !!game;
+  if(mode==='interactive') return !!igame;
+  if(mode==='network') return netGameStarted;
+  return false;
+}
+function updateResumeButton(){
+  document.getElementById('resumeGameBtn').classList.toggle('hidden', !hasActiveGame());
+}
+function showSetup(){
+  updateResumeButton(); // состояние партии могло измениться, пока экран настроек был скрыт (боты продолжают ходить)
+  document.getElementById('setupScreen').classList.remove('hidden');
+  document.getElementById('gameScreen').classList.add('hidden');
+}
+function showGame(){
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('gameScreen').classList.remove('hidden');
+  document.getElementById('gameModeLabel').textContent = MODE_LABELS[mode] || '';
+  // пока экран был скрыт (display:none), замеры карт возвращали 0 — пересчитываем дугу заново
+  layoutHandArc(document.getElementById('myHand'));
+}
+document.getElementById('backToSetupBtn').addEventListener('click', showSetup);
+document.getElementById('resumeGameBtn').addEventListener('click', ()=>{ if(hasActiveGame()) showGame(); });
+
+function setMode(newMode){
+  if(mode===newMode) return;
+  mode=newMode;
+  stop(); // остановить автопроигрывание режима просмотра, если шло
+  stopBotTimer();
+  document.getElementById('modeViewBtn').classList.toggle('active', mode==='view');
+  document.getElementById('modeInteractiveBtn').classList.toggle('active', mode==='interactive');
+  document.getElementById('modeNetworkBtn').classList.toggle('active', mode==='network');
+  document.getElementById('viewTransport').classList.toggle('hidden', mode!=='view');
+  document.getElementById('scrubber').classList.toggle('hidden', mode!=='view');
+  document.getElementById('localControls').classList.toggle('hidden', mode==='network');
+  document.getElementById('localControlsBtn').classList.toggle('hidden', mode==='network');
+  document.getElementById('networkStatusBar').classList.toggle('hidden', mode!=='network');
+  netUpdatePanels(); // прячет/показывает блок «Подключение к серверу» — актуально при ЛЮБОМ переключении режима, не только при входе в сетевой
+  document.getElementById('footerNote').textContent = mode==='view'
+    ? 'Ходят боты друг против друга — это инструмент проверки правил, не финальный интерфейс.'
+    : mode==='interactive'
+    ? 'Вы играете за «Вы» (первый игрок), остальные — боты. Переключатель «показать все карты» оставляет карты ботов открытыми — удобно для поиска багов в правилах.'
+    : 'Партия идёт на отдельном сервере — карты соперников вам не видны, только их количество.';
+  if(mode==='view'){ buildGame(); showGame(); }
+  else if(mode==='interactive'){ startInteractiveGame(); showGame(); }
+  else { if(netGameStarted){ renderNetwork(); showGame(); } else showSetup(); }
+}
+
+/* ============ Визуализация ============ */
+
+// Раскладывает карты руки дугой: центральная карта ниже и без наклона,
+// к краям карты приподнимаются и разворачиваются. Работает по фактической
+// ширине карты (--hand-card-w меняется через clamp()), поэтому пересчитывается
+// при каждой отрисовке руки и при ресайзе окна.
+function layoutHandArc(container){
+  if(!container) return;
+  const cards = Array.from(container.children).filter(el=>el.classList.contains('card'));
+  const n = cards.length;
+  if(n===0){ container.style.height=''; return; }
+  // Отключаем transition на время замера/расстановки: getBoundingClientRect()
+  // ниже форсирует синхронный reflow, а карты только что вставлены с ещё
+  // не заданными --tx/--ty/--tr (т.е. дефолт 0,0,0) — без этого браузер
+  // фиксирует два разных состояния стиля и на КАЖДОЙ перерисовке руки
+  // проигрывает transition с нуля до дуги, из-за чего карты «мерцают».
+  cards.forEach(el=>{ el.style.transition='none'; });
+  const w = cards[0].getBoundingClientRect().width || 60;
+  const h = cards[0].getBoundingClientRect().height || 84;
+  const avail = container.clientWidth || w*n;
+  const stepDeg = n>1 ? Math.min(9, 56/(n-1)) : 0;
+  const stepX = n>1 ? Math.max(w*0.22, Math.min(w*0.62, (avail - w) / (n-1))) : 0;
+  const mid = (n-1)/2;
+  // Форма дуги: центральная карта приподнята над базовой линией, к краям
+  // подъём плавно сходит на нет — у самых крайних карт --ty=0 (они стоят
+  // ровно на базовой линии контейнера). Так --ty никогда не становится
+  // положительным, и карты физически не могут провалиться НИЖЕ контейнера
+  // в панель действий/подсказку хода, даже при большой руке. Итоговый
+  // подъём центра ограничен потолком в 85% высоты карты.
+  let curveMag = h*0.055;
+  const maxExtent = h*0.85;
+  if(mid*mid*curveMag > maxExtent) curveMag = maxExtent / (mid*mid || 1);
+  const extent = mid*mid*curveMag;
+  cards.forEach((el,i)=>{
+    const off = i - mid;
+    el.style.setProperty('--tr', (off*stepDeg).toFixed(2)+'deg');
+    el.style.setProperty('--tx', (off*stepX).toFixed(1)+'px');
+    el.style.setProperty('--ty', (-(mid*mid - off*off)*curveMag).toFixed(1)+'px');
+    el.style.marginLeft = (-w/2)+'px';
+    // Возрастающий z-index слева направо: каждая следующая карта лежит
+    // ПОВЕРХ предыдущей — обычный порядок веера. Раньше было наоборот
+    // (выше всех — центральная), из-за чего у крайних карт перекрывался
+    // не тот угол и веер выглядел «сломанным».
+    el.style.setProperty('--zi', String(i+1));
+  });
+  container.style.height = (h + extent + 12) + 'px';
+  // форсируем применение новой раскладки без анимации, затем возвращаем transition
+  void container.offsetHeight;
+  cards.forEach(el=>{ el.style.transition=''; });
+}
+window.addEventListener('resize', ()=>{
+  clearTimeout(window.__handArcResize);
+  window.__handArcResize = setTimeout(()=> layoutHandArc(document.getElementById('myHand')), 120);
+});
+
+/* ============ HUD партии (issue #19) ============
+   Раньше вверху стола была одна длинная строка
+   «Атакует: X · Защищается: Y · козырь ♠»: на телефоне она переносилась,
+   счётчики колоды и «бито» жили отдельно мелким текстом по краям стола, и
+   ничто не связывало имя в строке с местом соперника за столом.
+   Теперь тот же смысл выводится набором цветных чипов; цвета совпадают с
+   бейджами ролей (.role-tag.attacker/.defender) и кольцами вокруг мест,
+   поэтому «кто атакует / кто защищается» читается одним взглядом.
+   Функция общая для всех трёх режимов (просмотр ботов / против ботов / сеть). */
+function hudEsc(s){ return String(s==null?'':s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function hudSuitHtml(suit){
+  return `<span class="suit${RED_SUITS.has(suit)?' red':''}">${hudEsc(suit)}</span>`;
+}
+function renderStatusHud(o){
+  const box=document.getElementById('statusLine');
+  if(!box) return;
+  if(o.finished){
+    box.innerHTML = '<span class="hud-chip finished">'+
+      (o.durakName ? 'партия окончена — дурак: <b>'+hudEsc(o.durakName)+'</b>' : 'партия окончена — ничья')+
+      '</span>';
+    return;
+  }
+  const chips=[];
+  if(o.trumpSuit) chips.push(`<span class="hud-chip trump">козырь ${hudSuitHtml(o.trumpSuit)}</span>`);
+  chips.push(`<span class="hud-chip attacker"><span class="dot"></span>атакует <b>${hudEsc(o.attackerName||'?')}</b></span>`);
+  chips.push(`<span class="hud-chip defender"><span class="dot"></span>защищается <b>${hudEsc(o.defenderName||'?')}</b></span>`);
+  chips.push(`<span class="hud-chip">колода <b>${o.talonCount==null?'?':o.talonCount}</b></span>`);
+  chips.push(`<span class="hud-chip">бито <b>${o.discardCount||0}</b></span>`);
+  box.innerHTML = chips.join('');
+}
+// Подсветка «сейчас ходите вы»: окантовка стола + контрастная подсказка +
+// отдельный чип в HUD. Вызывается уже после того, как режим посчитал,
+// действительно ли ход за игроком.
+function markYourTurn(on){
+  const table=document.getElementById('tableBoard');
+  if(table) table.classList.toggle('your-turn', !!on);
+  const hint=document.getElementById('turnHint');
+  if(hint) hint.classList.toggle('my-turn', !!on);
+  const box=document.getElementById('statusLine');
+  if(box && on && !box.querySelector('.hud-chip.you')){
+    const chip=document.createElement('span');
+    chip.className='hud-chip you'; chip.innerHTML='<b>ваш ход</b>';
+    box.appendChild(chip);
+  }
+}
+
+function cardEl(card, faceUp=true){
+  if(!faceUp){ const d=document.createElement('div'); d.className='card-back'; return d; }
+  const d=document.createElement('div');
+  const red = RED_SUITS.has(card.suit);
+  d.className='card ' + (red?'brick':'ink');
+  const idx = `<div class="r">${rankName(card.rank)}</div><div class="s">${card.suit}</div>`;
+  d.innerHTML = `<div class="corner">${idx}</div><div class="corner br">${idx}</div>`;
+  return d;
+}
+
+// Группировка руки по мастям (внутри масти — по возрастанию ранга).
+// Козырная масть ставится в начало или в конец, по выбору игрока.
+// Если игрок выключил группировку в настройках — карты остаются в исходном
+// порядке (как пришли в руку), а строка «Козыри в руке» тогда не нужна.
+const SUIT_ORDER_BASE = ['♠','♣','♥','♦'];
+function trumpSidePref(){
+  const el = document.getElementById('trumpSide');
+  return el ? el.value : 'right';
+}
+function groupHandPref(){
+  const el = document.getElementById('groupHandToggle');
+  return el ? el.checked : true;
+}
+function updateTrumpSideRowVisibility(){
+  document.getElementById('trumpSideRow').classList.toggle('hidden', !groupHandPref());
+}
+function sortHandForDisplay(hand, trumpSuit){
+  if(!groupHandPref()) return hand.slice();
+  const side = trumpSidePref();
+  const others = SUIT_ORDER_BASE.filter(s=>s!==trumpSuit);
+  const order = side==='left' ? [trumpSuit, ...others] : [...others, trumpSuit];
+  return hand.slice().sort((a,b)=>{
+    const oa=order.indexOf(a.suit), ob=order.indexOf(b.suit);
+    if(oa!==ob) return oa-ob;
+    return a.rank-b.rank;
+  });
+}
+// Крайние (левое/правое) места при 4+ соперниках рисуем вертикальным веером —
+// иначе при 5-6 игроках карты по бокам вылезают за стол по горизонтали.
+function oppWrapClass(seatIdx, totalOpponents, out){
+  const vertical = totalOpponents>=4 && (seatIdx===0 || seatIdx===totalOpponents-1);
+  return 'opp' + (out?' out':'') + (vertical?' vertical':'');
+}
+
+// Строка роли ("атакует"/"защита"/"думает…") — рисуется в отдельном
+// вынесенном из потока блоке (.role-row), чтобы её появление/исчезновение
+// не меняло ширину карточки игрока и не двигало соседей по дуге.
+function roleTagsHtml(isAttacker, isDefender, isThinking){
+  return (isAttacker?'<span class="role-tag attacker">атакует</span>':'')+
+    (isDefender?'<span class="role-tag defender">защита</span>':'')+
+    (isThinking?'<span class="role-tag" style="background:#3a6b52;color:var(--cream);">думает…</span>':'');
+}
+function appendRoleRow(wrap, html){
+  if(!html) return;
+  const row=document.createElement('div'); row.className='role-row'; row.innerHTML=html;
+  wrap.appendChild(row);
+}
+
+// Раньше при скрытых картах рисовался веер из N рубашек — его ширина росла
+// вместе с числом карт в руке соперника, а т.к. в мобильной раскладке .opp
+// стоят в одном flex-ряду, это "толкало" соседних игроков и сдвигало позиции
+// на каждой раздаче/отбое. Теперь при скрытых картах рисуем один рубашечный
+// значок фиксированного размера + бейдж с количеством — ширина .opp больше
+// не зависит от числа карт, позиции игроков стабильны. Когда включено
+// "показать все карты" (режим проверки правил), по-прежнему рисуем настоящий
+// веер лицевых карт — там важно видеть реальную раскладку.
+function renderOppHandArea(wrap, count, faceUp, hand, trumpSuit){
+  if(faceUp && hand){
+    const fan=document.createElement('div'); fan.className='fan';
+    sortHandForDisplay(hand, trumpSuit).forEach(c=> fan.appendChild(cardEl(c, true)) );
+    wrap.appendChild(fan);
+  } else {
+    const box=document.createElement('div'); box.className='hand-count';
+    const back=document.createElement('div'); back.className='card-back-mini'; box.appendChild(back);
+    const chip=document.createElement('div'); chip.className='count-chip'; chip.textContent=String(count); box.appendChild(chip);
+    wrap.appendChild(box);
+  }
+}
+
+let game=null, cursor=0, playTimer=null;
+
+function buildGame(){
+  const numPlayers=Number(document.getElementById('numPlayers').value);
+  const deckSize=Number(document.getElementById('deckSize').value);
+  const throwInPolicy=document.getElementById('throwInPolicy').value;
+  game=runFullGame(numPlayers, deckSize, throwInPolicy);
+  cursor=0;
+  document.getElementById('scrubber').max=String(game.snapshots.length-1);
+  document.getElementById('scrubber').value='0';
+  renderFullLog();
+  render();
+}
+
+function renderFullLog(){
+  const box=document.getElementById('fullLog');
+  box.innerHTML = game.log.map((line,i)=>`<span data-i="${i}">${i===cursor?'<span class="cur">'+line+'</span>':line}</span>`).join('\n');
+}
+
+function render(){
+  const snap = game.snapshots[cursor].state;
+  const desc = game.snapshots[cursor].description;
+  const showAll = document.getElementById('showAll').checked;
+  const viewerId = showAll ? null : snap.players[0].id;
+
+  document.getElementById('eventDesc').textContent = desc;
+  document.getElementById('stepCounter').textContent = `шаг ${cursor+1} / ${game.snapshots.length}`;
+  document.getElementById('scrubber').value = String(cursor);
+
+  const attackerName = snap.players[snap.attackerIndex]?.name;
+  const defenderName = snap.players[snap.defenderIndex]?.name;
+  renderStatusHud({
+    finished: snap.finished,
+    durakName: snap.durak ? snap.players.find(p=>p.id===snap.durak)?.name : null,
+    attackerName, defenderName,
+    trumpSuit: snap.trumpSuit,
+    talonCount: snap.talonCount,
+    discardCount: snap.discardCount,
+  });
+  markYourTurn(false); // режим просмотра ботов — «вашего хода» здесь не бывает
+
+  // opponents = все, кроме первого игрока (используем первого как "мою" позицию для примера)
+  const oppBox=document.getElementById('opponents');
+  oppBox.innerHTML='';
+  oppBox.dataset.count = String(snap.players.length-1);
+  snap.players.slice(1).forEach((p,i)=>{
+    const realIdx=i+1;
+    const wrap=document.createElement('div'); wrap.className=oppWrapClass(i, snap.players.length-1, p.out);
+    const label=document.createElement('div'); label.className='label';
+    label.textContent = p.name;
+    wrap.appendChild(label);
+    appendRoleRow(wrap, roleTagsHtml(realIdx===snap.attackerIndex, realIdx===snap.defenderIndex, false));
+    const faceUp = showAll;
+    renderOppHandArea(wrap, p.hand.length, faceUp, p.hand, snap.trumpSuit);
+    if(p.out){ const b=document.createElement('div'); b.className='finish-badge'; b.textContent=`место ${p.finishRank}`; wrap.appendChild(b); }
+    else { const cnt=document.createElement('div'); cnt.className='finish-badge'; cnt.textContent=`${p.hand.length} карт`; wrap.appendChild(cnt); }
+    oppBox.appendChild(wrap);
+  });
+
+  // talon
+  const talonStack=document.getElementById('talonStack');
+  talonStack.innerHTML='';
+  const stackDepth = Math.min(4, Math.ceil(snap.talonCount/6));
+  for(let i=0;i<Math.max(stackDepth, snap.talonCount>0?1:0); i++){
+    const b=document.createElement('div'); b.className='card-back';
+    b.style.position='absolute'; b.style.left=(i*2)+'px'; b.style.top=(i*2)+'px';
+    talonStack.appendChild(b);
+  }
+  if(snap.talonCount>0){
+    const peek=document.createElement('div'); peek.className='trump-peek';
+    peek.appendChild(cardEl(snap.trumpCard, true));
+    talonStack.appendChild(peek);
+  }
+  document.getElementById('talonCount').textContent = snap.talonCount>0 ? `в колоде: ${snap.talonCount}` : 'колода пуста';
+
+  // trick area
+  const trickArea=document.getElementById('trickArea');
+  trickArea.innerHTML='';
+  trickArea.classList.toggle('taking-cards', snap.tableGoingToDefender===true);
+  if(snap.tableGoingToDefender){
+    const label=document.createElement('div'); label.className='taking-label';
+    label.textContent=`→ забирает ${defenderName}`;
+    trickArea.appendChild(label);
+  }
+  if(snap.table.length===0){
+    trickArea.innerHTML += '<span style="font-family:var(--mono);font-size:11px;opacity:.5;">стол пуст</span>';
+  }
+  snap.table.forEach(t=>{
+    const pair=document.createElement('div'); pair.className='trick-pair';
+    const a=cardEl(t.attack,true); a.classList.add('attack-card'); a.style.transform='rotate(-6deg)';
+    pair.appendChild(a);
+    if(t.defense){ const d=cardEl(t.defense,true); d.classList.add('defense-card'); d.style.transform='rotate(8deg)'; pair.appendChild(d); }
+    trickArea.appendChild(pair);
+  });
+
+  // discard
+  document.getElementById('discardPile').textContent = snap.discardCount>0 ? `${snap.discardCount}` : '—';
+
+  // my hand (viewer = player 1, if showAll off; if showAll on we still show p1 as "hand" for concreteness)
+  const me = snap.players[0];
+  document.getElementById('myHandLabel').textContent =
+    `${me.name}${0===snap.attackerIndex?' — атакует':''}${0===snap.defenderIndex?' — защищается':''}`;
+  const myHandBox=document.getElementById('myHand');
+  myHandBox.innerHTML='';
+  sortHandForDisplay(me.hand, snap.trumpSuit).forEach(c=> myHandBox.appendChild(cardEl(c,true)) );
+  layoutHandArc(myHandBox);
+
+  renderFullLog();
+
+  document.getElementById('btnPrev').disabled = cursor<=0;
+  document.getElementById('btnFirst').disabled = cursor<=0;
+  document.getElementById('btnNext').disabled = cursor>=game.snapshots.length-1;
+  document.getElementById('btnLast').disabled = cursor>=game.snapshots.length-1;
+}
+
+function stop(){ if(playTimer){ clearInterval(playTimer); playTimer=null; document.getElementById('btnPlay').textContent='▶'; } }
+
+document.getElementById('newGameBtn').addEventListener('click', ()=>{
+  if(mode==='view'){ stop(); buildGame(); } else { startInteractiveGame(); }
+  showGame();
+});
+document.getElementById('showAll').addEventListener('change', ()=>{
+  if(mode==='view') render(); else renderInteractive();
+});
+document.getElementById('trumpSide').addEventListener('change', ()=>{
+  if(mode==='view') render();
+  else if(mode==='interactive') renderInteractive();
+  else if(netGameStarted) renderNetwork();
+});
+
+// Раскладка карт на столе на мобильном (скролл вбок / перенос вниз).
+// Применяется сразу же, без пересдачи — это просто настройка отображения.
+(function initTableLayoutPref(){
+  const sel = document.getElementById('tableLayoutMobile');
+  const board = document.getElementById('tableBoard');
+  const KEY = 'durak.tableLayoutMobile';
+  const saved = localStorage.getItem(KEY);
+  if(saved === 'scroll' || saved === 'wrap') sel.value = saved;
+  function apply(){
+    board.classList.remove('layout-scroll','layout-wrap');
+    board.classList.add('layout-' + sel.value);
+    localStorage.setItem(KEY, sel.value);
+  }
+  sel.addEventListener('change', apply);
+  apply();
+})();
+document.getElementById('groupHandToggle').addEventListener('change', ()=>{
+  updateTrumpSideRowVisibility();
+  if(mode==='view') render();
+  else if(mode==='interactive') renderInteractive();
+  else if(netGameStarted) renderNetwork();
+});
+updateTrumpSideRowVisibility();
+document.getElementById('modeViewBtn').addEventListener('click', ()=> setMode('view'));
+document.getElementById('modeInteractiveBtn').addEventListener('click', ()=> setMode('interactive'));
+document.getElementById('modeNetworkBtn').addEventListener('click', ()=> setMode('network'));
+
+document.getElementById('netConnectBtn').addEventListener('click', netConnect);
+document.getElementById('netRefreshRoomsBtn').addEventListener('click', ()=> netSend({type:'listRooms'}));
+document.getElementById('netCreateRoomBtn').addEventListener('click', ()=>{
+  netSend({
+    type:'createRoom',
+    label: document.getElementById('netCreateLabel').value,
+    name: document.getElementById('netCreateName').value,
+    numPlayers: Number(document.getElementById('netCreateNumPlayers').value),
+    deckSize: Number(document.getElementById('netCreateDeckSize').value),
+    throwInPolicy: document.getElementById('netCreateThrowIn').value,
+  });
+});
+document.getElementById('netJoinRoomBtn').addEventListener('click', ()=>{
+  netSend({type:'join', roomId: document.getElementById('netJoinRoomId').value.trim().toUpperCase(), name: document.getElementById('netJoinName').value});
+});
+document.getElementById('netLeaveBtn').addEventListener('click', ()=> netSend({type:'leave'}));
+document.getElementById('netFillWithBotsBtn').addEventListener('click', ()=> netSend({type:'fillWithBots'}));
+document.getElementById('netForgetBtn').addEventListener('click', netClearSession);
+document.getElementById('netRejoinBtn').addEventListener('click', ()=>{
+  const s=netLoadSession();
+  if(!s) return;
+  document.getElementById('netWsUrl').value=s.wsUrl;
+  const doRejoin=()=> netSend({type:'rejoin', roomId:s.roomId, playerId:s.playerId});
+  if(netWs && netWs.readyState===WebSocket.OPEN){ doRejoin(); return; }
+  netConnect();
+  const check=setInterval(()=>{
+    if(netWs && netWs.readyState===WebSocket.OPEN){ clearInterval(check); doRejoin(); }
+  }, 100);
+  setTimeout(()=>clearInterval(check), 5000);
+});
+netUpdateSessionUI();
+document.getElementById('btnFirst').addEventListener('click', ()=>{ stop(); cursor=0; render(); });
+document.getElementById('btnLast').addEventListener('click', ()=>{ stop(); cursor=game.snapshots.length-1; render(); });
+document.getElementById('btnPrev').addEventListener('click', ()=>{ stop(); cursor=Math.max(0,cursor-1); render(); });
+document.getElementById('btnNext').addEventListener('click', ()=>{ stop(); cursor=Math.min(game.snapshots.length-1,cursor+1); render(); });
+document.getElementById('scrubber').addEventListener('input', (e)=>{ stop(); cursor=Number(e.target.value); render(); });
+document.getElementById('btnPlay').addEventListener('click', ()=>{
+  if(playTimer){ stop(); return; }
+  document.getElementById('btnPlay').textContent='⏸';
+  playTimer=setInterval(()=>{
+    if(cursor>=game.snapshots.length-1){ stop(); return; }
+    cursor++; render();
+  }, Number(document.getElementById('speed').value));
+});
+
+if (window.matchMedia('(max-width: 680px)').matches) {
+  const sp = document.getElementById('settingsPanel');
+  if (sp) sp.open = false;
+}
+
+/* ============ Тема (светлая/тёмная/системная) ============ */
+function applyTheme(pref){
+  if(pref==='light' || pref==='dark') document.documentElement.setAttribute('data-theme', pref);
+  else document.documentElement.removeAttribute('data-theme');
+}
+(function initTheme(){
+  const saved = localStorage.getItem('durak-theme') || 'system';
+  const sel = document.getElementById('themeSelect');
+  if(sel) sel.value = saved;
+  applyTheme(saved);
+  sel?.addEventListener('change', e=>{
+    localStorage.setItem('durak-theme', e.target.value);
+    applyTheme(e.target.value);
+  });
+})();
+
+/* ============ Показ полного лога на экране стола ============ */
+function applyLogVisible(on){
+  document.getElementById('logBlock').classList.toggle('hidden', !on);
+}
+(function initLogToggle(){
+  const cb = document.getElementById('showLogToggle');
+  const saved = localStorage.getItem('durak-show-log');
+  // на телефоне по умолчанию прячем лог (занимает много места ниже стола),
+  // на десктопе — показываем; если пользователь уже выбирал сам, берём его выбор
+  const on = saved!==null ? saved==='1' : !window.matchMedia('(max-width: 680px)').matches;
+  cb.checked = on;
+  applyLogVisible(on);
+  cb.addEventListener('change', e=>{
+    localStorage.setItem('durak-show-log', e.target.checked ? '1' : '0');
+    applyLogVisible(e.target.checked);
+  });
+})();
+
+/* ============ Размер карт игрока внизу (подбирается прямо во время игры) ============ */
+(function initHandSize(){
+  const range = document.getElementById('handSizeRange');
+  const valueLabel = document.getElementById('handSizeValue');
+  const KEY = 'durak.handScale';
+  function apply(scale, persist){
+    document.documentElement.style.setProperty('--hand-scale', String(scale));
+    valueLabel.textContent = Math.round(scale * 100) + '%';
+    // ширина/высота карт меняются мгновенно через CSS-переменную, но веер
+    // руки (--tx/--ty/--tr) расставлен в px по факту замера карты, поэтому
+    // пересчитываем раскладку руки сразу же, без пересдачи и без ререндера
+    // остального стола.
+    layoutHandArc(document.getElementById('myHand'));
+    if(persist) localStorage.setItem(KEY, String(scale));
+  }
+  const saved = parseFloat(localStorage.getItem(KEY));
+  const initial = Number.isFinite(saved) && saved >= parseFloat(range.min) && saved <= parseFloat(range.max) ? saved : 1;
+  range.value = String(initial);
+  apply(initial, false);
+  range.addEventListener('input', ()=> apply(parseFloat(range.value), true));
+})();
+
+buildGame();
+showSetup();
+</script>
+</body>
+</html>
