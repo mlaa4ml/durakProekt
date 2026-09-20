@@ -311,6 +311,10 @@ function main() {
   }
 
   if (jsonPath) {
+    const dir = jsonPath.substring(0, jsonPath.lastIndexOf('/'));
+    if (dir && !fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     const outputObj = {
       version: '1.0.0',
       date: new Date().toISOString(),
