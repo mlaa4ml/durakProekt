@@ -16,11 +16,12 @@
 //
 // Боту передаётся ТОЛЬКО game.getState(botId) — маскированное состояние без чужих рук.
 
-import { DurakGame } from '../game.js';
-import { cardToString } from '../deck.js';
-import { createBotBrain, normalizeBotLevel, botLevelLabel, BOT_LEVELS } from '../bots/index.js';
+// Раскладка мест и прогон одной партии живут в ../cli/matchCore.js — тем же кодом
+// пользуется scripts/evalBots.js (issue #46), чтобы два бенчмарка не разошлись в мелочах.
+// CLI-поведение этого файла при выносе не изменилось.
 
-const MAX_STEPS = 5000;
+import { createBotBrain, normalizeBotLevel, botLevelLabel, BOT_LEVELS } from '../bots/index.js';
+import { seatLevels, playOneGame } from './matchCore.js';
 
 function parseArgs(argv) {
   const flags = argv.filter((a) => a.startsWith('--'));
