@@ -74,10 +74,11 @@
 требует читать таблицу глазами.
 
 **Воспроизводимость.** Для baseline прогон должен быть детерминированным: `scripts/evalBots.js`
-использует seeded-PRNG и передаёт его четвёртым аргументом в `new DurakGame(players, rules, rng)`
-(движок уже принимает генератор — менять `src/game.js` для этого не нужно). Существующие
-`src/cli/botMatch.js` и `scripts/abProfile.js` передают `Math.random`, поэтому годятся для оценки,
-но не для фиксации линии.
+использует seeded-PRNG и передаёт его **третьим** аргументом в `new DurakGame(players, rules, rng)`
+— движок уже принимает генератор (`src/game.js:21`,
+`constructor(playerDefs, ruleOverrides = {}, rng = Math.random)`), менять его для этого не нужно.
+Существующие `src/cli/botMatch.js` и `scripts/abProfile.js` передают `Math.random`, поэтому годятся
+для оценки, но не для фиксации линии.
 
 ## 3. Этапы
 
