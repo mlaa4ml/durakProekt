@@ -217,7 +217,7 @@ function runConfig({ players, deckSize, throwInPolicy, games, levelA, levelB, se
       totalSteps += res.steps;
       if (res.stuck) stuck++;
       if (res.durakSeat < 0) draws++;
-      else if (levels[res.durakSeat] === levelA) durakA++;
+      else if (seatBelongsToA(res.durakSeat, direction)) durakA++;
       else durakB++;
     } catch (e) {
       errors++;
