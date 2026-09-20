@@ -9,6 +9,8 @@
     "play": "node src/cli/playVerbose.js 2 24",
     "simulate": "node src/cli/simulate.js 1000 2 24",
     "bot-match": "node src/cli/botMatch.js 1000 simple simple 24 2",
+    "eval-bots": "node scripts/evalBots.js",
+    "eval-bots:quick": "node scripts/evalBots.js --matrix=quick --games=2000",
     "build-client": "node scripts/build-client.mjs",
     "sync-client": "node scripts/build-client.mjs",
     "server": "node server/index.js",
