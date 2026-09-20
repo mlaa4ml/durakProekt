@@ -1,2 +1,6 @@
 node_modules/
 .DS_Store
+
+# Результаты разовых прогонов scripts/evalBots.js (issue #46).
+# Зафиксированная линия bench/baseline.json — КОММИТИТСЯ и здесь не игнорируется.
+bench/run*.json
