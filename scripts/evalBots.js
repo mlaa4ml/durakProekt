@@ -226,8 +226,8 @@ function runConfig({ players, deckSize, throwInPolicy, games, levelA, levelB, se
   }
   const seconds = (Date.now() - startedAt) / 1000;
 
-  // Если уровни совпадают (калибровка simple vs simple), «A» — это просто чётные места
-  // в первой половине матча; ожидаемая доля ровно 50 %.
+  // Если уровни совпадают (калибровка simple vs simple), «сторона A» — это просто места,
+  // которые в первой половине матча заняты уровнем A; ожидаемая доля ровно 50 %.
   const decided = durakA + durakB;
   const stats = share(durakA, decided);
 
