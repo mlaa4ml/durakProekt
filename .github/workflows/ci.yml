@@ -83,6 +83,22 @@ jobs:
             echo "::error::botMatch — есть зависшие партии"; exit 1;
           }
 
+      - name: Матрица конфигураций — eval-bots:quick (короткий контроль)
+        run: |
+          set -e
+          if [ ! -f scripts/evalBots.js ]; then
+            echo "В этой ветке нет scripts/evalBots.js — пропускаю (см. issue #46)."
+            exit 0
+          fi
+          # Здесь НЕ меряем силу бота (для этого нужна полная матрица на 3–5 минут),
+          # а ловим ошибки движка и зависания на разных конфигурациях. Поэтому --no-gate
+          # и маленькое число партий.
+          out=$(npm run --silent eval-bots:quick -- --games=200 --a=simple --b=simple --no-gate)
+          echo "$out"
+          echo "$out" | grep -qE "ошибок движка 0, зависаний 0" || {
+            echo "::error::eval-bots:quick — есть ошибки движка или зависания"; exit 1;
+          }
+
       - name: Клиенты идентичны — visual/index.html == docs/index.html
         run: |
           set -e
