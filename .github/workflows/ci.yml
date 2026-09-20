@@ -83,6 +83,11 @@ jobs:
             echo "::error::botMatch — есть зависшие партии"; exit 1;
           }
 
+      - name: Бенчмарк ботов — evalBots:quick (контроль движка)
+        run: |
+          set -e
+          node scripts/evalBots.js --matrix=quick --games=200 --seed=42
+
       - name: Клиенты идентичны — visual/index.html == docs/index.html
         run: |
           set -e
