@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- СГЕНЕРИРОВАННЫЙ ФАЙЛ. Источники: client/template.html и src/**. Собирается командой `npm run build-client`, руками не править. -->
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
@@ -392,7 +393,10 @@
   .event-desc{
     text-align:center; color:var(--text-strong); font-size:15px; margin:16px 0 4px;
     min-height:22px;
+    /* объяснение хода бота (issue #39) — две строки: «🤖 …» и «└ расклад: …» */
+    white-space:pre-line;
   }
+  .settings-hint{ font-size:11px; color:var(--gold); opacity:.85; }
 
   .transport{
     display:flex; align-items:center; justify-content:center; gap:8px;
@@ -633,6 +637,20 @@
           </label>
         </div>
         <div class="settings-row">
+          <label>Уровень ботов
+            <select id="botLevel">
+              <option value="simple" selected>простой</option>
+              <option value="smart">умный (считает карты)</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-row">
+          <label><input type="checkbox" id="botExplain" /> боты объясняют свои ходы в логе</label>
+        </div>
+        <div class="settings-row">
+          <span class="settings-hint hidden" id="botSettingsHint">Изменение применится со следующей партии — нажмите «Новая партия».</span>
+        </div>
+        <div class="settings-row">
           <label><input type="checkbox" id="groupHandToggle" checked /> группировать карты в руке по мастям</label>
         </div>
         <div class="settings-row" id="trumpSideRow">
@@ -788,96 +806,2203 @@
 </div>
 
 <script type="module">
-/* ============ Движок (та же логика, что в src/game.js) ============ */
+/* ============ Движок и боты — СГЕНЕРИРОВАНО scripts/build-client.mjs из src/. Не править: правки пропадут при следующей сборке ============ */
 
+/* ---------- src/deck.js ---------- */
+// Колода: карты как {suit, rank}. rank — число, чем больше, тем старше.
 const SUITS = ['♠', '♥', '♦', '♣'];
-const RED_SUITS = new Set(['♥', '♦']);
+
 const RANKS_BY_DECK_SIZE = {
-  24: [9, 10, 11, 12, 13, 14],
-  36: [6, 7, 8, 9, 10, 11, 12, 13, 14],
-  52: [2,3,4,5,6,7,8,9,10,11,12,13,14],
+  24: [9, 10, 11, 12, 13, 14],                    // 9,10,J,Q,K,A
+  36: [6, 7, 8, 9, 10, 11, 12, 13, 14],            // 6..A
+  52: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],// 2..A
 };
-function createDeck(deckSize){
+
+function createDeck(deckSize = 24) {
   const ranks = RANKS_BY_DECK_SIZE[deckSize];
+  if (!ranks) throw new Error(`Неподдерживаемый размер колоды: ${deckSize}`);
   const deck = [];
-  for(const suit of SUITS) for(const rank of ranks) deck.push({suit,rank});
+  for (const suit of SUITS) {
+    for (const rank of ranks) {
+      deck.push({ suit, rank });
+    }
+  }
   return deck;
 }
-function shuffle(deck, rng=Math.random){
+
+function shuffle(deck, rng = Math.random) {
   const a = deck.slice();
-  for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
   return a;
 }
-const RANK_NAMES = {11:'J',12:'Q',13:'K',14:'A'};
-function rankName(r){ return RANK_NAMES[r] || String(r); }
-function cardToString(c){ return `${rankName(c.rank)}${c.suit}`; }
+
+const RANK_NAMES = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
+function rankName(rank) {
+  return RANK_NAMES[rank] || String(rank);
+}
+
+function cardToString(c) {
+  return `${rankName(c.rank)}${c.suit}`;
+}
+
+function sameRank(a, b) {
+  return a.rank === b.rank;
+}
+
+/* ---------- src/rules.js ---------- */
+// Все настраиваемые параметры игры собраны здесь.
+// Это тот самый "конфиг", через который в будущем будут переключаться
+// колоды 24/36/52, число игроков 2-6 и вариации правил.
 
 const DEFAULT_RULES = {
-  deckSize:24, numPlayers:2, handSize:6,
-  allowPerevod:true, perevodOnlyOnFirstCard:true, perevodRequiresEnoughCards:true,
-  maxTableAttacks:6, attackLimitByDefenderHand:true, throwInAfterTake:true,
-  throwInPolicy:'all', // 'attackerOnly' | 'neighbors' | 'all'
+  deckSize: 24,               // 24 | 36 | 52
+  numPlayers: 2,               // 2..6
+  handSize: 6,                 // сколько карт на руках держим (добор до этого числа)
+
+  allowPerevod: true,          // включён ли "переводной" механизм (работает и при 2 игроках — см. ниже)
+  perevodOnlyOnFirstCard: true,// перевод возможен только пока ни одна карта на столе ещё не отбита
+  perevodRequiresEnoughCards: true, // у принимающего перевод должно быть в руке не меньше карт, чем неотбитых атак
+
+  maxTableAttacks: 6,          // классический предел одновременных атак на столе
+  attackLimitByDefenderHand: true, // нельзя подкинуть больше карт, чем было в руке у защищающегося на начало раунда
+  throwInAfterTake: true,      // если защищающийся забрал карты — остальные могут ещё раз подкинуть карты того же ранга
+
+  // Кто имеет право подкидывать карты на стол (выбирается один раз в начале партии):
+  //   'attackerOnly' — только текущий атакующий
+  //   'neighbors'    — атакующий и игроки, сидящие рядом с защищающимся (по обе стороны от него)
+  //   'all'          — все игроки, кроме самого защищающегося (классический вариант)
+  // Порядок подкидывания внутри "захода" всегда один: сначала текущий атакующий,
+  // затем игрок, сидящий рядом с защищающимся (следующий после него по кругу),
+  // затем — если разрешено правилом 'all' — остальные игроки по кругу.
+  throwInPolicy: 'all',
+
+  firstAttackerRule: 'lowestTrump', // кто ходит первым в самой первой раздаче
 };
-function resolveRules(overrides={}){
-  const rules = {...DEFAULT_RULES, ...overrides};
+
+const THROW_IN_POLICIES = ['attackerOnly', 'neighbors', 'all'];
+
+function resolveRules(overrides = {}) {
+  const rules = { ...DEFAULT_RULES, ...overrides };
+
+  if (![24, 36, 52].includes(rules.deckSize)) {
+    throw new Error('deckSize должен быть 24, 36 или 52');
+  }
+  if (rules.numPlayers < 2 || rules.numPlayers > 6) {
+    throw new Error('numPlayers должен быть от 2 до 6');
+  }
+  if (!THROW_IN_POLICIES.includes(rules.throwInPolicy)) {
+    throw new Error(`throwInPolicy должен быть одним из: ${THROW_IN_POLICIES.join(', ')}`);
+  }
+  // При 2 игроках "перевод" не отключаем: переводящий и получающий перевод
+  // просто меняются ролями (переводящий сам становится атакующим).
+
+  const cardsNeededForDeal = rules.numPlayers * rules.handSize;
+  if (cardsNeededForDeal > rules.deckSize) {
+    throw new Error(
+      `Колода из ${rules.deckSize} карт слишком мала для ${rules.numPlayers} игроков ` +
+      `по ${rules.handSize} карт (нужно минимум ${cardsNeededForDeal})`
+    );
+  }
+
   return rules;
 }
-function canBeat(attack, defend, trumpSuit){
-  if(defend.suit===attack.suit) return defend.rank>attack.rank;
-  if(defend.suit===trumpSuit && attack.suit!==trumpSuit) return true;
+
+/* ---------- src/game.js ---------- */
+function canBeat(attackCard, defendCard, trumpSuit) {
+  if (defendCard.suit === attackCard.suit) return defendCard.rank > attackCard.rank;
+  if (defendCard.suit === trumpSuit && attackCard.suit !== trumpSuit) return true;
   return false;
 }
-function cardIndexInHand(hand, card){ return hand.findIndex(c=>c.suit===card.suit && c.rank===card.rank); }
 
+function cardIndexInHand(hand, card) {
+  return hand.findIndex((c) => c.suit === card.suit && c.rank === card.rank);
+}
+
+/**
+ * DurakGame — движок партии "переводной дурак".
+ * Работает через явные действия (attack/transfer/defend/take/pass),
+ * которые может вызывать как бот, так и (в будущем) сетевой игрок через сервер.
+ * Никакой сети/UI здесь нет — чистая логика + лог событий.
+ */
 class DurakGame {
-  constructor(playerDefs, ruleOverrides={}, rng=Math.random){
-    this.rules = resolveRules({...ruleOverrides, numPlayers: playerDefs.length});
+  constructor(playerDefs, ruleOverrides = {}, rng = Math.random) {
+    this.rules = resolveRules({ ...ruleOverrides, numPlayers: playerDefs.length });
     this.rng = rng;
     this.log = [];
-    this.snapshots = [];
-    this.players = playerDefs.map(p=>({id:p.id, name:p.name||p.id, hand:[], out:false, finishRank:null}));
+
+    this.players = playerDefs.map((p) => ({
+      id: p.id,
+      name: p.name || p.id,
+      hand: [],
+      out: false,      // вышел из игры (закончились карты и добор)
+      finishRank: null, // место, на котором вышел (1 = первый освободился)
+    }));
+
     this._deal();
-    this.table = [];
+
+    this.table = []; // [{attack, defense|null}]
     this.discardCount = 0;
     this.finishedOrder = [];
     this.durak = null;
-    this.phase = 'need-attack';
+    this.phase = 'need-attack'; // need-attack | defender-to-act | finished
     this.perevodUsedThisRound = false;
+
     this.attackerIndex = this._pickFirstAttacker();
     this._setDefender(this._nextActiveIndex(this.attackerIndex));
-    this.allowAnyCardNow = true;
-    this.tookCards = false;
-    this.postTakeMode = false;
-    this.attackCountThisRound = 0;
+    this.allowAnyCardNow = true;  // разрешено класть любую карту (только на пустой стол в начале раунда)
+    this.tookCards = false;       // true = защищающийся решил забрать; карты со стола пока НЕ убраны — лежат "на взятие"
+    this.postTakeMode = false;    // true = защищающийся уже решил забрать карты в этом раунде; сам он больше не отбивается
+    this.attackCountThisRound = 0; // счётчик всех подкинутых карт за раунд (включая подкинутые после взятия) — для лимита attackLimitByDefenderHand
     this._resetThrowInQueue();
-    this._log(`Игра началась. Козырь: ${cardToString(this.trumpCard)}`);
+
+    this._log(`Игра началась. Козырь: ${this.trumpCard ? cardToString(this.trumpCard) : '?'} (масть ${this.trumpSuit})`);
     this._log(`Первый ход: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
   }
-  // Публичное состояние игры «глазами» конкретного игрока — полный аналог
-  // getState(forPlayerId) из src/game.js. Чужие руки маскируются: hand отдаётся
-  // только самому игроку (или всем сразу, если forPlayerId === null).
-  // Именно это состояние нужно передавать ботам, чтобы они не «подглядывали»
-  // в руку человека и при этом видели стол, фазу, отбой и размеры рук.
-  getState(forPlayerId = null){
+
+  _log(msg) {
+    this.log.push(msg);
+  }
+
+  _deal() {
+    let deck = shuffle(createDeck(this.rules.deckSize), this.rng);
+    // Козырь — нижняя карта колоды (по классике кладётся под низ, но нам важна лишь её масть)
+    this.trumpCard = deck[deck.length - 1];
+    this.trumpSuit = this.trumpCard.suit;
+
+    for (const player of this.players) {
+      player.hand = deck.splice(0, this.rules.handSize);
+    }
+    this.talon = deck; // оставшиеся карты — прикуп
+  }
+
+  _pickFirstAttacker() {
+    // Ходит первым тот, у кого наименьший козырь на руках.
+    let bestIdx = 0;
+    let bestRank = Infinity;
+    let found = false;
+    this.players.forEach((p, idx) => {
+      for (const c of p.hand) {
+        if (c.suit === this.trumpSuit && c.rank < bestRank) {
+          bestRank = c.rank;
+          bestIdx = idx;
+          found = true;
+        }
+      }
+    });
+    return found ? bestIdx : 0;
+  }
+
+  _activeIndices() {
+    const res = [];
+    this.players.forEach((p, idx) => { if (!p.out) res.push(idx); });
+    return res;
+  }
+
+  _nextActiveIndex(fromIdx) {
+    const n = this.players.length;
+    for (let step = 1; step <= n; step++) {
+      const idx = (fromIdx + step) % n;
+      if (!this.players[idx].out) return idx;
+    }
+    return fromIdx;
+  }
+
+  _resetThrowInQueue() {
+    // Полный круг всех, кто в принципе мог бы подкинуть карту (кроме защищающегося),
+    // начиная с атакующего и дальше по кругу. Порядок внутри круга сам по себе уже
+    // соответствует желаемому: атакующий → сосед защищающегося → остальные по кругу.
+    const fullCircle = [];
+    let idx = this.attackerIndex;
+    for (let i = 0; i < this.players.length; i++) {
+      if (idx !== this.defenderIndex && !this.players[idx].out) fullCircle.push(idx);
+      idx = (idx + 1) % this.players.length;
+    }
+
+    let queue;
+    switch (this.rules.throwInPolicy) {
+      case 'attackerOnly':
+        // Только текущий атакующий.
+        queue = fullCircle.length > 0 ? [this.attackerIndex] : [];
+        break;
+      case 'neighbors': {
+        // Атакующий (он же — предыдущий активный игрок перед защищающимся)
+        // и игрок, сидящий по другую сторону от защищающегося (следующий активный после него).
+        queue = [this.attackerIndex];
+        const afterDefender = this._nextActiveIndex(this.defenderIndex);
+        if (afterDefender !== this.attackerIndex && !this.players[afterDefender].out) {
+          queue.push(afterDefender);
+        }
+        break;
+      }
+      case 'all':
+      default:
+        // Все игроки, кроме защищающегося, по кругу начиная с атакующего.
+        queue = fullCircle;
+        break;
+    }
+
+    this.throwInQueue = queue;
+    this.throwInQueuePos = 0;
+    this.passedPlayers = new Set();
+  }
+
+  _undefendedAttacks() {
+    return this.table.filter((t) => t.defense === null);
+  }
+
+  // Фиксирует нового защищающегося и СРАЗУ ЖЕ запоминает размер его руки —
+  // именно "на начало раунда", т.е. до того как он успеет отбиться
+  // (или перевести) хотя бы одной картой. Раньше _defenderHandAtStart
+  // просто сбрасывался в undefined и пересчитывался лениво при первом
+  // обращении, которое могло произойти уже ПОСЛЕ того, как защитник
+  // отыграл несколько карт защиты — из-за этого лимит подкидывания
+  // занижался (напр. 4 вместо 6 у игрока с 6 картами в начале хода).
+  _setDefender(idx) {
+    this.defenderIndex = idx;
+    this._defenderHandAtStart = this.players[idx].hand.length;
+  }
+
+  _defenderHandSizeAtRoundStart() {
+    if (this._defenderHandAtStart === undefined) {
+      // Подстраховка на случай, если метод вызвали до _setDefender.
+      this._defenderHandAtStart = this.players[this.defenderIndex].hand.length;
+    }
+    return this._defenderHandAtStart;
+  }
+
+  // ---------- Публичное API ----------
+
+  getState(forPlayerId = null) {
     return {
-      phase:this.phase,
-      trumpSuit:this.trumpSuit, trumpCard:this.trumpCard,
-      talonCount:this.talon.length, discardCount:this.discardCount,
-      table:this.table.map(t=>({attack:t.attack, defense:t.defense})),
-      tableGoingToDefender:this.tookCards===true,
-      attacker:this.players[this.attackerIndex]?.id,
-      defender:this.players[this.defenderIndex]?.id,
-      players:this.players.map(p=>({
-        id:p.id,
-        name:p.name,
-        handCount:p.hand.length,
-        out:p.out,
-        finishRank:p.finishRank,
-        hand: forPlayerId===null || forPlayerId===p.id ? p.hand : undefined,
+      phase: this.phase,
+      trumpSuit: this.trumpSuit,
+      trumpCard: this.trumpCard,
+      talonCount: this.talon.length,
+      discardCount: this.discardCount,
+      table: this.table.map((t) => ({ attack: t.attack, defense: t.defense })),
+      // true = защитник уже решил забрать — карты на столе ещё физически лежат там,
+      // но визуально их можно показывать как "уходящие" ему в руку.
+      tableGoingToDefender: this.tookCards === true,
+      attacker: this.players[this.attackerIndex]?.id,
+      defender: this.players[this.defenderIndex]?.id,
+      players: this.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        handCount: p.hand.length,
+        out: p.out,
+        finishRank: p.finishRank,
+        hand: forPlayerId === null || forPlayerId === p.id ? p.hand : undefined,
       })),
-      durak:this.durak,
-      finished:this.phase==='finished',
+      durak: this.durak,
+      finished: this.phase === 'finished',
     };
+  }
+
+  getLegalActions(playerId) {
+    if (this.phase === 'finished') return [];
+    const idx = this.players.findIndex((p) => p.id === playerId);
+    if (idx === -1 || this.players[idx].out) return [];
+
+    if (this.phase === 'defender-to-act') {
+      if (idx !== this.defenderIndex) return [];
+      return this._legalDefenderActions();
+    }
+
+    if (this.phase === 'need-attack') {
+      const isNextThrower = this.throwInQueue[this.throwInQueuePos] === idx;
+      if (!isNextThrower) return [];
+      return this._legalThrowInActions(idx);
+    }
+
+    return [];
+  }
+
+  // Какие ранги сейчас разрешено подкидывать (или null = разрешено всё).
+  // Единая точка правды: и _legalThrowInActions, и лог после отбоя/взятия берут ранги отсюда,
+  // чтобы никогда не разойтись между собой.
+  // Стол теперь не очищается сразу при взятии (карты остаются лежать "на взятие" до конца
+  // захода — см. _doTake/_resolveTableClosed), поэтому пока идёт постТейк-подкидывание,
+  // this.table всегда непуст и ранги естественным образом берутся из него же.
+  _currentAllowedThrowInRanks() {
+    const tableEmpty = this.table.length === 0;
+    if (!tableEmpty) {
+      return new Set(this.table.map((t) => t.attack.rank).concat(
+        this.table.filter((t) => t.defense).map((t) => t.defense.rank)
+      ));
+    }
+    if (this.allowAnyCardNow) return null;
+    return new Set();
+  }
+
+  // Единый текст статуса лимита подкидывания — используется и после успешной защиты,
+  // и после решения защитника забрать карты, чтобы в логе всегда было видно,
+  // сколько ещё карт можно подкинуть и какие ранги разрешены.
+  _throwInStatusText() {
+    const allowedRanks = this._currentAllowedThrowInRanks();
+    const ranksLabel = allowedRanks === null
+      ? 'любые (новый раунд)'
+      : (allowedRanks.size > 0 ? [...allowedRanks].map(rankName).join(', ') : 'нет (подкидывать нечем)');
+    const limit = Math.min(
+      this.rules.maxTableAttacks,
+      this.rules.attackLimitByDefenderHand ? this._defenderHandSizeAtRoundStart() : Infinity
+    );
+    const roomLeft = limit - this.attackCountThisRound;
+    return `Можно подкидывать ранги: ${ranksLabel}. Лимит атак за раунд: ${this.attackCountThisRound}/${limit} (осталось ${Math.max(roomLeft, 0)}).`;
+  }
+
+  _legalThrowInActions(idx) {
+    const actions = [];
+    const hand = this.players[idx].hand;
+    const tableEmpty = this.table.length === 0;
+    const allowedRanks = this._currentAllowedThrowInRanks();
+
+    const limit = Math.min(
+      this.rules.maxTableAttacks,
+      this.rules.attackLimitByDefenderHand ? this._defenderHandSizeAtRoundStart() : Infinity
+    );
+    // Считаем ВСЕ подкинутые за раунд карты, включая те, что ушли в руку защитника
+    // после взятия (this.table в этот момент уже пуст и не отражает их).
+    const roomLeft = limit - this.attackCountThisRound;
+
+    if (roomLeft > 0) {
+      for (const c of hand) {
+        if (allowedRanks === null || allowedRanks.has(c.rank)) {
+          actions.push({ type: 'attack', card: c });
+        }
+      }
+    }
+    // Пасовать нельзя только самому первому игроку на пустом столе в начале раунда — иначе игра не начнётся.
+    if (!(tableEmpty && this.allowAnyCardNow && idx === this.attackerIndex)) {
+      actions.push({ type: 'pass' });
+    }
+    return actions;
+  }
+
+  _legalDefenderActions() {
+    const actions = [];
+    const defender = this.players[this.defenderIndex];
+    const undefended = this._undefendedAttacks();
+
+    // Отбить самую раннюю неотбитую атаку
+    if (undefended.length > 0) {
+      const target = undefended[0];
+      for (const c of defender.hand) {
+        if (canBeat(target.attack, c, this.trumpSuit)) {
+          actions.push({ type: 'defend', card: c, against: target.attack });
+        }
+      }
+    }
+
+    // Перевод. Игрок сам решает, каким количеством карт того же ранга переводить:
+    // можно перевести только одной (например, некозырной), а вторую такого же
+    // ранга при желании подкинуть позже обычным подкидыванием.
+    if (this._canConsiderPerevod()) {
+      const rank = undefended[0].attack.rank;
+      const matching = defender.hand.filter((c) => c.rank === rank);
+      if (matching.length > 0) {
+        const nextIdx = this._nextActiveIndex(this.defenderIndex);
+        const nextPlayerHandSize = this.players[nextIdx].hand.length;
+        const okByHandSize = (n) => !this.rules.perevodRequiresEnoughCards ||
+          nextPlayerHandSize >= undefended.length + n;
+
+        if (nextIdx !== this.defenderIndex) {
+          // Перевод одной конкретной картой — по варианту на каждую подходящую карту в руке.
+          for (const c of matching) {
+            if (okByHandSize(1)) actions.push({ type: 'transfer', cards: [c] });
+          }
+          // Плюс перевод сразу всеми картами этого ранга одним ходом, если их больше одной.
+          if (matching.length > 1 && okByHandSize(matching.length)) {
+            actions.push({ type: 'transfer', cards: matching });
+          }
+        }
+      }
+    }
+
+    actions.push({ type: 'take' });
+    return actions;
+  }
+
+  _canConsiderPerevod() {
+    if (!this.rules.allowPerevod) return false;
+    if (this.rules.perevodOnlyOnFirstCard) {
+      const anyDefended = this.table.some((t) => t.defense !== null);
+      if (anyDefended) return false;
+      // допустимо переводить, только пока на столе карты одного ранга (иначе непонятно, что переводим)
+      const ranks = new Set(this.table.map((t) => t.attack.rank));
+      if (ranks.size !== 1) return false;
+    }
+    return true;
+  }
+
+  applyAction(playerId, action) {
+    const legal = this.getLegalActions(playerId);
+    const match = legal.find((a) => this._actionsEqual(a, action));
+    if (!match) {
+      throw new Error(`Недопустимое действие для ${playerId}: ${JSON.stringify(action)}`);
+    }
+
+    const idx = this.players.findIndex((p) => p.id === playerId);
+
+    switch (action.type) {
+      case 'attack': return this._doAttack(idx, match.card);
+      case 'pass': return this._doPass(idx);
+      case 'defend': return this._doDefend(idx, match.card, match.against);
+      case 'transfer': return this._doTransfer(idx, match.cards);
+      case 'take': return this._doTake(idx);
+      default: throw new Error('Неизвестное действие: ' + action.type);
+    }
+  }
+
+  _actionsEqual(a, b) {
+    if (a.type !== b.type) return false;
+    if (a.type === 'attack' || a.type === 'defend') {
+      return a.card.suit === b.card.suit && a.card.rank === b.card.rank;
+    }
+    if (a.type === 'transfer') {
+      if (a.cards.length !== b.cards.length) return false;
+      // Сравниваем как множества (порядок карт в запросе значения не имеет),
+      // чтобы разные варианты перевода (одной картой из двух и т.п.) не путались.
+      const bRemaining = b.cards.slice();
+      for (const ac of a.cards) {
+        const i = bRemaining.findIndex((bc) => bc.suit === ac.suit && bc.rank === ac.rank);
+        if (i === -1) return false;
+        bRemaining.splice(i, 1);
+      }
+      return true;
+    }
+    return true;
+  }
+
+  _removeFromHand(idx, card) {
+    const hand = this.players[idx].hand;
+    const i = cardIndexInHand(hand, card);
+    if (i === -1) throw new Error('Карты нет в руке');
+    return hand.splice(i, 1)[0];
+  }
+
+  _doAttack(idx, card) {
+    this._removeFromHand(idx, card);
+    this.attackCountThisRound++;
+    this.table.push({ attack: card, defense: null });
+
+    if (this.postTakeMode) {
+      // Защищающийся уже решил забрать карты в этом раунде: новая подкинутая карта
+      // ложится на стол рядом с остальными — видно всем, что она тоже уйдёт защитнику
+      // при закрытии стола. Отбиваться от неё не нужно, фаза защиты не открывается.
+      const defender = this.players[this.defenderIndex];
+      this._log(`${this.players[idx].name} подкидывает ${cardToString(card)} — карта ляжет в стопку, которую забирает ${defender.name}`);
+      this.allowAnyCardNow = false;
+      this.passedPlayers.clear();
+      this._advanceThrowInQueue();
+      this._maybeResolveNeedAttack();
+      return this.getState();
+    }
+
+    this._log(`${this.players[idx].name} подкидывает ${cardToString(card)}`);
+    this.allowAnyCardNow = false;
+    this.passedPlayers.clear();
+    this._advanceThrowInQueue();
+    this.phase = 'defender-to-act';
+    return this.getState();
+  }
+
+  _doPass(idx) {
+    this.passedPlayers.add(idx);
+    this._log(`${this.players[idx].name} пасует`);
+    this._advanceThrowInQueue();
+    this._maybeResolveNeedAttack();
+    return this.getState();
+  }
+
+  _advanceThrowInQueue() {
+    this.throwInQueuePos = (this.throwInQueuePos + 1) % Math.max(this.throwInQueue.length, 1);
+  }
+
+  _maybeResolveNeedAttack() {
+    // Если все, кто мог подкинуть, спасовали подряд — стол закрывается.
+    const activeThrowers = this.throwInQueue.length;
+    if (activeThrowers === 0 || this.passedPlayers.size >= activeThrowers) {
+      this._resolveTableClosed();
+    }
+  }
+
+  _doDefend(idx, card, against) {
+    this._removeFromHand(idx, card);
+    const entry = this.table.find((t) => t.defense === null && t.attack.suit === against.suit && t.attack.rank === against.rank);
+    entry.defense = card;
+    this._log(`${this.players[idx].name} отбивается ${cardToString(card)} от ${cardToString(against)}`);
+
+    if (this._undefendedAttacks().length > 0) {
+      // есть ещё неотбитые — защищающийся продолжает
+      this.phase = 'defender-to-act';
+    } else {
+      // всё отбито — снова очередь подкидывающих
+      this.phase = 'need-attack';
+      this._resetThrowInQueue();
+      this._log(`Стол отбит. ${this._throwInStatusText()}`);
+      this._maybeResolveNeedAttack(); // на случай если подкидывать больше некому/нечем
+    }
+    return this.getState();
+  }
+
+  _doTransfer(idx, cards) {
+    for (const c of cards) {
+      this._removeFromHand(idx, c);
+      this.table.push({ attack: c, defense: null });
+    }
+    this.attackCountThisRound += cards.length;
+    this._log(`${this.players[idx].name} переводит: ${cards.map(cardToString).join(', ')}`);
+    this.perevodUsedThisRound = true;
+
+    // Переводящий сам становится атакующим (актуально прежде всего при
+    // игре вдвоём: иначе "новый защищающийся" совпал бы с атакующим).
+    this.attackerIndex = idx;
+    this._setDefender(this._nextActiveIndex(idx)); // лимит фиксируется под нового защищающегося сразу
+    this.allowAnyCardNow = false;
+    this._resetThrowInQueue();
+    this._log(`Теперь защищается: ${this.players[this.defenderIndex].name}`);
+    this.phase = 'defender-to-act';
+    return this.getState();
+  }
+
+  _doTake(idx) {
+    // Карты со стола НЕ убираем сразу — они остаются лежать до конца захода (пока все
+    // не спасуют), чтобы всем было видно, что именно защитник забирает и что ещё
+    // подкинули следом. Физически в руку защитника они уйдут в _resolveTableClosed.
+    const cardCount = this.table.length + this.table.filter((t) => t.defense).length;
+    this.tookCards = true;
+    this.postTakeMode = true;
+    this.allowAnyCardNow = false;
+    this._log(`${this.players[idx].name} решает забрать карты (пока на столе ${cardCount} шт.). ${this._throwInStatusText()}`);
+    this.phase = 'need-attack';
+    this._resetThrowInQueueForThrowInAfterTake();
+    this._maybeResolveNeedAttack();
+    return this.getState();
+  }
+
+  _resetThrowInQueueForThrowInAfterTake() {
+    if (!this.rules.throwInAfterTake) {
+      this.throwInQueue = [];
+      this.throwInQueuePos = 0;
+      this.passedPlayers = new Set();
+      this._resolveTableClosed();
+      return;
+    }
+    this._resetThrowInQueue();
+  }
+
+  _resolveTableClosed() {
+    const tookCards = this.tookCards === true;
+    this.tookCards = false;
+    this.postTakeMode = false;
+
+    const prevDefenderIdx = this.defenderIndex;
+    if (tookCards) {
+      // Заход завершён (все спасовали) — только теперь физически отдаём защитнику
+      // всё, что накопилось на столе (то, что он изначально не отбил, плюс всё,
+      // что успели подкинуть следом).
+      const defender = this.players[prevDefenderIdx];
+      const cardCount = this.table.length + this.table.filter((t) => t.defense).length;
+      for (const t of this.table) {
+        defender.hand.push(t.attack);
+        if (t.defense) defender.hand.push(t.defense);
+      }
+      this.table = [];
+      this._log(`${defender.name} забирает карты со стола (${cardCount} шт.)`);
+    } else {
+      this.discardCount += this.table.length * 2;
+      this.table = [];
+      this._log(`Карты биты, уходят в отбой.`);
+    }
+
+    this._refillHands(prevDefenderIdx);
+    this._checkFinishedPlayers();
+
+    if (this.phase === 'finished') return;
+
+    // Следующий раунд:
+    // - если защищавшийся отбился — он сам становится атакующим (роли переходят по кругу),
+    //   если только он этим же ходом не вышел из игры (тогда ход передаётся дальше);
+    // - если забрал карты — он пропускает ход, атакует снова тот, кто атаковал до этого.
+    let newAttacker;
+    if (tookCards) {
+      newAttacker = this._nextActiveIndex(prevDefenderIdx);
+    } else {
+      newAttacker = this.players[prevDefenderIdx].out
+        ? this._nextActiveIndex(prevDefenderIdx)
+        : prevDefenderIdx;
+    }
+    const newDefender = this._nextActiveIndex(newAttacker);
+
+    if (newAttacker === newDefender) {
+      // остался де факто один активный игрок — партия окончена
+      this._finishGame();
+      return;
+    }
+
+    this.attackerIndex = newAttacker;
+    this._setDefender(newDefender);
+    this.perevodUsedThisRound = false;
+    this.allowAnyCardNow = true;
+    this.postTakeMode = false;
+    this.attackCountThisRound = 0;
+    this.phase = 'need-attack';
+    this._resetThrowInQueue();
+    this._log(`Новый раунд. Ходит: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
+    this._maybeResolveNeedAttack();
+  }
+
+  _refillHands(startFromIdx) {
+    if (this.talon.length === 0) return;
+    // Порядок добора: атакующий и все, кто подкидывал (по кругу от атакующего), затем защищающийся последним.
+    const order = [];
+    let idx = this.attackerIndex;
+    for (let i = 0; i < this.players.length; i++) {
+      if (idx !== this.defenderIndex && !this.players[idx].out) order.push(idx);
+      idx = (idx + 1) % this.players.length;
+    }
+    if (!this.players[this.defenderIndex].out) order.push(this.defenderIndex);
+
+    for (const pIdx of order) {
+      const player = this.players[pIdx];
+      const drawn = [];
+      while (player.hand.length < this.rules.handSize && this.talon.length > 0) {
+        const card = this.talon.shift();
+        player.hand.push(card);
+        drawn.push(card);
+      }
+      if (drawn.length > 0) {
+        this._log(`${player.name} добирает из колоды: ${drawn.map(cardToString).join(', ')} (в колоде осталось ${this.talon.length})`);
+      }
+    }
+    if (this.talon.length === 0 && !this._talonEmptyLogged) {
+      this._talonEmptyLogged = true;
+      this._log(`Колода закончилась — дальше играем без добора.`);
+    }
+  }
+
+  _checkFinishedPlayers() {
+    this.players.forEach((p) => {
+      if (!p.out && p.hand.length === 0 && this.talon.length === 0) {
+        p.out = true;
+        p.finishRank = this.finishedOrder.length + 1;
+        this.finishedOrder.push(p.id);
+        this._log(`${p.name} избавился от карт и выходит из игры (место ${p.finishRank})`);
+      }
+    });
+
+    const active = this._activeIndices();
+    if (active.length <= 1) {
+      this._finishGame(active.length === 1 ? this.players[active[0]].id : null);
+    }
+  }
+
+  _finishGame(durakId) {
+    this.phase = 'finished';
+    if (durakId !== undefined) {
+      this.durak = durakId ?? null;
+    } else {
+      const active = this._activeIndices();
+      this.durak = active.length === 1 ? this.players[active[0]].id : null;
+    }
+    if (this.durak) {
+      this._log(`Игра окончена. Дурак: ${this.players.find(p=>p.id===this.durak).name}`);
+    } else {
+      this._log(`Игра окончена. Ничья (колода закончилась, карты у нескольких игроков не совпали по времени).`);
+    }
+  }
+}
+
+/* ---------- src/bots/simpleBot.js ---------- */
+// Бот уровня "нормально играет, но не считает вероятности".
+// Логика:
+// - Атакует/подкидывает самой младшей не козырной картой, если есть; козыри бережёт всегда
+//   (кроме обязательного хода).
+// - Дам, королей и тузов придерживает, только пока в колоде есть прикуп — их выгодно
+//   разыгрывать позже, когда рука уже неизвестна другим игрокам. Мелкие карты кидает
+//   в любой момент, независимо от размера своей руки: держать их про запас смысла нет.
+// - Когда прикуп закончился (колода пуста), беречь уже нечего — бросает всё некозырное.
+// - Защищается самой дешёвой подходящей картой (не козырной, если можно).
+// - Переводит, если пришлось бы отбиваться козырем, а перевести можно недорогой картой.
+// - Если отбиться нечем — берёт карты.
+
+function cardValue(card, trumpSuit) {
+  return (card.suit === trumpSuit ? 100 : 0) + card.rank;
+}
+
+// Дама и старше (валет уже не считается "крупной" картой — его невыгодно придерживать).
+function isHighCard(card) {
+  return card.rank >= 12;
+}
+
+function simpleBotDecide(state, playerId, legalActions) {
+  if (legalActions.length === 0) return null;
+
+  const trumpSuit = state.trumpSuit;
+  // Пока в колоде есть прикуп, есть смысл экономить крупные карты на потом.
+  // Когда колода пуста, экономить дальше нечего — задача избавиться от карт как можно быстрее.
+  const endgame = state.talonCount === 0;
+
+  const attacks = legalActions.filter((a) => a.type === 'attack');
+  const defends = legalActions.filter((a) => a.type === 'defend');
+  const transfers = legalActions.filter((a) => a.type === 'transfer');
+  // Среди вариантов перевода бот предпочитает не отдавать козыри и переводить
+  // минимальным числом карт, оставляя остальные такого же ранга в руке про запас.
+  transfers.sort((a, b) => {
+    const aTrump = a.cards.some((c) => c.suit === trumpSuit) ? 1 : 0;
+    const bTrump = b.cards.some((c) => c.suit === trumpSuit) ? 1 : 0;
+    if (aTrump !== bTrump) return aTrump - bTrump;
+    return a.cards.length - b.cards.length;
+  });
+  const transfer = transfers[0];
+  const take = legalActions.find((a) => a.type === 'take');
+  const pass = legalActions.find((a) => a.type === 'pass');
+
+  if (attacks.length > 0) {
+    const mustAttack = !pass;
+    attacks.sort((a, b) => cardValue(a.card, trumpSuit) - cardValue(b.card, trumpSuit));
+    const cheapest = attacks[0];
+    const isTrump = cheapest.card.suit === trumpSuit;
+    // Козырь придерживаем всегда; крупную карту (Q+) — только пока есть смысл её беречь
+    // (в колоде ещё остался прикуп). Мелкие некозырные карты кидаем без ограничений.
+    const shouldHold = isTrump || (isHighCard(cheapest.card) && !endgame);
+    if (mustAttack || !shouldHold) {
+      return cheapest;
+    }
+    if (pass) return pass;
+  }
+
+  if (defends.length > 0) {
+    defends.sort((a, b) => cardValue(a.card, trumpSuit) - cardValue(b.card, trumpSuit));
+    const cheapest = defends[0];
+    const wouldUseTrump = cheapest.card.suit === trumpSuit;
+
+    if (wouldUseTrump && transfer) {
+      return transfer;
+    }
+    return cheapest;
+  }
+
+  if (transfer) return transfer;
+  if (take) return take;
+  if (pass) return pass;
+  return legalActions[0];
+}
+
+/* ---------- src/bots/memory.js ---------- */
+// Память умного бота: CardTracker.
+//
+// Этап 2 плана умного бота (issue #32, спецификация — раздел 4 SMART_BOT_PLAN.md).
+// Трекер НИ НА ЧТО не влияет: он только наблюдает за последовательностью
+// МАСКИРОВАННЫХ состояний `game.getState(meId)` и восстанавливает по ним картину мира.
+//
+// Главный принцип файла — честность:
+//   * ТОЧНЫЕ факты (`discard`, `onTable`, `takenBy`, своя рука) записываются, только если
+//     они следуют из наблюдений однозначно. Инвариант: каждое множество точных фактов —
+//     подмножество реального положения дел, поэтому «пул неизвестного» (`unknownCards()`)
+//     ВСЕГДА надмножество любой скрытой руки. Отсюда и работает эндшпиль в дуэли:
+//     если пул совпал по размеру с рукой соперника — он равен ей в точности.
+//   * ПРЕДПОЛОЖЕНИЯ (`voidSuits`, `assumedNoRanks`) лежат отдельно и никогда не вычитаются
+//     из точных множеств. Их можно использовать для эвристик, но не для «я знаю».
+//   * Когда наблюдений не хватает (пропущенные между ходами события, противоречия),
+//     трекер говорит честное «не знаю»: сбрасывает спорный факт в неизвестность,
+//     а не додумывает.
+//
+// Движок (`src/game.js`) и простой бот (`src/bots/simpleBot.js`) этим файлом не затрагиваются.
+
+/** Ключ карты: `${rank}${suit}` (ранг — число, масть — не цифра, поэтому ключ однозначен). */
+function cardKey(card) {
+  return `${card.rank}${card.suit}`;
+}
+
+function getSet(map, key) {
+  if (!map.has(key)) map.set(key, new Set());
+  return map.get(key);
+}
+
+class CardTracker {
+  /**
+   * @param {number} deckSize   24 | 36 | 52
+   * @param {string} trumpSuit  масть козыря
+   * @param {object} trumpCard  карта под колодой {rank, suit} (уйдёт последнему добирающему)
+   * @param {string} meId       чьими глазами смотрим
+   * @param {string[]} playerIds  все игроки за столом (в порядке посадки)
+   */
+  constructor(deckSize = 24, trumpSuit = null, trumpCard = null, meId = null, playerIds = []) {
+    this.deckSize = deckSize;
+    this.trumpCard = trumpCard ? { rank: trumpCard.rank, suit: trumpCard.suit } : null;
+    this.trumpSuit = trumpSuit || (this.trumpCard ? this.trumpCard.suit : null);
+    this.meId = meId;
+    this.playerIds = [...playerIds];
+
+    this._byKey = new Map();
+    for (const c of createDeck(deckSize)) this._byKey.set(cardKey(c), { rank: c.rank, suit: c.suit });
+
+    // ---- точные факты ----
+    this.all = new Set(this._byKey.keys());   // вся колода
+    this.discard = new Set();                 // ушли в бито
+    this.onTable = new Set();                 // лежат на столе прямо сейчас
+    this.myHand = new Set();                  // моя рука (её я вижу целиком)
+    this.takenBy = new Map();                 // playerId -> Set<cardKey>, точно в руке игрока
+    this.seenPlayed = new Map();              // playerId -> Set<cardKey>, история выкладывания (best-effort)
+
+    // ---- предположения (НЕ факты) ----
+    this.voidSuits = new Map();               // playerId -> Set<suit>: «скорее всего, масти нет»
+    this.assumedNoRanks = new Map();          // playerId -> Set<rank>: «спасовал → скорее всего нет ранга»
+
+    // ---- служебное ----
+    this.talonCount = null;
+    this.discardCount = 0;
+    this.unseenDiscardCount = 0;   // сколько карт ушло в бито «мимо глаз» (состав неизвестен)
+    this.handCounts = new Map();   // playerId -> handCount из последнего state
+    this.outPlayers = new Set();
+    this.conflicts = 0;            // сколько раз наблюдение опровергло записанный факт (self-healing)
+    this.observations = 0;
+    this.prev = null;              // снимок предыдущего state
+
+    for (const id of this.playerIds) this._ensurePlayer(id);
+  }
+
+  /** Удобный конструктор «из первого состояния». Сразу же выполняет observe(state). */
+  static fromState(state, meId, deckSizeHint = null) {
+    const ids = (state.players || []).map((p) => p.id);
+    const deckSize = deckSizeHint || CardTracker.guessDeckSize(state);
+    const t = new CardTracker(deckSize, state.trumpSuit, state.trumpCard, meId, ids);
+    t.observe(state);
+    return t;
+  }
+
+  /**
+   * Размер колоды по состоянию: карты в руках + стол + бито + прикуп.
+   * Если сумма не совпала ни с одной поддерживаемой колодой — берём ближайшую сверху.
+   */
+  static guessDeckSize(state) {
+    const inHands = (state.players || []).reduce((s, p) => s + (p.handCount || 0), 0);
+    const onTable = (state.table || []).reduce((s, t) => s + 1 + (t.defense ? 1 : 0), 0);
+    const total = inHands + onTable + (state.discardCount || 0) + (state.talonCount || 0);
+    for (const size of [24, 36, 52]) if (total === size) return size;
+    for (const size of [24, 36, 52]) if (total <= size) return size;
+    return 52;
+  }
+
+  _ensurePlayer(id) {
+    if (id === undefined || id === null) return;
+    if (!this.playerIds.includes(id)) this.playerIds.push(id);
+    getSet(this.takenBy, id);
+    getSet(this.seenPlayed, id);
+    getSet(this.voidSuits, id);
+    getSet(this.assumedNoRanks, id);
+  }
+
+  /** Полный сброс памяти (новая партия). Если передан state — сразу наблюдаем его. */
+  reset(state = null, meId = null) {
+    if (meId) this.meId = meId;
+    this.discard.clear();
+    this.onTable.clear();
+    this.myHand.clear();
+    for (const s of this.takenBy.values()) s.clear();
+    for (const s of this.seenPlayed.values()) s.clear();
+    for (const s of this.voidSuits.values()) s.clear();
+    for (const s of this.assumedNoRanks.values()) s.clear();
+    this.talonCount = null;
+    this.discardCount = 0;
+    this.unseenDiscardCount = 0;
+    this.handCounts.clear();
+    this.outPlayers.clear();
+    this.conflicts = 0;
+    this.observations = 0;
+    this.prev = null;
+    if (state) this.observe(state);
+    return this;
+  }
+
+  // ------------------------------------------------------------------
+  //  Наблюдение
+  // ------------------------------------------------------------------
+
+  _snapshot(state) {
+    const pairs = (state.table || []).map((t) => ({
+      attackKey: t.attack ? cardKey(t.attack) : null,
+      defenseKey: t.defense ? cardKey(t.defense) : null,
+      attack: t.attack || null,
+      defense: t.defense || null,
+    }));
+    const tableKeys = new Set();
+    for (const p of pairs) {
+      if (p.attackKey) tableKeys.add(p.attackKey);
+      if (p.defenseKey) tableKeys.add(p.defenseKey);
+    }
+    const handCounts = new Map();
+    const out = new Set();
+    const order = [];
+    for (const p of state.players || []) {
+      order.push(p.id);
+      handCounts.set(p.id, p.handCount || 0);
+      if (p.out) out.add(p.id);
+    }
+    return {
+      phase: state.phase,
+      talonCount: state.talonCount || 0,
+      discardCount: state.discardCount || 0,
+      tableGoingToDefender: state.tableGoingToDefender === true,
+      attacker: state.attacker,
+      defender: state.defender,
+      pairs,
+      tableKeys,
+      handCounts,
+      out,
+      order,
+      finished: state.finished === true,
+    };
+  }
+
+  _myHandFrom(state) {
+    const me = (state.players || []).find((p) => p.id === this.meId);
+    if (!me || !Array.isArray(me.hand)) return null;
+    return new Set(me.hand.map(cardKey));
+  }
+
+  /** Карта точно находится на столе/в бито/у меня → убираем её из чужих «точных» множеств. */
+  _dropFromEveryone(key, exceptId = null) {
+    for (const [id, set] of this.takenBy) {
+      if (id === exceptId) continue;
+      if (set.delete(key)) this.conflicts++;
+    }
+  }
+
+  /**
+   * Главный метод: сравнить свежее состояние с предыдущим снимком и обновить память.
+   * Вызывается перед каждым решением бота. Повторный вызов с тем же состоянием безопасен.
+   */
+  observe(state) {
+    if (!state || !Array.isArray(state.players)) return this;
+
+    for (const p of state.players) this._ensurePlayer(p.id);
+    if (!this.trumpSuit && state.trumpSuit) this.trumpSuit = state.trumpSuit;
+    if (!this.trumpCard && state.trumpCard) {
+      this.trumpCard = { rank: state.trumpCard.rank, suit: state.trumpCard.suit };
+    }
+
+    const cur = this._snapshot(state);
+    const prev = this.prev;
+    const myHand = this._myHandFrom(state);
+
+    // --- 0. моя рука: самый надёжный источник правды ---
+    if (myHand) {
+      this.myHand = myHand;
+      for (const k of myHand) {
+        if (this.discard.delete(k)) this.conflicts++;
+        this._dropFromEveryone(k);
+      }
+    }
+
+    if (!prev) {
+      // Первое наблюдение: состав бито нам неизвестен, стол — известен.
+      this.onTable = new Set(cur.tableKeys);
+      for (const k of this.onTable) {
+        if (this.discard.delete(k)) this.conflicts++;
+        this._dropFromEveryone(k);
+      }
+      this.unseenDiscardCount = cur.discardCount;
+      this._finishObserve(cur);
+      return this;
+    }
+
+    const playedNow = new Map();   // id -> сколько карт игрок положил на стол (только уверенная атрибуция)
+    const takenNow = new Map();    // id -> сколько карт игрок забрал со стола
+    let allAttributed = true;
+
+    // --- 1. стол закрылся: карты ушли в бито или к защитнику ---
+    // Важно: между двумя моими наблюдениями я успеваю сделать СВОЙ ход, и карта,
+    // которую я тогда положил (защита/атака/перевод), могла уйти со стола до того,
+    // как я увидел следующее состояние. На столе я её не видел никогда, но точно знаю,
+    // что она покинула мою руку → считаем её частью закрывшегося стола.
+    const goneFromTable = [...prev.tableKeys].filter((k) => !cur.tableKeys.has(k));
+    const myGone = [...(this.prevMyHand || [])].filter(
+      (k) => !this.myHand.has(k) && !cur.tableKeys.has(k) && !prev.tableKeys.has(k)
+    );
+    const left = [...new Set([...goneFromTable, ...myGone])];
+    if (left.length > 0) {
+      const discardDelta = cur.discardCount - prev.discardCount;
+      // Куда ушёл стол:
+      //   discardDelta === 0            → бито не росло, значит всё забрал защитник;
+      //   discardDelta === left.length  → ровно эти карты и ушли в отбой;
+      //   иначе                          → между наблюдениями закрылось несколько столов
+      //                                    (бывает при 3+ игроках) — честное «не знаю».
+      let mode;
+      if (discardDelta === 0) mode = 'defender';
+      else if (!prev.tableGoingToDefender && discardDelta === left.length) mode = 'discard';
+      else mode = 'unknown';
+
+      if (mode === 'unknown') {
+        for (const k of left) this.onTable.delete(k);
+        this.unseenDiscardCount += discardDelta;
+        // Ни одного нового «точного» факта: карты остаются в пуле неизвестного.
+        for (const id of cur.order) this._forgetAssumptions(id);
+      } else if (mode === 'defender') {
+        const defId = prev.defender;
+        this._ensurePlayer(defId);
+        takenNow.set(defId, (takenNow.get(defId) || 0) + left.length);
+        const takenSuits = new Set();
+        for (const k of left) {
+          this.onTable.delete(k);
+          const card = this._byKey.get(k);
+          if (card) takenSuits.add(card.suit);
+          if (defId === this.meId) continue;            // свою руку я и так вижу
+          if (this.myHand.has(k) || this.discard.has(k)) continue;
+          this.takenBy.get(defId).add(k);
+          this._dropFromEveryone(k, defId);
+        }
+        // Забрал карты → мастей из них у него точно уже нет смысла считать «отсутствующими».
+        for (const s of takenSuits) this.voidSuits.get(defId)?.delete(s);
+        // Предположение «нечем было бить»: на столе остались неотбитые атаки.
+        this._assumeVoidsOnTake(prev, defId, cur.talonCount);
+        // Ранги забранных карт у него теперь точно есть — снимаем предположение «спасовал».
+        for (const k of left) {
+          const card = this._byKey.get(k);
+          if (card) this.assumedNoRanks.get(defId)?.delete(card.rank);
+        }
+      } else {
+        for (const k of left) {
+          this.onTable.delete(k);
+          if (this.myHand.has(k)) { this.conflicts++; continue; }
+          this.discard.add(k);
+          this._dropFromEveryone(k);
+        }
+        this.unseenDiscardCount += Math.max(0, discardDelta - left.length);
+      }
+      // Заход завершился → те, кто мог подкидывать, не подкинули рангов со стола.
+      this._assumePassedRanks(prev);
+    }
+
+    // --- 2. на столе появились новые карты ---
+    const added = [...cur.tableKeys].filter((k) => !prev.tableKeys.has(k));
+    for (const k of added) {
+      this.onTable.add(k);
+      if (this.discard.delete(k)) this.conflicts++;   // self-healing: карта не могла быть в бито
+      const author = this._attributeAuthor(k, cur, prev);
+      if (author) {
+        this.seenPlayed.get(author).add(k);
+        playedNow.set(author, (playedNow.get(author) || 0) + 1);
+        const card = this._byKey.get(k);
+        if (card) {
+          // Он только что показал эту масть/ранг — предположения об их отсутствии неверны.
+          this.voidSuits.get(author)?.delete(card.suit);
+          this.assumedNoRanks.get(author)?.delete(card.rank);
+        }
+      } else {
+        allAttributed = false;
+      }
+      this._dropFromEveryone(k);
+      if (this.myHand.has(k)) this.myHand.delete(k);
+    }
+
+    // --- 3. добор из прикупа ---
+    const talonDelta = prev.talonCount - cur.talonCount;
+    if (talonDelta > 0) {
+      this._handleDraws(prev, cur, playedNow, takenNow, allAttributed, talonDelta);
+    }
+
+    this._finishObserve(cur);
+    return this;
+  }
+
+  /**
+   * Кто положил карту на стол.
+   * Возвращает id только когда автор определяется ОДНОЗНАЧНО, иначе null
+   * («не знаю» вместо выдуманного факта).
+   */
+  _attributeAuthor(key, cur, prev) {
+    // 1) карта была у кого-то в «точно известных» — значит, сыграл именно он.
+    for (const [id, set] of this.takenBy) {
+      if (set.has(key)) return id;
+    }
+    // 2) карта была в моей руке в прошлом снимке — сыграл я.
+    if (this.prevMyHand && this.prevMyHand.has(key) && !this.myHand.has(key)) return this.meId;
+    // 3) карта-защита: её кладёт защищающийся.
+    const pair = cur.pairs.find((p) => p.defenseKey === key);
+    if (pair) return cur.defender;
+    // 4) карта-атака: автор однозначен, только если подкинуть мог ровно один игрок.
+    const candidates = cur.order.filter((id) => id !== cur.defender && !cur.out.has(id));
+    if (candidates.length === 1) return candidates[0];
+    return null;
+  }
+
+  /**
+   * Предположение «взял → нечем было бить»: для каждой НЕОТБИТОЙ атаки на столе
+   * считаем, что масти у защитника нет. Про козырь такой вывод делаем только
+   * в эндшпиле: пока идёт прикуп, козырь часто просто берегут (поправка из раздела 4.3).
+   */
+  _assumeVoidsOnTake(prev, defId, talonCount) {
+    const voids = getSet(this.voidSuits, defId);
+    const undefended = prev.pairs.filter((p) => !p.defenseKey && p.attack);
+    if (undefended.length === 0) return;
+    for (const p of undefended) {
+      voids.add(p.attack.suit);
+      // Некозырную карту можно было побить козырем — если он не хотел его тратить,
+      // это ещё не значит, что козыря нет. Считаем «козырей нет» только без прикупа.
+      if (talonCount === 0 && this.trumpSuit && p.attack.suit !== this.trumpSuit) {
+        voids.add(this.trumpSuit);
+      }
+    }
+    // Карты, которые он всё же отбил, доказывают наличие масти — снимаем ложные предположения.
+    for (const p of prev.pairs) if (p.defense) voids.delete(p.defense.suit);
+  }
+
+  /**
+   * Предположение «спасовал → нет карт таких рангов». Записываем только тому,
+   * кто ТОЧНО имел право подкидывать при любых настройках throwInPolicy, — атакующему.
+   */
+  _assumePassedRanks(prev) {
+    const id = prev.attacker;
+    if (!id || id === prev.defender) return;
+    if (prev.out.has(id)) return;
+    if ((prev.handCounts.get(id) || 0) === 0) return;
+    if (id === this.meId) return;
+    const ranks = getSet(this.assumedNoRanks, id);
+    for (const p of prev.pairs) {
+      if (p.attack) ranks.add(p.attack.rank);
+      if (p.defense) ranks.add(p.defense.rank);
+    }
+  }
+
+  /**
+   * Добор. Сам состав добранных карт неизвестен (это честное «не знаю» — карты
+   * возвращаются/остаются в пуле неизвестного), но есть два следствия:
+   *   * предположения о добравшем игроке обнуляются (у него появились новые карты);
+   *   * если прикуп опустел, последняя выданная карта — это `trumpCard`, и её владелец
+   *     известен, если порядок добора восстанавливается однозначно.
+   */
+  _handleDraws(prev, cur, playedNow, takenNow, allAttributed, talonDelta) {
+    const draws = new Map();
+    let sum = 0;
+    let consistent = allAttributed;
+    for (const id of cur.order) {
+      const before = prev.handCounts.get(id) || 0;
+      const after = cur.handCounts.get(id) || 0;
+      const d = after - before + (playedNow.get(id) || 0) - (takenNow.get(id) || 0);
+      if (d < 0) consistent = false;
+      draws.set(id, d);
+      sum += d;
+    }
+    if (sum !== talonDelta) consistent = false;
+
+    if (consistent) {
+      for (const [id, d] of draws) {
+        if (d > 0) this._forgetAssumptions(id);
+      }
+    } else {
+      // Не смогли разложить добор по игрокам — честно снимаем ВСЕ предположения
+      // (точные факты при этом не трогаем: они остаются верными).
+      for (const id of cur.order) this._forgetAssumptions(id);
+    }
+
+    if (cur.talonCount !== 0 || !this.trumpCard) return;
+    const key = cardKey(this.trumpCard);
+    if (this.myHand.has(key) || this.discard.has(key) || this.onTable.has(key)) return;
+    for (const set of this.takenBy.values()) if (set.has(key)) return;
+    if (!consistent) return;
+
+    const last = this._lastDrawer(prev, draws);
+    if (!last || last === this.meId) return;
+    this.takenBy.get(last).add(key);
+  }
+
+  /**
+   * Порядок добора в движке (`_refillHands`): атакующий и все подкидывавшие по кругу,
+   * защищающийся — последним. Значит, козырь под колодой достаётся последнему в этом
+   * порядке, кто реально добирал.
+   */
+  _lastDrawer(prev, draws) {
+    const order = [];
+    const n = prev.order.length;
+    const attIdx = Math.max(0, prev.order.indexOf(prev.attacker));
+    for (let i = 0; i < n; i++) {
+      const id = prev.order[(attIdx + i) % n];
+      if (id === prev.defender || prev.out.has(id)) continue;
+      order.push(id);
+    }
+    if (prev.defender && !prev.out.has(prev.defender)) order.push(prev.defender);
+    let last = null;
+    for (const id of order) if ((draws.get(id) || 0) > 0) last = id;
+    return last;
+  }
+
+  _forgetAssumptions(id) {
+    this.voidSuits.get(id)?.clear();
+    this.assumedNoRanks.get(id)?.clear();
+  }
+
+  /** Финальная сверка: снимаем противоречия и записываем снимок. */
+  _finishObserve(cur) {
+    this.talonCount = cur.talonCount;
+    this.discardCount = cur.discardCount;
+    this.handCounts = cur.handCounts;
+    this.outPlayers = cur.out;
+
+    for (const [id, set] of this.takenBy) {
+      if (id === this.meId) { set.clear(); continue; }   // свою руку читаем напрямую
+      for (const k of [...set]) {
+        if (this.discard.has(k) || this.onTable.has(k) || this.myHand.has(k)) {
+          set.delete(k);
+          this.conflicts++;
+        }
+      }
+      const hc = cur.handCounts.get(id);
+      // Больше «известных» карт, чем карт в руке — где-то мы не увидели ход.
+      // Честно забываем весь набор: пусть карты вернутся в пул неизвестного.
+      if (hc !== undefined && set.size > hc) {
+        set.clear();
+        this.conflicts++;
+      }
+      if (hc === 0) set.clear();
+    }
+
+    this.prevMyHand = new Set(this.myHand);
+    this.prev = cur;
+    this.observations++;
+  }
+
+  // ------------------------------------------------------------------
+  //  API (раздел 4.4 плана)
+  // ------------------------------------------------------------------
+
+  /** Карты, которые могут быть у соперников или в прикупе (надмножество любой скрытой руки). */
+  unknownCards() {
+    const res = new Set(this.all);
+    for (const k of this.myHand) res.delete(k);
+    for (const k of this.discard) res.delete(k);
+    for (const k of this.onTable) res.delete(k);
+    for (const set of this.takenBy.values()) for (const k of set) res.delete(k);
+    return res;
+  }
+
+  /**
+   * Карты-кандидаты в руке соперника: точно известные + весь пул неизвестного.
+   * `useAssumptions: true` дополнительно отсеивает масти/ранги по предположениям
+   * (только для эвристик — это уже НЕ «знаю»).
+   */
+  opponentPossibleCards(oppId, { useAssumptions = false } = {}) {
+    if (oppId === this.meId) return new Set(this.myHand);
+    const hc = this.handCounts.get(oppId);
+    if (hc === 0 || this.outPlayers.has(oppId)) return new Set();
+    const known = new Set(this.takenBy.get(oppId) || []);
+    if (hc !== undefined && known.size >= hc) return known;
+    const res = new Set(known);
+    for (const k of this.unknownCards()) {
+      if (useAssumptions && !known.has(k)) {
+        const card = this._byKey.get(k);
+        if (card && this.voidSuits.get(oppId)?.has(card.suit)) continue;
+        if (card && this.assumedNoRanks.get(oppId)?.has(card.rank)) continue;
+      }
+      res.add(k);
+    }
+    return res;
+  }
+
+  /**
+   * Карты, которые соперник ТОЧНО держит.
+   * Обычно это то, что он забрал со стола и ещё не сыграл; в просчитанном эндшпиле —
+   * вся его рука (пул неизвестного схлопнулся ровно до её размера).
+   */
+  opponentKnownCards(oppId) {
+    if (oppId === this.meId) return new Set(this.myHand);
+    const known = new Set(this.takenBy.get(oppId) || []);
+    const hc = this.handCounts.get(oppId);
+    if (hc === 0 || this.outPlayers.has(oppId)) return new Set();
+    if (hc !== undefined && known.size === hc) return known;
+    const possible = this.opponentPossibleCards(oppId);
+    if (hc !== undefined && possible.size === hc) return possible;
+    return known;
+  }
+
+  /** true, если рука соперника восстановлена полностью (без догадок). */
+  isOpponentHandCertain(oppId) {
+    if (oppId === this.meId) return true;
+    const hc = this.handCounts.get(oppId);
+    if (hc === undefined) return false;
+    if (hc === 0 || this.outPlayers.has(oppId)) return true;
+    const known = this.takenBy.get(oppId) || new Set();
+    if (known.size === hc) return true;
+    return this.opponentPossibleCards(oppId).size === hc;
+  }
+
+  /**
+   * Грубая оценка вероятности того, что карта у соперника.
+   * Поддерживает две формы вызова:
+   *   probabilityOpponentHas(oppId, card) — для конкретного игрока;
+   *   probabilityOpponentHas(card)        — «хоть у кого-то из соперников».
+   */
+  probabilityOpponentHas(a, b = undefined) {
+    if (b === undefined) {
+      const card = a;
+      let p = 0;
+      for (const id of this.playerIds) {
+        if (id === this.meId) continue;
+        p += this.probabilityOpponentHas(id, card);
+      }
+      return Math.min(1, p);
+    }
+    const oppId = a;
+    const card = b;
+    if (!card) return 0;
+    const key = cardKey(card);
+    if (!this.all.has(key)) return 0;
+    if (oppId === this.meId) return this.myHand.has(key) ? 1 : 0;
+    if (this.outPlayers.has(oppId)) return 0;
+    const known = this.takenBy.get(oppId) || new Set();
+    if (known.has(key)) return 1;
+    if (this.myHand.has(key) || this.discard.has(key) || this.onTable.has(key)) return 0;
+    for (const [id, set] of this.takenBy) if (id !== oppId && set.has(key)) return 0;
+    const hc = this.handCounts.get(oppId) || 0;
+    const rest = hc - known.size;
+    if (rest <= 0) return 0;
+    const pool = this.unknownCards();
+    if (!pool.has(key) || pool.size === 0) return 0;
+    return Math.min(1, rest / pool.size);
+  }
+
+  /**
+   * Самая старшая карта масти, которая ещё может «выстрелить» против меня:
+   * не в бито, не на столе и не у меня в руке.
+   * @returns {{rank:number, suit:string}|null}
+   */
+  highestRemaining(suit, { includeMine = false, includeTable = false } = {}) {
+    let best = null;
+    for (const [key, card] of this._byKey) {
+      if (card.suit !== suit) continue;
+      if (this.discard.has(key)) continue;
+      if (!includeTable && this.onTable.has(key)) continue;
+      if (!includeMine && this.myHand.has(key)) continue;
+      if (!best || card.rank > best.rank) best = card;
+    }
+    return best ? { ...best } : null;
+  }
+
+  /** Сколько козырей ещё не у меня и не в бито (раздел 4.4). */
+  trumpsLeftOutside(myHand = null) {
+    if (!this.trumpSuit) return 0;
+    const mine = myHand
+      ? new Set((Array.isArray(myHand) ? myHand : [...myHand]).map((c) => (typeof c === 'string' ? c : cardKey(c))))
+      : this.myHand;
+    let n = 0;
+    for (const [key, card] of this._byKey) {
+      if (card.suit !== this.trumpSuit) continue;
+      if (mine.has(key) || this.discard.has(key)) continue;
+      n++;
+    }
+    return n;
+  }
+
+  // ------------------------------------------------------------------
+  //  Вспомогательное (для объяснений и тестов)
+  // ------------------------------------------------------------------
+
+  /** Set<cardKey> -> массив карт {rank, suit}. */
+  toCards(keys) {
+    const res = [];
+    for (const k of keys) {
+      const c = this._byKey.get(k);
+      if (c) res.push({ ...c });
+    }
+    return res;
+  }
+
+  /** Человекочитаемая строчка — пригодится умному боту для `analysis`. */
+  describe(oppId = null) {
+    const parts = [`бито: ${this.discard.size}${this.unseenDiscardCount ? ` (+${this.unseenDiscardCount} невидимых)` : ''}`,
+      `на столе: ${this.onTable.size}`,
+      `неизвестно: ${this.unknownCards().size}`,
+      `козырей вне моей руки: ${this.trumpsLeftOutside()}`];
+    if (oppId) {
+      const known = this.opponentKnownCards(oppId);
+      parts.push(this.isOpponentHandCertain(oppId)
+        ? `рука ${oppId} известна: ${this.toCards(known).map(cardToString).join(', ') || 'пусто'}`
+        : `у ${oppId} точно есть: ${this.toCards(known).map(cardToString).join(', ') || '—'}`);
+      const voids = [...(this.voidSuits.get(oppId) || [])];
+      if (voids.length) parts.push(`скорее всего нет мастей: ${voids.join('')}`);
+    }
+    return parts.join('; ');
+  }
+}
+
+/* ---------- src/bots/analysis.js ---------- */
+// Анализ позиции для умного бота: ЧИСТЫЕ функции без состояния.
+//
+// Этап 3 плана умного бота (issue #33, спецификация — раздел 5.1 SMART_BOT_PLAN.md).
+//
+// Правила этого файла:
+//   * ни одна функция ничего не мутирует и ничего не помнит между вызовами;
+//   * `tracker` (см. `./memory.js`) — необязательный аргумент: без него функции
+//     работают по «пессимистичному» предположению, что вне моей руки может быть
+//     любая карта колоды. Так analysis.js остаётся тестируемым в отрыве от памяти;
+//   * знание о картах берётся ТОЛЬКО из трекера (то есть из наблюдаемых состояний),
+//     никакого доступа к чужим рукам здесь нет и быть не может.
+//
+// Движок (`src/game.js`) и простой бот (`src/bots/simpleBot.js`) этим файлом не затрагиваются.
+
+/**
+ * Бьёт ли `defCard` карту `atkCard` — строго по правилам движка
+ * (`canBeat` в src/game.js): та же масть и старше, либо козырь по некозырю.
+ */
+function beats(defCard, atkCard, trumpSuit) {
+  if (!defCard || !atkCard) return false;
+  if (defCard.suit === atkCard.suit) return defCard.rank > atkCard.rank;
+  return defCard.suit === trumpSuit && atkCard.suit !== trumpSuit;
+}
+
+/**
+ * Числовая ценность карты: козырь всегда дороже любого некозыря.
+ * Шкала совместима с простым ботом (`cardValue`), чтобы сравнения читались одинаково.
+ */
+function cardPower(card, trumpSuit) {
+  if (!card) return 0;
+  return (card.suit === trumpSuit ? 100 : 0) + card.rank;
+}
+
+/** Сортировка копии массива карт по возрастанию ценности. */
+function sortByPower(cards, trumpSuit) {
+  return [...cards].sort((a, b) => cardPower(a, trumpSuit) - cardPower(b, trumpSuit));
+}
+
+/**
+ * Все карты, которые МОГУТ оказаться у соперников (или в прикупе).
+ * С трекером — его честный «пул неизвестного» + то, что точно забрали соперники.
+ * Без трекера — вся колода за вычетом моей руки и карт на столе.
+ */
+function outsideCards(hand, tracker = null, { deckSize = 36, table = [] } = {}) {
+  if (tracker) {
+    const res = [];
+    const seen = new Set();
+    for (const c of tracker.toCards(tracker.unknownCards())) {
+      const k = cardKey(c);
+      if (!seen.has(k)) { seen.add(k); res.push(c); }
+    }
+    for (const id of tracker.playerIds) {
+      if (id === tracker.meId) continue;
+      for (const c of tracker.toCards(tracker.opponentKnownCards(id))) {
+        const k = cardKey(c);
+        if (!seen.has(k)) { seen.add(k); res.push(c); }
+      }
+    }
+    return res;
+  }
+  const mine = new Set(hand.map(cardKey));
+  for (const t of table) {
+    if (t.attack) mine.add(cardKey(t.attack));
+    if (t.defense) mine.add(cardKey(t.defense));
+  }
+  return createDeck(deckSize).filter((c) => !mine.has(cardKey(c)));
+}
+
+/**
+ * Держу ли я старшую НЕвышедшую карту масти.
+ * @returns {{ suit, controlled: boolean, myBest: object|null, theirBest: object|null }}
+ */
+function suitControl(hand, suit, tracker = null, opts = {}) {
+  const mine = hand.filter((c) => c.suit === suit);
+  let myBest = null;
+  for (const c of mine) if (!myBest || c.rank > myBest.rank) myBest = c;
+
+  let theirBest = null;
+  if (tracker && typeof tracker.highestRemaining === 'function') {
+    theirBest = tracker.highestRemaining(suit);
+  } else {
+    for (const c of outsideCards(hand, null, opts)) {
+      if (c.suit !== suit) continue;
+      if (!theirBest || c.rank > theirBest.rank) theirBest = c;
+    }
+  }
+
+  return {
+    suit,
+    controlled: !!myBest && (!theirBest || myBest.rank > theirBest.rank),
+    myBest: myBest ? { ...myBest } : null,
+    theirBest: theirBest ? { ...theirBest } : null,
+  };
+}
+
+/**
+ * Карты руки, которые соперники уже НИЧЕМ не побьют
+ * (ни старшей в масти, ни козырем — если карта некозырная, а козыри вне моей руки ещё есть,
+ *  она побиваемой считается).
+ */
+function unbeatableCards(hand, trumpSuit, tracker = null, opts = {}) {
+  const outside = outsideCards(hand, tracker, opts);
+  return hand.filter((card) => !outside.some((o) => beats(o, card, trumpSuit)));
+}
+
+/**
+ * Оценка руки: сколько козырей, сколько «непобиваемых», средний ранг и суммарная ценность.
+ */
+function handStrength(hand, trumpSuit, tracker = null, opts = {}) {
+  const size = hand.length;
+  const trumps = hand.filter((c) => c.suit === trumpSuit);
+  const unbeatable = unbeatableCards(hand, trumpSuit, tracker, opts);
+  const avgRank = size ? hand.reduce((s, c) => s + c.rank, 0) / size : 0;
+  const power = hand.reduce((s, c) => s + cardPower(c, trumpSuit), 0);
+
+  // Пары/тройки одного ранга — «топливо» для подкидывания.
+  const byRank = new Map();
+  for (const c of hand) byRank.set(c.rank, (byRank.get(c.rank) || 0) + 1);
+  let pairs = 0;
+  for (const n of byRank.values()) if (n >= 2) pairs++;
+
+  // Козыри вне моей руки (то, чем меня ещё могут перебить).
+  const trumpsOutside = tracker && typeof tracker.trumpsLeftOutside === 'function'
+    ? tracker.trumpsLeftOutside(hand)
+    : outsideCards(hand, tracker, opts).filter((c) => c.suit === trumpSuit).length;
+
+  // Грубая скалярная оценка «насколько мне комфортно»: козыри и непобиваемые в плюс,
+  // лишние карты на руках — в минус.
+  const score = trumps.length * 2 + unbeatable.length * 1.5 + pairs * 0.5 - size * 0.5;
+
+  return {
+    size,
+    trumpCount: trumps.length,
+    trumps: trumps.map((c) => ({ ...c })),
+    unbeatableCount: unbeatable.length,
+    unbeatable: unbeatable.map((c) => ({ ...c })),
+    pairs,
+    avgRank,
+    power,
+    trumpsOutside,
+    score,
+  };
+}
+
+/**
+ * Можно ли отбить ВЕСЬ стол и какой минимальной ценой.
+ *
+ * Перебор жадный с откатом (стол не больше 6 атак — полный перебор дёшев):
+ * каждой неотбитой атаке подбираем карту, минимизируя суммарную ценность защиты.
+ *
+ * @param {Array} table   [{ attack, defense }] в формате state.table
+ * @param {Array} hand    моя рука
+ * @returns {{ canDefendAll: boolean, assignment: Array<{attack, card}>,
+ *             cost: number, trumpsUsed: number, undefendedCount: number,
+ *             beatableCount: number }}
+ */
+function planDefense(table, hand, trumpSuit) {
+  const targets = (table || []).filter((t) => t && t.attack && !t.defense).map((t) => t.attack);
+  if (targets.length === 0) {
+    return { canDefendAll: true, assignment: [], cost: 0, trumpsUsed: 0, undefendedCount: 0, beatableCount: 0 };
+  }
+
+  // Сначала самые «трудные» атаки (меньше всего вариантов ответа) — это резко режет перебор.
+  const options = targets.map((atk) => ({
+    atk,
+    cards: sortByPower(hand.filter((c) => beats(c, atk, trumpSuit)), trumpSuit),
+  }));
+  options.sort((a, b) => a.cards.length - b.cards.length);
+
+  const beatableCount = options.filter((o) => o.cards.length > 0).length;
+
+  let best = null;
+  const used = new Set();
+  const acc = [];
+
+  const rec = (i, cost) => {
+    if (best && cost >= best.cost) return;           // отсечение по цене
+    if (i === options.length) {
+      best = { cost, assignment: acc.map((x) => ({ attack: { ...x.attack }, card: { ...x.card } })) };
+      return;
+    }
+    const { atk, cards } = options[i];
+    for (const c of cards) {
+      const k = cardKey(c);
+      if (used.has(k)) continue;
+      used.add(k);
+      acc.push({ attack: atk, card: c });
+      rec(i + 1, cost + cardPower(c, trumpSuit));
+      acc.pop();
+      used.delete(k);
+    }
+  };
+  rec(0, 0);
+
+  if (!best) {
+    // Отбить всё нельзя — считаем, сколько атак вообще остаётся без ответа.
+    return {
+      canDefendAll: false,
+      assignment: [],
+      cost: Infinity,
+      trumpsUsed: 0,
+      undefendedCount: targets.length - beatableCount,
+      beatableCount,
+    };
+  }
+
+  return {
+    canDefendAll: true,
+    assignment: best.assignment,
+    cost: best.cost,
+    trumpsUsed: best.assignment.filter((x) => x.card.suit === trumpSuit).length,
+    undefendedCount: 0,
+    beatableCount,
+  };
+}
+
+/**
+ * Фаза партии (раздел 5.2 плана).
+ * @returns {'debut'|'middle'|'endgame'}
+ */
+function gamePhase(state, handSize = 6) {
+  const talon = state.talonCount || 0;
+  if (talon === 0) return 'endgame';
+  const active = (state.players || []).filter((p) => !p.out).length || 2;
+  return talon > handSize * active ? 'debut' : 'middle';
+}
+
+/* ---------- src/bots/smartBot.js ---------- */
+// Умный бот: политика решений (раздел 5.3 SMART_BOT_PLAN.md, issue #33, этап 3).
+//
+// Устройство:
+//   память (`./memory.js`, CardTracker)  ->  анализ (`./analysis.js`, чистые функции)
+//   ->  политика (этот файл)  ->  { action, reason, analysis }.
+//
+// Жёсткие правила файла:
+//   * бот НИКОГДА не придумывает действие сам — он только ВЫБИРАЕТ объект из списка
+//     `legalActions`, который дал движок. Поэтому нелегальный ход физически невозможен;
+//   * бот видит только маскированное состояние `game.getState(meId)`; чужие руки в нём
+//     отсутствуют, и обращений к ним здесь нет — вся «осведомлённость» идёт из трекера,
+//     то есть выведена из публично наблюдаемых событий;
+//   * объяснения (`reason` / `analysis`) на русском, без терминов кода, и НЕ раскрывают
+//     того, чего бот не знает: чужие карты называются, только если трекер восстановил
+//     руку соперника точно (`isOpponentHandCertain`);
+//   * `src/bots/simpleBot.js` не трогаем — он остаётся эталоном для сравнения.
+//
+// Каждое эвристическое правило спрятано за именованным флагом профиля, чтобы его вклад
+// можно было измерить A/B-прогоном `src/cli/botMatch.js`.
+
+/** Профиль эвристик. Каждый флаг — отдельное правило раздела 5.3, включается/выключается для A/B. */
+// Значения флагов — НЕ вкусовщина, а результат A/B-прогонов (`scripts/abProfile.js`,
+// 2000 партий smart против simple, колода 24 на 2). Флаг, который не улучшает метрику,
+// по требованию issue #33 выключен; таблица цифр приложена к отчёту в issue.
+const SMART_PROFILE = {
+  holdTrumpsWhileTalon: true,    // беречь козыри при подкидывании, пока идёт прикуп (+1.3 п.п. без него)
+  holdHighCardsWhileTalon: false,// ВЫКЛЮЧЕН: придерживание Q+ стоило 12.6 п.п. — некозырную мелочь
+                                 // выгоднее сбрасывать сразу, иначе рука к эндшпилю забита старьём
+  avoidBurningBigTrump: true,    // лучше взять, чем спалить козырного K/A ради мелочи
+  finishOffWeakOpponent: true,   // добивать соперника картой, которую он (по подсчётам) не бьёт
+  takeWhenTableUnbeatable: true, // брать сразу, если весь стол не отбить
+  exactEndgame: true,            // точный счёт, когда прикуп пуст
+  dumpPairs: true,               // разгружаться парами/тройками одного ранга (+3.2 п.п. без него)
+};
+
+const HIGH_RANK = 12;  // дама и старше
+const BIG_TRUMP = 13;  // козырные король и туз
+
+const list = (cards) => cards.map(cardToString).join(', ');
+
+function myHandOf(state, playerId) {
+  const me = (state.players || []).find((p) => p.id === playerId);
+  return me && Array.isArray(me.hand) ? me.hand : [];
+}
+
+function handCountOf(state, id) {
+  const p = (state.players || []).find((x) => x.id === id);
+  return p ? p.handCount || 0 : 0;
+}
+
+const PHASE_LABEL = { debut: 'начало партии', middle: 'середина партии', endgame: 'эндшпиль' };
+
+/**
+ * Умный бот. Один экземпляр = один игрок в одной партии (в нём живёт память).
+ */
+class SmartBot {
+  constructor(options = {}) {
+    this.profile = { ...SMART_PROFILE, ...(options.profile || {}) };
+    this.explain = options.explain === true;
+    this.meId = options.meId || null;
+    this.tracker = null;
+  }
+
+  reset(state = null, meId = null) {
+    if (meId) this.meId = meId;
+    this.tracker = null;
+    if (state) this.observe(state, this.meId);
+    return this;
+  }
+
+  observe(state, meId = null) {
+    if (meId) this.meId = meId;
+    if (!state) return;
+    try {
+      if (!this.tracker) this.tracker = CardTracker.fromState(state, this.meId);
+      else this.tracker.observe(state);
+    } catch {
+      // Память — вспомогательный слой. Если она почему-то не смогла разобрать состояние,
+      // бот продолжает играть «вслепую», но НИКОГДА не падает и не ходит нелегально.
+      this.tracker = null;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  //  Знания о сопернике (только то, что выведено из наблюдений)
+  // ------------------------------------------------------------------
+
+  _opponentKnownHand(oppId) {
+    if (!this.tracker || !oppId) return null;
+    try {
+      if (!this.tracker.isOpponentHandCertain(oppId)) return null;
+      return this.tracker.toCards(this.tracker.opponentKnownCards(oppId));
+    } catch {
+      return null;
+    }
+  }
+
+  /** true — соперник ТОЧНО не побьёт эту карту (рука восстановлена полностью). */
+  _opponentSurelyCannotBeat(oppId, card, trumpSuit) {
+    const known = this._opponentKnownHand(oppId);
+    if (!known) return false;
+    return !known.some((c) => beats(c, card, trumpSuit));
+  }
+
+  /** true — карту вообще некому побить: ни одной бьющей карты нет вне моей руки. */
+  _nobodyCanBeat(card, hand, trumpSuit) {
+    if (!this.tracker) return false;
+    try {
+      return unbeatableCards(hand, trumpSuit, this.tracker).some(
+        (c) => c.rank === card.rank && c.suit === card.suit,
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  //  Общий «расклад» для объяснений
+  // ------------------------------------------------------------------
+
+  _analysisText(state, hand, trumpSuit, oppId) {
+    const phase = gamePhase(state);
+    const strength = handStrength(hand, trumpSuit, this.tracker);
+    const parts = [PHASE_LABEL[phase]];
+    parts.push(state.talonCount > 0 ? `в колоде ещё ${state.talonCount} карт` : 'колода пуста');
+    parts.push(`у меня ${hand.length} карт (козырей ${strength.trumpCount})`);
+    if (strength.unbeatableCount > 0) {
+      parts.push(`непробиваемых на руках ${strength.unbeatableCount}`);
+    }
+    const known = this._opponentKnownHand(oppId);
+    if (known && known.length) {
+      // Называть чужие карты можно ТОЛЬКО когда они выведены из наблюдений однозначно.
+      parts.push(`соперник держит ${list(known)}`);
+    } else if (oppId) {
+      parts.push(`у соперника ${handCountOf(state, oppId)} карт`);
+    }
+    return parts.join(', ');
+  }
+
+  // ------------------------------------------------------------------
+  //  Точка входа
+  // ------------------------------------------------------------------
+
+  decide(state, playerId, legalActions) {
+    if (!legalActions || legalActions.length === 0) return { action: null };
+    if (playerId) this.meId = playerId;
+
+    let picked;
+    try {
+      picked = this._choose(state, playerId, legalActions);
+    } catch {
+      picked = null;
+    }
+    // Страховка: что бы ни случилось внутри эвристик, наружу уходит действие ИЗ СПИСКА легальных.
+    if (!picked || !legalActions.includes(picked.action)) {
+      picked = { action: legalActions[0], reason: 'Играю первым доступным ходом.' };
+    }
+    if (!this.explain) return { action: picked.action };
+
+    const hand = myHandOf(state, playerId);
+    const oppId = playerId === state.defender ? state.attacker : state.defender;
+    return {
+      action: picked.action,
+      reason: picked.reason,
+      analysis: this._analysisText(state, hand, state.trumpSuit, oppId),
+    };
+  }
+
+  _choose(state, playerId, legalActions) {
+    const defends = legalActions.filter((a) => a.type === 'defend');
+    const transfers = legalActions.filter((a) => a.type === 'transfer');
+    const take = legalActions.find((a) => a.type === 'take');
+    if (defends.length > 0 || transfers.length > 0 || take) {
+      return this._decideDefense(state, playerId, legalActions, { defends, transfers, take });
+    }
+    return this._decideAttack(state, playerId, legalActions);
+  }
+
+  // ------------------------------------------------------------------
+  //  Ход и подкидывание
+  // ------------------------------------------------------------------
+
+  _decideAttack(state, playerId, legalActions) {
+    const trumpSuit = state.trumpSuit;
+    const hand = myHandOf(state, playerId);
+    const attacks = legalActions.filter((a) => a.type === 'attack');
+    const pass = legalActions.find((a) => a.type === 'pass');
+
+    if (attacks.length === 0) {
+      return { action: pass || legalActions[0], reason: 'Подкинуть нечего — пропускаю ход.' };
+    }
+
+    const mustAttack = !pass;
+    const defenderId = state.defender;
+    const defenderCards = handCountOf(state, defenderId);
+    const endgame = (state.talonCount || 0) === 0;
+    const takingNow = state.tableGoingToDefender === true; // соперник уже решил забрать
+
+    // Сколько карт каждого ранга у меня на руках — «топливо» для разгрузки парами.
+    const rankCount = new Map();
+    for (const c of hand) rankCount.set(c.rank, (rankCount.get(c.rank) || 0) + 1);
+
+    // 1. Добивание: у соперника мало карт и есть та, которую он не отобьёт.
+    if (this.profile.finishOffWeakOpponent && defenderCards > 0 && defenderCards <= 2) {
+      const killers = attacks.filter(
+        (a) =>
+          this._opponentSurelyCannotBeat(defenderId, a.card, trumpSuit) ||
+          this._nobodyCanBeat(a.card, hand, trumpSuit),
+      );
+      if (killers.length > 0) {
+        // Из «неотбиваемых» отдаём самую дешёвую — дорогие пригодятся дальше.
+        killers.sort((a, b) => cardPower(a.card, trumpSuit) - cardPower(b.card, trumpSuit));
+        const known = this._opponentKnownHand(defenderId);
+        return {
+          action: killers[0],
+          reason: known
+            ? `Хожу ${cardToString(killers[0].card)} — соперник этой картой не отобьётся, а карт у него всего ${defenderCards}.`
+            : `Хожу ${cardToString(killers[0].card)} — такой карты, чтобы её побить, уже ни у кого не осталось.`,
+        };
+      }
+    }
+
+    // 2. Сортировка кандидатов: дешевле — лучше; парные ранги идут вперёд (разгрузка).
+    const scored = attacks.map((a) => {
+      let score = cardPower(a.card, trumpSuit);
+      if (this.profile.dumpPairs && (rankCount.get(a.card.rank) || 0) >= 2) score -= 3;
+      return { a, score };
+    });
+    scored.sort((x, y) => x.score - y.score || cardPower(x.a.card, trumpSuit) - cardPower(y.a.card, trumpSuit));
+    const choice = scored[0].a;
+    const card = choice.card;
+    const isTrump = card.suit === trumpSuit;
+    const isHigh = card.rank >= HIGH_RANK;
+
+    if (mustAttack) {
+      return { action: choice, reason: `Захожу ${cardToString(card)} — это самая дешёвая карта, с которой не жалко начать.` };
+    }
+
+    // 3–5. Придерживание. Козырь бережём, пока это имеет смысл; крупную карту —
+    // только пока идёт прикуп. В эндшпиле и при «соперник уже забирает» придерживание слабеет.
+    let shouldHold = false;
+    if (isTrump) {
+      // Козырь: придерживаем, пока идёт прикуп. Когда колода пуста, козырь — лучшая
+      // нагрузка для соперника, и держать его «на всякий случай» уже поздно.
+      shouldHold = this.profile.holdTrumpsWhileTalon
+        ? !endgame && !this._nobodyCanBeat(card, hand, trumpSuit)
+        : false;
+    } else if (isHigh && this.profile.holdHighCardsWhileTalon) {
+      // Крупную некозырную придерживаем, пока есть прикуп и соперник не забирает стол.
+      shouldHold = !endgame && !takingNow;
+    }
+
+    // 4. Если защитнику уже нечем отбиваться (он берёт или у него кончились карты) —
+    //    грузим стол по максимуму: каждая подкинутая карта уходит ему, а у меня руки чище.
+    if (takingNow && !isTrump) shouldHold = false;
+    if (defenderCards === 0) shouldHold = false;
+
+    if (!shouldHold) {
+      if (takingNow) {
+        return { action: choice, reason: `Подкидываю ${cardToString(card)} — соперник всё равно забирает стол, пусть берёт больше.` };
+      }
+      if (endgame) {
+        return { action: choice, reason: `Подкидываю ${cardToString(card)} — колода пуста, сейчас главное избавляться от карт.` };
+      }
+      return {
+        action: choice,
+        reason: isHigh
+          ? `Подкидываю ${cardToString(card)} — держать крупную карту про запас невыгодно, лучше разгрузить руку сейчас.`
+          : `Подкидываю ${cardToString(card)} — недорогая карта, её не жалко.`,
+      };
+    }
+
+    // 6. Пас: подкидывание сейчас только навредит (отдали бы козырь или крупную карту).
+    return {
+      action: pass,
+      reason: isTrump
+        ? 'Пропускаю: подкинуть могу только козырем, а его лучше приберечь.'
+        : 'Пропускаю: остались только крупные карты, пока их отдавать рано.',
+    };
+  }
+
+  // ------------------------------------------------------------------
+  //  Защита: отбиться / перевести / взять
+  // ------------------------------------------------------------------
+
+  _decideDefense(state, playerId, legalActions, { defends, transfers, take }) {
+    const trumpSuit = state.trumpSuit;
+    const hand = myHandOf(state, playerId);
+    const table = state.table || [];
+    const undefended = table.filter((t) => t && t.attack && !t.defense);
+    const endgame = (state.talonCount || 0) === 0;
+    const attackerId = state.attacker;
+
+    const plan = planDefense(table, hand, trumpSuit);
+
+    // Перевод: предпочитаем не отдавать козырь и переводить минимумом карт.
+    const sortedTransfers = [...transfers].sort((a, b) => {
+      const at = a.cards.some((c) => c.suit === trumpSuit) ? 1 : 0;
+      const bt = b.cards.some((c) => c.suit === trumpSuit) ? 1 : 0;
+      if (at !== bt) return at - bt;
+      return a.cards.length - b.cards.length;
+    });
+    const transfer = sortedTransfers[0];
+    const cheapTransfer = transfer && !transfer.cards.some((c) => c.suit === trumpSuit) ? transfer : null;
+
+    // 1. Весь стол не отбить и неотбитых уже несколько — берём сразу,
+    //    не разбазаривая карты на заведомо проигранную защиту.
+    if (this.profile.takeWhenTableUnbeatable && take && !plan.canDefendAll && undefended.length >= 2) {
+      if (cheapTransfer) {
+        return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — весь стол мне не отбить, пусть отбивается следующий.` };
+      }
+      return { action: take, reason: 'Беру карты: весь стол мне всё равно не отбить, нет смысла тратить карты впустую.' };
+    }
+
+    if (defends.length === 0) {
+      if (cheapTransfer) {
+        return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться нечем, зато ход уходит дальше.` };
+      }
+      if (transfer) {
+        return { action: transfer, reason: `Перевожу ${list(transfer.cards)} — отбиться нечем.` };
+      }
+      return { action: take, reason: 'Беру карты: отбиться нечем.' };
+    }
+
+    // 2. Бьём минимальной достаточной картой; козырь — только если некозырной нет.
+    const sortedDefends = [...defends].sort(
+      (a, b) => cardPower(a.card, trumpSuit) - cardPower(b.card, trumpSuit),
+    );
+    const best = sortedDefends[0];
+    const target = undefended[0] ? undefended[0].attack : best.against;
+    const usesTrump = best.card.suit === trumpSuit;
+
+    // 3. Перевод дешевле защиты козырем — переводим.
+    if (usesTrump && cheapTransfer) {
+      return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — иначе пришлось бы тратить козырь.` };
+    }
+
+    // 5. Эндшпиль: колода пуста, считаем по-простому и точно.
+    if (this.profile.exactEndgame && endgame) {
+      const known = this._opponentKnownHand(attackerId);
+      // Отбился — рука стала меньше; взял — больше. Когда карт мало, это решает партию.
+      if (plan.canDefendAll) {
+        return {
+          action: best,
+          reason: known
+            ? `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, а я знаю, что осталось у соперника, и отбиваюсь весь стол.`
+            : `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, брать карты сейчас нельзя.`,
+        };
+      }
+      if (take) {
+        return { action: take, reason: 'Беру карты: колода пуста, а отбить весь стол уже не получится.' };
+      }
+    }
+
+    // 4. Не жжём крупный козырь (K/A) ради мелкой карты, пока идёт прикуп и взятие дёшево.
+    if (
+      this.profile.avoidBurningBigTrump &&
+      take &&
+      !endgame &&
+      usesTrump &&
+      best.card.rank >= BIG_TRUMP &&
+      target &&
+      target.suit !== trumpSuit &&
+      target.rank < HIGH_RANK &&
+      table.length <= 2
+    ) {
+      return {
+        action: take,
+        reason: `Беру карты: отбиться можно было бы только крупным козырем, а он дороже, чем ${cardToString(target)}.`,
+      };
+    }
+
+    // Если бью некозырной, но при этом отдаю единственную старшую в масти,
+    // а атака мелкая и колода ещё есть — дешевле забрать.
+    if (
+      this.profile.holdHighCardsWhileTalon &&
+      take &&
+      !endgame &&
+      !usesTrump &&
+      best.card.rank >= HIGH_RANK &&
+      table.length <= 2 &&
+      hand.length >= 6
+    ) {
+      const control = suitControl(hand, best.card.suit, this.tracker);
+      if (control.controlled && control.myBest && control.myBest.rank === best.card.rank) {
+        return {
+          action: take,
+          reason: `Беру карты: единственная старшая карта масти ${best.card.suit} пригодится мне позже больше, чем сейчас.`,
+        };
+      }
+    }
+
+    return {
+      action: best,
+      reason: usesTrump
+        ? `Бью ${cardToString(target)} козырем ${cardToString(best.card)} — некозырной подходящей карты нет.`
+        : `Бью ${cardToString(target)} картой ${cardToString(best.card)} — это самый дешёвый способ отбиться.`,
+    };
+  }
+}
+
+/** Фабрика в стиле `createBotBrain` — удобно для реестра уровней. */
+function createSmartBot(options = {}) {
+  return new SmartBot(options);
+}
+
+/** Разовое решение без сохранения памяти (для тестов и «одноразовых» вызовов). */
+function smartBotDecide(state, playerId, legalActions, options = {}) {
+  const bot = new SmartBot(options);
+  bot.observe(state, playerId);
+  return bot.decide(state, playerId, legalActions);
+}
+
+/* ---------- src/bots/index.js ---------- */
+// Реестр уровней ботов и фабрика «мозгов».
+//
+// Этап 1 плана умного бота (issue #31): здесь появилась ЕДИНАЯ точка правды про то,
+// какие уровни ботов существуют, как они называются и как получить объект, принимающий
+// решения.
+// Этап 3 (issue #33): уровень `smart` стал НАСТОЯЩИМ — его «мозг» собран из памяти
+// (`./memory.js`), анализа (`./analysis.js`) и политики (`./smartBot.js`). Отката на
+// простую логику для него больше нет, поэтому `fallback` у него всегда false.
+//
+// Важное ограничение: `src/bots/simpleBot.js` не меняется ни на одном этапе — на нём
+// висят simulate/playVerbose/smoke/сервер/локальный клиент, и он же служит эталоном,
+// с которым умный бот сравнивается в `src/cli/botMatch.js`.
+
+const BOT_LEVELS = [
+  {
+    id: 'simple',
+    label: 'Простой',
+    description: 'Базовые эвристики, ничего не запоминает',
+  },
+  {
+    id: 'smart',
+    label: 'Умный (считает карты)',
+    description: 'Помнит вышедшие карты, анализирует стол, объясняет ходы',
+  },
+];
+
+const DEFAULT_BOT_LEVEL = 'simple';
+
+// Уровни, «мозг» которых реально реализован. С этапа 3 это и `simple`, и `smart`.
+// Всё, чего здесь нет, создаётся с откатом на DEFAULT_BOT_LEVEL.
+const IMPLEMENTED_BOT_LEVELS = ['simple', 'smart'];
+
+function isBotLevel(id) {
+  return BOT_LEVELS.some((l) => l.id === id);
+}
+
+// Неизвестное/пустое/не строка -> DEFAULT_BOT_LEVEL. Регистр и пробелы прощаются,
+// чтобы данные из CLI-аргументов и из сети не требовали отдельной валидации на месте.
+function normalizeBotLevel(x) {
+  if (typeof x !== 'string') return DEFAULT_BOT_LEVEL;
+  const id = x.trim().toLowerCase();
+  return isBotLevel(id) ? id : DEFAULT_BOT_LEVEL;
+}
+
+function botLevelLabel(id) {
+  const level = BOT_LEVELS.find((l) => l.id === normalizeBotLevel(id));
+  return level ? level.label : DEFAULT_BOT_LEVEL;
+}
+
+function botLevelDescription(id) {
+  const level = BOT_LEVELS.find((l) => l.id === normalizeBotLevel(id));
+  return level ? level.description : '';
+}
+
+// «Мозг» простого бота: состояния не имеет, наблюдения игнорирует.
+function createSimpleBrain(requestedLevel, options) {
+  const explain = options.explain === true;
+  return {
+    // Какой уровень запрашивали (для UI/логов) и какой реально работает.
+    level: requestedLevel,
+    actualLevel: 'simple',
+    fallback: requestedLevel !== 'simple',
+    explain,
+    // У простого бота нет памяти — reset/observe существуют только ради общего интерфейса,
+    // чтобы вызывающий код (CLI, клиент, сервер) не знал, какой уровень он крутит.
+    reset() {},
+    observe() {},
+    decide(state, playerId, legalActions) {
+      const action = simpleBotDecide(state, playerId, legalActions);
+      if (!action) return { action: null };
+      if (!explain) return { action };
+      // На этапе 1 объяснений по существу ещё нет: простой бот их не формирует.
+      // Отдаём честную заглушку, а не выдуманный «анализ».
+      return { action, reason: 'Простой бот: ход по базовым эвристикам.', analysis: null };
+    },
+  };
+}
+
+// «Мозг» умного бота: помнит вышедшие карты и умеет объяснять ходы.
+// Внутри — SmartBot из ./smartBot.js; интерфейс тот же, что у простого,
+// поэтому вызывающему коду (CLI, клиент, сервер) знать об уровне ничего не нужно.
+function createSmartBrain(options) {
+  const explain = options.explain === true;
+  const bot = new SmartBot({ explain, profile: options.profile });
+  return {
+    level: 'smart',
+    actualLevel: 'smart',
+    fallback: false,
+    explain,
+    profile: bot.profile,
+    reset(state = null, meId = null) { bot.reset(state, meId); },
+    observe(state, meId = null) { bot.observe(state, meId); },
+    decide(state, playerId, legalActions) { return bot.decide(state, playerId, legalActions); },
+  };
+}
+
+/**
+ * Фабрика «мозга» бота.
+ *
+ * @param {string} level  идентификатор уровня (`simple` | `smart`), нестрогий
+ * @param {object} options  { explain?: boolean, profile?: object }
+ * @returns {{ level: string, actualLevel: string, fallback: boolean,
+ *             reset: Function, observe: Function, decide: Function }}
+ *
+ * decide(state, playerId, legalActions) -> { action, reason?, analysis? }
+ * где `state` — ОБЯЗАТЕЛЬНО маскированное состояние `game.getState(playerId)`.
+ */
+function createBotBrain(level, options = {}) {
+  const requested = normalizeBotLevel(level);
+  switch (requested) {
+    case 'smart':
+      return createSmartBrain(options);
+    case 'simple':
+    default:
+      return createSimpleBrain('simple', options);
+  }
+}
+
+
+/* ============ Клиентская надстройка над движком из src/ ============ */
+
+// Красные масти — только для отрисовки карт (движок про цвет ничего не знает).
+const RED_SUITS = new Set(['♥', '♦']);
+
+// Режиму просмотра нужна «плёнка»: после каждой записи в лог — снимок стола, по которому
+// партия листается вперёд-назад. Движку из src/ это не нужно (им же пользуется сервер),
+// поэтому запись снимков живёт здесь, в наследнике.
+class RecordingGame extends DurakGame {
+  constructor(...args){
+    super(...args);
+    this.snapshots ||= [];
   }
   _captureState(){
     return {
@@ -891,320 +3016,28 @@ class DurakGame {
       durak:this.durak, finished:this.phase==='finished',
     };
   }
-  _log(msg){ this.log.push(msg); this.snapshots.push({description:msg, state:this._captureState()}); }
-  _deal(){
-    let deck = shuffle(createDeck(this.rules.deckSize), this.rng);
-    this.trumpCard = deck[deck.length-1];
-    this.trumpSuit = this.trumpCard.suit;
-    for(const p of this.players) p.hand = deck.splice(0, this.rules.handSize);
-    this.talon = deck;
-  }
-  _pickFirstAttacker(){
-    let bestIdx=0, bestRank=Infinity, found=false;
-    this.players.forEach((p,idx)=>{ for(const c of p.hand){ if(c.suit===this.trumpSuit && c.rank<bestRank){bestRank=c.rank; bestIdx=idx; found=true;} } });
-    return found?bestIdx:0;
-  }
-  _activeIndices(){ const r=[]; this.players.forEach((p,i)=>{if(!p.out) r.push(i);}); return r; }
-  _nextActiveIndex(fromIdx){
-    const n=this.players.length;
-    for(let s=1;s<=n;s++){ const idx=(fromIdx+s)%n; if(!this.players[idx].out) return idx; }
-    return fromIdx;
-  }
-  _resetThrowInQueue(){
-    const fullCircle=[]; let idx=this.attackerIndex;
-    for(let i=0;i<this.players.length;i++){
-      if(idx!==this.defenderIndex && !this.players[idx].out) fullCircle.push(idx);
-      idx=(idx+1)%this.players.length;
-    }
-    let queue;
-    switch(this.rules.throwInPolicy){
-      case 'attackerOnly':
-        queue = fullCircle.length>0 ? [this.attackerIndex] : [];
-        break;
-      case 'neighbors': {
-        queue = [this.attackerIndex];
-        const afterDefender = this._nextActiveIndex(this.defenderIndex);
-        if(afterDefender!==this.attackerIndex && !this.players[afterDefender].out) queue.push(afterDefender);
-        break;
-      }
-      case 'all':
-      default:
-        queue = fullCircle;
-        break;
-    }
-    this.throwInQueue=queue; this.throwInQueuePos=0; this.passedPlayers=new Set();
-  }
-  _undefendedAttacks(){ return this.table.filter(t=>t.defense===null); }
-  // Фиксирует нового защищающегося и СРАЗУ ЖЕ запоминает размер его руки — "на начало раунда",
-  // т.е. до того как он успеет отбиться (или перевести) хотя бы одной картой. Раньше
-  // _defenderHandAtStart просто сбрасывался в undefined и пересчитывался лениво при первом
-  // обращении, которое могло произойти уже ПОСЛЕ того, как защитник отыграл несколько карт
-  // защиты — из-за этого лимит подкидывания занижался.
-  _setDefender(idx){
-    this.defenderIndex = idx;
-    this._defenderHandAtStart = this.players[idx].hand.length;
-  }
-  _defenderHandSizeAtRoundStart(){
-    if(this._defenderHandAtStart===undefined) this._defenderHandAtStart=this.players[this.defenderIndex].hand.length;
-    return this._defenderHandAtStart;
-  }
-  getLegalActions(playerId){
-    if(this.phase==='finished') return [];
-    const idx=this.players.findIndex(p=>p.id===playerId);
-    if(idx===-1||this.players[idx].out) return [];
-    if(this.phase==='defender-to-act'){ if(idx!==this.defenderIndex) return []; return this._legalDefenderActions(); }
-    if(this.phase==='need-attack'){ if(this.throwInQueue[this.throwInQueuePos]!==idx) return []; return this._legalThrowInActions(idx); }
-    return [];
-  }
-  // Какие ранги сейчас разрешено подкидывать (null = разрешено всё).
-  // Общая точка правды для _legalThrowInActions и лога после отбоя.
-  _currentAllowedThrowInRanks(){
-    const tableEmpty=this.table.length===0;
-    if(!tableEmpty) return new Set(this.table.map(t=>t.attack.rank).concat(this.table.filter(t=>t.defense).map(t=>t.defense.rank)));
-    if(this.allowAnyCardNow) return null;
-    return new Set();
-  }
-  _throwInStatusText(){
-    const allowedRanks=this._currentAllowedThrowInRanks();
-    const ranksLabel = allowedRanks===null ? 'любые (новый раунд)'
-      : (allowedRanks.size>0 ? [...allowedRanks].map(rankName).join(', ') : 'нет (подкидывать нечем)');
-    const limit=Math.min(this.rules.maxTableAttacks, this.rules.attackLimitByDefenderHand?this._defenderHandSizeAtRoundStart():Infinity);
-    const roomLeft=limit-this.attackCountThisRound;
-    return `Можно подкидывать ранги: ${ranksLabel}. Лимит атак за раунд: ${this.attackCountThisRound}/${limit} (осталось ${Math.max(roomLeft,0)}).`;
-  }
-  _legalThrowInActions(idx){
-    const actions=[]; const hand=this.players[idx].hand; const tableEmpty=this.table.length===0;
-    const allowedRanks=this._currentAllowedThrowInRanks();
-    const limit=Math.min(this.rules.maxTableAttacks, this.rules.attackLimitByDefenderHand?this._defenderHandSizeAtRoundStart():Infinity);
-    const roomLeft=limit-this.attackCountThisRound;
-    if(roomLeft>0){ for(const c of hand){ if(allowedRanks===null||allowedRanks.has(c.rank)) actions.push({type:'attack',card:c}); } }
-    if(!(tableEmpty && this.allowAnyCardNow && idx===this.attackerIndex)) actions.push({type:'pass'});
-    return actions;
-  }
-  _legalDefenderActions(){
-    const actions=[]; const defender=this.players[this.defenderIndex]; const undefended=this._undefendedAttacks();
-    if(undefended.length>0){
-      const target=undefended[0];
-      for(const c of defender.hand){ if(canBeat(target.attack,c,this.trumpSuit)) actions.push({type:'defend',card:c,against:target.attack}); }
-    }
-    // Перевод: игрок сам решает, каким количеством карт того же ранга переводить —
-    // можно одной (например, некозырной), а вторую такого же ранга подкинуть позже.
-    if(this._canConsiderPerevod()){
-      const rank=undefended[0].attack.rank;
-      const matching=defender.hand.filter(c=>c.rank===rank);
-      if(matching.length>0){
-        const nextIdx=this._nextActiveIndex(this.defenderIndex);
-        const nextHandSize=this.players[nextIdx].hand.length;
-        const okByHandSize=(n)=> !this.rules.perevodRequiresEnoughCards || nextHandSize>=undefended.length+n;
-        if(nextIdx!==this.defenderIndex){
-          for(const c of matching){ if(okByHandSize(1)) actions.push({type:'transfer',cards:[c]}); }
-          if(matching.length>1 && okByHandSize(matching.length)) actions.push({type:'transfer',cards:matching});
-        }
-      }
-    }
-    actions.push({type:'take'});
-    return actions;
-  }
-  _canConsiderPerevod(){
-    if(!this.rules.allowPerevod) return false;
-    if(this.rules.perevodOnlyOnFirstCard){
-      if(this.table.some(t=>t.defense!==null)) return false;
-      const ranks=new Set(this.table.map(t=>t.attack.rank));
-      if(ranks.size!==1) return false;
-    }
-    return true;
-  }
-  applyAction(playerId, action){
-    const legal=this.getLegalActions(playerId);
-    const match=legal.find(a=>this._actionsEqual(a,action));
-    if(!match) throw new Error(`Недопустимое действие для ${playerId}: ${JSON.stringify(action)}`);
-    const idx=this.players.findIndex(p=>p.id===playerId);
-    switch(action.type){
-      case 'attack': return this._doAttack(idx, match.card);
-      case 'pass': return this._doPass(idx);
-      case 'defend': return this._doDefend(idx, match.card, match.against);
-      case 'transfer': return this._doTransfer(idx, match.cards);
-      case 'take': return this._doTake(idx);
-    }
-  }
-  _actionsEqual(a,b){
-    if(a.type!==b.type) return false;
-    if(a.type==='attack'||a.type==='defend') return a.card.suit===b.card.suit && a.card.rank===b.card.rank;
-    if(a.type==='transfer'){
-      if(a.cards.length!==b.cards.length) return false;
-      const bRemaining=b.cards.slice();
-      for(const ac of a.cards){
-        const i=bRemaining.findIndex(bc=>bc.suit===ac.suit && bc.rank===ac.rank);
-        if(i===-1) return false;
-        bRemaining.splice(i,1);
-      }
-      return true;
-    }
-    return true;
-  }
-  _removeFromHand(idx,card){ const hand=this.players[idx].hand; const i=cardIndexInHand(hand,card); return hand.splice(i,1)[0]; }
-  _doAttack(idx,card){
-    this._removeFromHand(idx,card);
-    this.attackCountThisRound++;
-    this.table.push({attack:card, defense:null});
-    if(this.postTakeMode){
-      // Защищающийся уже решил забрать карты — новая карта ложится на стол рядом
-      // с остальными (видно всем), физически уйдёт защитнику при закрытии стола.
-      const defender=this.players[this.defenderIndex];
-      this._log(`${this.players[idx].name} подкидывает ${cardToString(card)} — карта ляжет в стопку, которую забирает ${defender.name}`);
-      this.allowAnyCardNow=false; this.passedPlayers.clear();
-      this.throwInQueuePos=(this.throwInQueuePos+1)%Math.max(this.throwInQueue.length,1);
-      this._maybeResolveNeedAttack();
-      return;
-    }
-    this._log(`${this.players[idx].name} подкидывает ${cardToString(card)}`);
-    this.allowAnyCardNow=false; this.passedPlayers.clear();
-    this.throwInQueuePos=(this.throwInQueuePos+1)%Math.max(this.throwInQueue.length,1);
-    this.phase='defender-to-act';
-  }
-  _doPass(idx){
-    this.passedPlayers.add(idx);
-    this._log(`${this.players[idx].name} пасует`);
-    this.throwInQueuePos=(this.throwInQueuePos+1)%Math.max(this.throwInQueue.length,1);
-    this._maybeResolveNeedAttack();
-  }
-  _maybeResolveNeedAttack(){
-    const activeThrowers=this.throwInQueue.length;
-    if(activeThrowers===0 || this.passedPlayers.size>=activeThrowers) this._resolveTableClosed();
-  }
-  _doDefend(idx,card,against){
-    this._removeFromHand(idx,card);
-    const entry=this.table.find(t=>t.defense===null && t.attack.suit===against.suit && t.attack.rank===against.rank);
-    entry.defense=card;
-    this._log(`${this.players[idx].name} отбивается ${cardToString(card)} от ${cardToString(against)}`);
-    if(this._undefendedAttacks().length>0){ this.phase='defender-to-act'; }
-    else {
-      this.phase='need-attack'; this._resetThrowInQueue();
-      this._log(`Стол отбит. ${this._throwInStatusText()}`);
-      this._maybeResolveNeedAttack();
-    }
-  }
-  _doTransfer(idx,cards){
-    for(const c of cards){ this._removeFromHand(idx,c); this.table.push({attack:c, defense:null}); }
-    this.attackCountThisRound+=cards.length;
-    this._log(`${this.players[idx].name} переводит: ${cards.map(cardToString).join(', ')}`);
-    this.perevodUsedThisRound=true;
-    this.attackerIndex=idx;
-    this._setDefender(this._nextActiveIndex(idx)); // лимит фиксируется под нового защищающегося сразу
-    this.allowAnyCardNow=false;
-    this._resetThrowInQueue();
-    this._log(`Теперь защищается: ${this.players[this.defenderIndex].name}`);
-    this.phase='defender-to-act';
-  }
-  _doTake(idx){
-    // Карты со стола НЕ убираем сразу — они лежат "на взятие" до конца захода (пока все
-    // не спасуют), чтобы всем было видно, что забирает защитник и что подкинули следом.
-    // Физически в руку они уйдут в _resolveTableClosed.
-    const cardCount=this.table.length + this.table.filter(t=>t.defense).length;
-    this.tookCards=true; this.postTakeMode=true; this.allowAnyCardNow=false;
-    this._log(`${this.players[idx].name} решает забрать карты (пока на столе ${cardCount} шт.). ${this._throwInStatusText()}`);
-    this.phase='need-attack';
-    if(!this.rules.throwInAfterTake){ this.throwInQueue=[]; this.throwInQueuePos=0; this.passedPlayers=new Set(); this._resolveTableClosed(); return; }
-    this._resetThrowInQueue();
-    this._maybeResolveNeedAttack();
-  }
-  _resolveTableClosed(){
-    const tookCards=this.tookCards===true; this.tookCards=false; this.postTakeMode=false;
-    const prevDefenderIdx=this.defenderIndex;
-    if(tookCards){
-      // Заход завершён — теперь физически отдаём защитнику всё, что накопилось на столе.
-      const defender=this.players[prevDefenderIdx];
-      const cardCount=this.table.length + this.table.filter(t=>t.defense).length;
-      for(const t of this.table){ defender.hand.push(t.attack); if(t.defense) defender.hand.push(t.defense); }
-      this.table=[];
-      this._log(`${defender.name} забирает карты со стола (${cardCount} шт.)`);
-    } else { this.discardCount+=this.table.length*2; this.table=[]; this._log(`Карты биты, уходят в отбой.`); }
-    this._refillHands();
-    this._checkFinishedPlayers();
-    if(this.phase==='finished') return;
-    // если отбился — сам атакует дальше (если не вышел из игры); если забрал карты — пропускает ход
-    let newAttacker;
-    if(tookCards){ newAttacker=this._nextActiveIndex(prevDefenderIdx); }
-    else { newAttacker = this.players[prevDefenderIdx].out ? this._nextActiveIndex(prevDefenderIdx) : prevDefenderIdx; }
-    const newDefender=this._nextActiveIndex(newAttacker);
-    if(newAttacker===newDefender){ this._finishGame(); return; }
-    this.attackerIndex=newAttacker; this._setDefender(newDefender);
-    this.perevodUsedThisRound=false;
-    this.allowAnyCardNow=true; this.postTakeMode=false; this.attackCountThisRound=0;
-    this.phase='need-attack'; this._resetThrowInQueue();
-    this._log(`Новый раунд. Ходит: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
-    this._maybeResolveNeedAttack();
-  }
-  _refillHands(){
-    if(this.talon.length===0) return;
-    const order=[]; let idx=this.attackerIndex;
-    for(let i=0;i<this.players.length;i++){ if(idx!==this.defenderIndex && !this.players[idx].out) order.push(idx); idx=(idx+1)%this.players.length; }
-    if(!this.players[this.defenderIndex].out) order.push(this.defenderIndex);
-    for(const pIdx of order){
-      const player=this.players[pIdx]; const drawn=[];
-      while(player.hand.length<this.rules.handSize && this.talon.length>0){ const c=this.talon.shift(); player.hand.push(c); drawn.push(c); }
-      if(drawn.length>0) this._log(`${player.name} добирает из колоды: ${drawn.map(cardToString).join(', ')} (в колоде осталось ${this.talon.length})`);
-    }
-    if(this.talon.length===0 && !this._talonEmptyLogged){ this._talonEmptyLogged=true; this._log(`Колода закончилась — дальше играем без добора.`); }
-  }
-  _checkFinishedPlayers(){
-    this.players.forEach(p=>{
-      if(!p.out && p.hand.length===0 && this.talon.length===0){
-        p.out=true; p.finishRank=this.finishedOrder.length+1; this.finishedOrder.push(p.id);
-        this._log(`${p.name} избавился от карт и выходит из игры (место ${p.finishRank})`);
-      }
-    });
-    const active=this._activeIndices();
-    if(active.length<=1) this._finishGame(active.length===1?this.players[active[0]].id:null);
-  }
-  _finishGame(durakId){
-    this.phase='finished';
-    if(durakId!==undefined) this.durak=durakId??null;
-    else { const active=this._activeIndices(); this.durak=active.length===1?this.players[active[0]].id:null; }
-    if(this.durak) this._log(`Игра окончена. Дурак: ${this.players.find(p=>p.id===this.durak).name}`);
-    else this._log(`Игра окончена. Ничья.`);
+  _log(msg){
+    super._log(msg);
+    (this.snapshots ||= []).push({description:msg, state:this._captureState()});
   }
 }
 
-function cardValue(card, trumpSuit){ return (card.suit===trumpSuit?100:0)+card.rank; }
-// Дама и старше — карта, которую имеет смысл придерживать, пока в колоде есть прикуп.
-function isHighCard(card){ return card.rank>=12; }
-function simpleBotDecide(state, playerId, legalActions){
-  if(legalActions.length===0) return null;
-  const trumpSuit=state.trumpSuit;
-  // Пока в колоде есть прикуп — есть смысл экономить крупные карты на потом.
-  // Когда колода пуста, беречь дальше нечего — задача избавиться от карт как можно быстрее.
-  const endgame=state.talonCount===0;
-  const attacks=legalActions.filter(a=>a.type==='attack');
-  const defends=legalActions.filter(a=>a.type==='defend');
-  const transfer=legalActions.find(a=>a.type==='transfer');
-  const take=legalActions.find(a=>a.type==='take');
-  const pass=legalActions.find(a=>a.type==='pass');
-  if(attacks.length>0){
-    const mustAttack=!pass;
-    attacks.sort((a,b)=>cardValue(a.card,trumpSuit)-cardValue(b.card,trumpSuit));
-    const cheapest=attacks[0];
-    const isTrump=cheapest.card.suit===trumpSuit;
-    // Козырь бережём всегда; крупную карту (Q+) — только пока не эндшпиль. Мелочь кидаем всегда.
-    const shouldHold=isTrump||(isHighCard(cheapest.card)&&!endgame);
-    if(mustAttack||!shouldHold) return cheapest;
-    if(pass) return pass;
-  }
-  if(defends.length>0){
-    defends.sort((a,b)=>cardValue(a.card,trumpSuit)-cardValue(b.card,trumpSuit));
-    const cheapest=defends[0];
-    if(cheapest.card.suit===trumpSuit && transfer) return transfer;
-    return cheapest;
-  }
-  if(transfer) return transfer;
-  if(take) return take;
-  if(pass) return pass;
-  return legalActions[0];
-}
-
-function runFullGame(numPlayers, deckSize, throwInPolicy){
+// botOptions (issue #39): { level: 'simple'|'smart', explain: boolean }.
+// По умолчанию — простой бот без объяснений, то есть ровно то, что было раньше.
+// Партия просмотра проигрывается целиком в момент создания, поэтому и уровень, и
+// объяснения фиксируются на её старте.
+function runFullGame(numPlayers, deckSize, throwInPolicy, botOptions={}){
+  const level=normalizeBotLevel(botOptions.level);
+  const explain=botOptions.explain===true;
   const players=Array.from({length:numPlayers},(_,i)=>({id:`p${i+1}`, name:`Игрок ${i+1}`}));
-  const game=new DurakGame(players, {numPlayers, deckSize, throwInPolicy});
+  const game=new RecordingGame(players, {numPlayers, deckSize, throwInPolicy});
+  // В режиме просмотра все игроки — боты одного уровня: по «мозгу» на каждого.
+  const brains=new Map();
+  for(const p of game.players){
+    const brain=createBotBrain(level, { explain });
+    brain.reset(game.getState(p.id), p.id);
+    brains.set(p.id, brain);
+  }
   let safety=0;
   while(game.phase!=='finished' && safety<8000){
     safety++;
@@ -1215,8 +3048,13 @@ function runFullGame(numPlayers, deckSize, throwInPolicy){
       if(legal.length===0) continue;
       // Боту отдаём то же маскированное состояние, что и движок: чужие руки скрыты
       // (issue #27), зато видны стол, фаза, отбой, атакующий/защитник и размеры рук.
-      const action=simpleBotDecide(game.getState(p.id), p.id, legal);
+      const state=game.getState(p.id);
+      const brain=brains.get(p.id);
+      brain.observe(state, p.id);
+      const decision=brain.decide(state, p.id, legal) || {};
+      const action=decision.action;
       if(!action) continue;
+      if(explain) logBotExplanation(game, p.name, decision);
       game.applyAction(p.id, action);
       acted=true; break;
     }
@@ -1235,8 +3073,106 @@ let interactiveBusy = false;
 // «отбиться» и «перевести» (issue #22: козырь того же ранга, что и карта на
 // столе). Пока она выставлена, в панели действий показываем явный выбор.
 let pendingChoiceCard = null;
+// По «мозгу» на каждого бота (issue #38): мозг умного бота держит память о партии,
+// поэтому он должен жить столько же, сколько партия, и сбрасываться на новой.
+// Ключ — id игрока-бота, значение — объект из createBotBrain().
+let botBrains = new Map();
+// Настройки ботов, с которыми запущена ТЕКУЩАЯ партия (issue #39): { level, explain }.
+// Уровень фиксируется на старте партии: смена селектора посреди игры её не трогает
+// (у умного бота уже накоплена память), а применяется со следующей — по «Новая партия».
+let activeBotSettings = null;
 
 function sameCard(a,b){ return !!a && !!b && a.suit===b.suit && a.rank===b.rank; }
+
+// Уровень ботов, выбранный в настройках СЕЙЧАС — для следующей партии.
+// Уже идущая партия берёт уровень из activeBotSettings и от селектора не зависит.
+function currentBotLevel(){
+  const sel=document.getElementById('botLevel');
+  return normalizeBotLevel(sel ? sel.value : DEFAULT_BOT_LEVEL);
+}
+
+// Галочка «боты объясняют свои ходы в логе». По умолчанию выключена (решение заказчика, #29).
+function botExplainEnabled(){
+  const cb=document.getElementById('botExplain');
+  return !!(cb && cb.checked);
+}
+
+// Подсказка «изменение применится со следующей партии» — показывается, пока настройки
+// в панели расходятся с теми, с которыми идёт текущая партия.
+function updateBotSettingsHint(){
+  const hint=document.getElementById('botSettingsHint');
+  if(!hint) return;
+  let show=false;
+  if(activeBotSettings && (mode==='view' || mode==='interactive')){
+    const levelChanged=currentBotLevel()!==activeBotSettings.level;
+    // В игре против ботов галочку можно включить посреди партии — она действует сразу.
+    // А партия режима просмотра проигрывается целиком при создании, там ждёт новой.
+    const explainChanged=mode==='view' && botExplainEnabled()!==activeBotSettings.explain;
+    show=levelChanged || explainChanged;
+  }
+  hint.classList.toggle('hidden', !show);
+}
+
+// Первая буква с маленькой: «Подкидываю …» -> «подкидываю …» (в логе после «Бот 2:»).
+// Аббревиатуры («ИИ …») не трогаем.
+function lowerFirst(text){
+  if(!text || /^[A-ZА-ЯЁ]{2}/.test(text)) return text;
+  return text.charAt(0).toLowerCase()+text.slice(1);
+}
+
+// Текст записи лога с объяснением хода бота (issue #39):
+//   🤖 Бот 2: подкидываю 9♦ — у соперника 1 карта, и 9♦ он по моим подсчётам не бьёт
+//      └ расклад: эндшпиль, колода пуста, соперник держит K♠, 9♦
+// reason/analysis приходят из «мозга» как есть — в них уже только то, что бот знает.
+function formatBotExplanation(botName, decision){
+  const reason=decision && typeof decision.reason==='string' ? decision.reason.trim().replace(/[.\s]+$/,'') : '';
+  if(!reason) return null;
+  let text=`🤖 ${botName}: ${lowerFirst(reason)}`;
+  const analysis=decision.analysis && typeof decision.analysis==='string' ? decision.analysis.trim() : '';
+  if(analysis) text+=`\n   └ расклад: ${analysis}`;
+  return text;
+}
+
+// Дописывает объяснение в лог партии. Идёт через game._log, как и события движка, поэтому
+// строка попадает и в game.log (его рисуют renderFullLog / renderInteractiveLog), и в
+// snapshots — индексы лога и шагов просмотра остаются согласованы.
+function logBotExplanation(game, botName, decision){
+  const text=formatBotExplanation(botName, decision);
+  if(text) game._log(text);
+}
+
+// Мозг бота на текущую партию. explain:true — мозг всегда УМЕЕТ объяснять, а писать ли
+// это в лог, решает галочка botExplain в момент хода (см. scheduleBotStep). Так галочку
+// можно включить и посреди партии, не пересоздавая мозг и не теряя его память.
+function makeBotBrain(game, playerId){
+  const level=activeBotSettings ? activeBotSettings.level : currentBotLevel();
+  const brain=createBotBrain(level, { explain:true });
+  // reset получает то же маскированное состояние, что и decide: чужих рук в нём нет.
+  brain.reset(game.getState(playerId), playerId);
+  return brain;
+}
+
+// Создать мозги ботам на новую партию. Человек (индекс 0) мозга не получает.
+function resetBotBrains(game){
+  botBrains = new Map();
+  activeBotSettings = { level: currentBotLevel(), explain: botExplainEnabled() };
+  updateBotSettingsHint();
+  if(!game) return;
+  game.players.forEach((p,i)=>{
+    if(i===0) return;
+    botBrains.set(p.id, makeBotBrain(game, p.id));
+  });
+}
+
+// Мозг конкретного бота; если его почему-то нет (партия из старого состояния) — создаём на лету.
+function brainFor(game, playerId){
+  let brain=botBrains.get(playerId);
+  if(!brain){
+    brain=makeBotBrain(game, playerId);
+    botBrains.set(playerId, brain);
+  }
+  return brain;
+}
 
 function startInteractiveGame(){
   stopBotTimer();
@@ -1245,7 +3181,8 @@ function startInteractiveGame(){
   const deckSize=Number(document.getElementById('deckSize').value);
   const throwInPolicy=document.getElementById('throwInPolicy').value;
   const players=Array.from({length:numPlayers},(_,i)=>({id:`p${i+1}`, name: i===0 ? 'Вы' : `Бот ${i+1}`}));
-  igame=new DurakGame(players, {numPlayers, deckSize, throwInPolicy});
+  igame=new RecordingGame(players, {numPlayers, deckSize, throwInPolicy});
+  resetBotBrains(igame);
   renderInteractive();
   scheduleBotStep();
 }
@@ -1283,10 +3220,21 @@ function scheduleBotStep(){
     if(!igame || igame.phase==='finished') { interactiveBusy=false; renderInteractive(); return; }
     const legal=igame.getLegalActions(turnPlayer.id);
     if(legal.length===0){ interactiveBusy=false; scheduleBotStep(); return; }
-    // Боту отдаём то же маскированное состояние, что и движок: рука человека
-    // и других ботов скрыта (issue #27), доступны стол/фаза/отбой/handCount.
-    const action=simpleBotDecide(igame.getState(turnPlayer.id), turnPlayer.id, legal);
-    if(action) igame.applyAction(turnPlayer.id, action);
+    // Боту отдаём ТОЛЬКО маскированное состояние движка: рука человека и других
+    // ботов в нём скрыта (issue #27/#38), доступны стол/фаза/отбой/handCount.
+    // Один и тот же объект состояния идёт и в observe (память умного бота),
+    // и в decide — никаких самодельных «всевидящих» объектов здесь больше нет.
+    const state=igame.getState(turnPlayer.id);
+    const brain=brainFor(igame, turnPlayer.id);
+    brain.observe(state, turnPlayer.id);
+    const decision=brain.decide(state, turnPlayer.id, legal) || {};
+    const action=decision.action;
+    if(action){
+      // Объяснение пишем ДО хода: причина стоит рядом с самим ходом, а не после
+      // каскада событий, который движок разворачивает в applyAction (бито, добор, новый раунд).
+      if(botExplainEnabled()) logBotExplanation(igame, turnPlayer.name, decision);
+      igame.applyAction(turnPlayer.id, action);
+    }
     interactiveBusy=false;
     scheduleBotStep();
   }, 550);
@@ -2064,7 +4012,10 @@ function buildGame(){
   const numPlayers=Number(document.getElementById('numPlayers').value);
   const deckSize=Number(document.getElementById('deckSize').value);
   const throwInPolicy=document.getElementById('throwInPolicy').value;
-  game=runFullGame(numPlayers, deckSize, throwInPolicy);
+  const botOptions={ level: currentBotLevel(), explain: botExplainEnabled() };
+  activeBotSettings={ ...botOptions };
+  game=runFullGame(numPlayers, deckSize, throwInPolicy, botOptions);
+  updateBotSettingsHint();
   cursor=0;
   document.getElementById('scrubber').max=String(game.snapshots.length-1);
   document.getElementById('scrubber').value='0';
@@ -2182,6 +4133,29 @@ document.getElementById('newGameBtn').addEventListener('click', ()=>{
 document.getElementById('showAll').addEventListener('change', ()=>{
   if(mode==='view') render(); else renderInteractive();
 });
+// Движок (тот же, что на сервере) не начнёт партию, если колоды не хватает на раздачу по
+// handSize карт каждому: например, 5–6 игроков не садятся за колоду на 24 карты. Поэтому
+// такие варианты в списке колод блокируем, а выбранный недопустимый — заменяем на ближайший.
+function syncDeckWithPlayers(){
+  const players=Number(document.getElementById('numPlayers').value);
+  const deck=document.getElementById('deckSize');
+  const need=players*DEFAULT_RULES.handSize;
+  let firstOk=null;
+  for(const opt of deck.options){
+    const ok=Number(opt.value)>=need;
+    opt.disabled=!ok;
+    opt.title=ok?'':`Не хватит карт: ${players} игроков × ${DEFAULT_RULES.handSize} = ${need}`;
+    if(ok && firstOk===null) firstOk=opt.value;
+  }
+  if(Number(deck.value)<need && firstOk!==null) deck.value=firstOk;
+}
+document.getElementById('numPlayers').addEventListener('change', syncDeckWithPlayers);
+syncDeckWithPlayers();
+
+// Уровень ботов и объяснения (issue #39): сами по себе игру не перезапускают — только
+// показывают/прячут подсказку «применится со следующей партии».
+document.getElementById('botLevel').addEventListener('change', updateBotSettingsHint);
+document.getElementById('botExplain').addEventListener('change', updateBotSettingsHint);
 document.getElementById('trumpSide').addEventListener('change', ()=>{
   if(mode==='view') render();
   else if(mode==='interactive') renderInteractive();
@@ -2319,6 +4293,16 @@ function applyLogVisible(on){
   range.value = String(initial);
   apply(initial, false);
   range.addEventListener('input', ()=> apply(parseFloat(range.value), true));
+})();
+
+// ?botLevel=smart в адресе выставляет селектор при загрузке — удобно для ручной проверки
+// (так уровень задавался на этапе 4, до появления селектора).
+(function initBotLevelFromUrl(){
+  try{
+    const q=new URLSearchParams(location.search);
+    const fromUrl=q.get('botLevel')||q.get('bot');
+    if(fromUrl) document.getElementById('botLevel').value=normalizeBotLevel(fromUrl);
+  }catch(e){ /* location недоступен — остаётся уровень по умолчанию */ }
 })();
 
 buildGame();

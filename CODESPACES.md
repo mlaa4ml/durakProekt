@@ -17,7 +17,7 @@ Codespaces, проверить движок, ботов, WebSocket-сервер,
 | CLI-прогон партии | `src/cli/playVerbose.js`, `src/cli/simulate.js` | `npm run play`, `npm run simulate` |
 | WS-сервер + комнаты | `server/index.js`, `server/rooms.js` | `npm run server` (шаг 3) |
 | Тестовый клиент сервера | `server/test-client.html` | открывается на `/` (шаг 4) |
-| Визуализация (боты / игра против ботов) | `docs/index.html` = `visual/index.html` | открывается на `/visual` или как файл |
+| Визуализация (боты / игра против ботов) | `docs/index.html` = `visual/index.html` (генерируются `npm run build-client`) | открывается на `/visual` или как файл |
 
 Единственная зависимость — пакет `ws` (нужен только серверу). CLI-скрипты
 работают вообще без `npm install`.
