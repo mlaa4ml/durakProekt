@@ -8,7 +8,9 @@
 #
 # Что проверяется:
 #   1. движок и боты офлайн (playVerbose + simulate на разных конфигурациях);
-#   2. бенчмарк ботов `botMatch` (калибровочный прогон simple vs simple: 0 ошибок, 0 зависаний);
+#   2. бенчмарк ботов `botMatch` (калибровочный прогон simple vs simple: 0 ошибок, 0 зависаний)
+#      и короткий контроль матрицы `npm run eval-bots:quick` (issue #46 — ловим ошибки движка
+#      и зависания на 2×24 / 4×36 / 6×52; силу бота полной матрицей здесь НЕ меряем);
 #   3. идентичность клиентов: `visual/index.html` и `docs/index.html` байт-в-байт
 #      (расхождение валит сборку; чинится `npm run sync-client`);
 #   4. HTTP-эндпоинты сервера: /health, /, /visual;
@@ -81,6 +83,22 @@ jobs:
           }
           echo "$out" | grep -q "Зависших (упёрлись в предохранитель): 0" || {
             echo "::error::botMatch — есть зависшие партии"; exit 1;
+          }
+
+      - name: Матрица конфигураций — eval-bots:quick (короткий контроль)
+        run: |
+          set -e
+          if [ ! -f scripts/evalBots.js ]; then
+            echo "В этой ветке нет scripts/evalBots.js — пропускаю (см. issue #46)."
+            exit 0
+          fi
+          # Здесь НЕ меряем силу бота (для этого нужна полная матрица на 3–5 минут),
+          # а ловим ошибки движка и зависания на разных конфигурациях. Поэтому --no-gate
+          # и маленькое число партий.
+          out=$(npm run --silent eval-bots:quick -- --games=200 --a=simple --b=simple --no-gate)
+          echo "$out"
+          echo "$out" | grep -qE "ошибок движка 0, зависаний 0" || {
+            echo "::error::eval-bots:quick — есть ошибки движка или зависания"; exit 1;
           }
 
       - name: Клиенты идентичны — visual/index.html == docs/index.html

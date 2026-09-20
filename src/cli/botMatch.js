@@ -16,11 +16,12 @@
 //
 // Боту передаётся ТОЛЬКО game.getState(botId) — маскированное состояние без чужих рук.
 
-import { DurakGame } from '../game.js';
-import { cardToString } from '../deck.js';
-import { createBotBrain, normalizeBotLevel, botLevelLabel, BOT_LEVELS } from '../bots/index.js';
+// Раскладка мест и прогон одной партии живут в ../cli/matchCore.js — тем же кодом
+// пользуется scripts/evalBots.js (issue #46), чтобы два бенчмарка не разошлись в мелочах.
+// CLI-поведение этого файла при выносе не изменилось.
 
-const MAX_STEPS = 5000;
+import { createBotBrain, normalizeBotLevel, botLevelLabel, BOT_LEVELS } from '../bots/index.js';
+import { seatLevels, playOneGame } from './matchCore.js';
 
 function parseArgs(argv) {
   const flags = argv.filter((a) => a.startsWith('--'));
@@ -32,95 +33,6 @@ function parseArgs(argv) {
     deckSize: Number(positional[3] || 24),
     numPlayers: Number(positional[4] || 2),
     verbose: flags.includes('--verbose'),
-  };
-}
-
-function actionToString(action) {
-  if (!action) return '—';
-  switch (action.type) {
-    case 'attack':
-      return `атака ${cardToString(action.card)}`;
-    case 'defend':
-      return `отбой ${cardToString(action.card)}`;
-    case 'transfer':
-      return `перевод ${(action.cards || []).map(cardToString).join(' ')}`;
-    case 'take':
-      return 'берёт карты';
-    case 'pass':
-      return 'пас';
-    default:
-      return action.type;
-  }
-}
-
-// Раскладка уровней по местам.
-// direction = 0: места 0,2,4... -> levelA; 1,3,5... -> levelB.
-// direction = 1: наоборот. Так A успевает поиграть и первым, и вторым.
-function seatLevels(levelA, levelB, numPlayers, direction) {
-  return Array.from({ length: numPlayers }, (_, i) => {
-    const first = i % 2 === 0;
-    const aFirst = direction === 0;
-    return first === aFirst ? levelA : levelB;
-  });
-}
-
-// Одна партия. Возвращает { durakSeat, steps, stuck, trace }.
-function playOneGame(levels, deckSize, numPlayers, collectTrace) {
-  const players = Array.from({ length: numPlayers }, (_, i) => ({
-    id: `p${i + 1}`,
-    name: `p${i + 1} (${botLevelLabel(levels[i])})`,
-  }));
-  const game = new DurakGame(players, { numPlayers, deckSize }, Math.random);
-
-  const brains = new Map();
-  players.forEach((p, i) => {
-    const brain = createBotBrain(levels[i], { explain: collectTrace });
-    brain.reset(game.getState(p.id), p.id);
-    brains.set(p.id, brain);
-  });
-
-  const trace = [];
-  let safety = 0;
-  while (game.phase !== 'finished' && safety < MAX_STEPS) {
-    safety++;
-    let acted = false;
-    for (const p of game.players) {
-      if (p.out) continue;
-      const legal = game.getLegalActions(p.id);
-      if (legal.length === 0) continue;
-      const state = game.getState(p.id);
-      const brain = brains.get(p.id);
-      brain.observe(state, p.id);
-      const decision = brain.decide(state, p.id, legal) || {};
-      const action = decision.action;
-      if (!action) continue;
-      if (collectTrace) {
-        trace.push({
-          player: p.name,
-          level: brain.level,
-          action: actionToString(action),
-          reason: decision.reason || null,
-          analysis: decision.analysis || null,
-        });
-      }
-      game.applyAction(p.id, action);
-      acted = true;
-      break; // по одному действию за раз, чтобы состояние переоценивалось корректно
-    }
-    if (!acted) break;
-  }
-
-  const durakSeat = game.durak
-    ? game.players.findIndex((p) => p.id === game.durak)
-    : -1;
-
-  return {
-    durakSeat,
-    steps: safety,
-    stuck: safety >= MAX_STEPS,
-    trace,
-    log: game.log,
-    finishedOrder: game.finishedOrder,
   };
 }
 
