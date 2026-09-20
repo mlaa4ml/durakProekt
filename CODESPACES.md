@@ -17,7 +17,7 @@ Codespaces, проверить движок, ботов, WebSocket-сервер,
 | CLI-прогон партии | `src/cli/playVerbose.js`, `src/cli/simulate.js` | `npm run play`, `npm run simulate` |
 | WS-сервер + комнаты | `server/index.js`, `server/rooms.js` | `npm run server` (шаг 3) |
 | Тестовый клиент сервера | `server/test-client.html` | открывается на `/` (шаг 4) |
-| Визуализация (боты / игра против ботов) | `docs/index.html` = `visual/index.html` | открывается на `/visual` или как файл |
+| Визуализация (боты / игра против ботов) | `docs/index.html` = `visual/index.html` (генерируются `npm run build-client`) | открывается на `/visual` или как файл |
 
 Единственная зависимость — пакет `ws` (нужен только серверу). CLI-скрипты
 работают вообще без `npm install`.
@@ -47,6 +47,9 @@ npm -v
 ```bash
 npm install
 ```
+
+> Если codespace создаёт автоматика (агент) и команды падают с
+> «sshd не поднялся» — см. раздел **7b**.
 
 ---
 
@@ -305,6 +308,134 @@ npm run server                          # затем открыть /health, /, 
 
 Ручными остаются только сценарии из раздела 5.3 (реконнект и подмена
 ботом) и визуальная проверка UI — их скриптом не покрыть.
+
+---
+
+## 7b. Особенности запуска команд в Codespace через агента / `gh codespace ssh`
+
+Проверено в Codespace на этом репозитории (issues #9, #12, #14). Сам запуск
+команд **работает** (`gh codespace ssh -c ... -- <команда>` больше не падает с
+`unknown flag: --command`), но есть две ловушки окружения — обе обходятся:
+
+1. **Команда стартует в `/home/node`, а не в `/workspaces/durakProekt`.**
+   Поэтому `npm run smoke` выдаёт
+   `ENOENT ... open '/home/node/package.json'`, а `node src/cli/simulate.js`
+   — `Cannot find module '/home/node/src/cli/simulate.js'`.
+   Это не поломка проекта: файлы на месте, просто не тот рабочий каталог.
+
+2. **Первая команда в строке иногда «съедается» сессией.**
+   `echo FIRST; echo SECOND` печатает только `SECOND`; поэтому
+   `cd /workspaces/durakProekt && npm run smoke` может выполнить только
+   `npm run smoke`, уже из `/home/node`.
+
+### Что сделано в репозитории (issue #15)
+
+1. **`.devcontainer/setup-shell.sh`** — вызывается на `onCreateCommand` и на
+   **каждом** `postStartCommand`. Он идемпотентно вставляет в НАЧАЛО
+   `~/.bashrc` (а также `~/.profile` и `~/.zshrc`, если есть) небольшой блок:
+   если сессия стартовала в домашнем каталоге, она автоматически переходит в
+   корень репозитория. Блок стоит именно первым, потому что стандартный
+   `~/.bashrc` в первых строках делает `case $- in *i*) ;; *) return;; esac`
+   и для неинтерактивных ssh-команд выходит сразу.
+   Заодно появляются alias'ы `durak-check`, `durak-smoke`, `durak-root`.
+
+   После этого обычные `npm run smoke` и `node src/cli/simulate.js 1000 2 24`,
+   присланные снаружи, работают без всяких префиксов. Если блок почему-то не
+   встал (codespace создан до этого коммита), поставьте его руками:
+
+   ```bash
+   bash /workspaces/durakProekt/.devcontainer/setup-shell.sh
+   ```
+
+2. **`scripts/codespace-run.sh`** (= `npm run codespace:run`) — обёртка,
+   которая выполняет любую команду из корня репозитория:
+
+   ```bash
+   bash /workspaces/durakProekt/scripts/codespace-run.sh npm run smoke
+   bash /workspaces/durakProekt/scripts/codespace-run.sh node src/cli/simulate.js 1000 2 24
+   bash /workspaces/durakProekt/scripts/codespace-run.sh   # без аргументов = codespace-check.sh
+   ```
+
+   Так как это одна команда без `cd` и без `&&`, её не ломает ни чужой
+   рабочий каталог, ни «съеденная» первая команда строки.
+
+### Как запускать надёжно в любом случае
+
+Даже без вышеописанного всегда работают абсолютные пути / `--prefix` и
+«холостая» первая команда:
+
+```bash
+# самый простой путь — один скрипт, сам находит корень репозитория:
+bash /workspaces/durakProekt/scripts/codespace-check.sh
+
+# либо через npm с явным префиксом:
+npm --prefix /workspaces/durakProekt run smoke
+node /workspaces/durakProekt/src/cli/simulate.js 1000 2 24
+
+# либо «жертвенная» первая команда перед cd:
+true; cd /workspaces/durakProekt && npm run smoke
+```
+
+`scripts/codespace-check.sh` (= `npm run codespace:check`) прогоняет
+`simulate.js` (2×24 и 4×36), `playVerbose.js` и полный `npm run smoke`,
+печатает версию Node/npm, ветку и коммит и возвращает код выхода
+`0`/`1`. Его можно вызывать из любого каталога.
+
+> Первопричина обеих ловушек — на стороне обвязки агента / `gh codespace ssh`
+> (рабочий каталог сессии и потеря первой команды). Репозиторий её обойти
+> полностью не может, но после issue #15 обычные команды из этой инструкции
+> работают «как есть».
+
+## 7c. Если команды в Codespace падают с «sshd не поднялся»
+
+Симптом (issue #13) — codespace создался и виден как **Available**, но любая
+команда, отправленная автоматикой (агентом, `gh codespace ssh`), падает:
+
+```
+ERROR: sshd в codespace так и не поднялся за 60 c после Available.
+error getting ssh server details: failed to start SSH server:
+Please check if an SSH server is installed in the container.
+```
+
+Причина не в проекте: SSH-фича в `.devcontainer/devcontainer.json` есть, и на
+том же образе SSH-команды проходят. Ломается тайминг жизненного цикла:
+статус *Available* выставляется раньше, чем доустановятся devcontainer-фичи и
+отработает `postCreateCommand: npm install`, а вызывающая сторона ждёт sshd
+всего 60 секунд. Отдельно бывает, что после stop→start контейнера демон ssh
+не поднимается сам.
+
+### Что уже сделано в репозитории
+
+В `.devcontainer/` добавлены две вещи:
+
+- `"waitFor": "postCreateCommand"` — codespace объявляется готовым только
+  после установки фич **и** `npm install`, то есть к моменту *Available*
+  sshd уже работает;
+- `ensure-sshd.sh` — идемпотентный скрипт, который вызывается на
+  `onCreateCommand` и на **каждом** `postStartCommand`: при необходимости
+  ставит `openssh-server`, генерирует host-ключи и запускает демон. Скрипт
+  никогда не завершается ошибкой, чтобы не ломать создание codespace.
+
+Проверить руками внутри codespace:
+
+```bash
+bash .devcontainer/ensure-sshd.sh   # -> [ensure-sshd] sshd работает
+pgrep -a sshd
+```
+
+### Что делать, если всё равно упало
+
+1. **Веб-терминал**: откройте `https://<имя-codespace>.github.dev` (или
+   Code → Codespaces → нужный codespace) и работайте в терминале VS Code —
+   он не использует внешний SSH, всё из разделов 2–6 запускается.
+2. **Пересоздать codespace на нужной ветке**: повторный автозапуск может
+   создать codespace на ветке по умолчанию, а не на вашей рабочей. Проверьте
+   `git branch --show-current` и при расхождении сделайте
+   `git fetch origin && git checkout <ваша-ветка>` либо удалите codespace и
+   создайте заново из UI кнопкой на нужной ветке.
+3. **GitHub Actions** (`.github/workflows/ci.yml`) — полный прогон движка,
+   сервера и smoke без Codespaces вообще: достаточно запушить ветку
+   (см. раздел 7a, вариант A).
 
 ---
 
