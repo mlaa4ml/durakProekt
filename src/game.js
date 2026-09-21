@@ -226,6 +226,17 @@ export class DurakGame {
       })),
       durak: this.durak,
       finished: this.phase === 'finished',
+      // Ничья и "бессмысленные ходы" (issue #55).
+      // idleRounds        — сколько заходов подряд ничего не ушло в бито и никто не вышел;
+      // idleRoundsLimit   — на каком значении объявляется ничья (0 = правило выключено);
+      // stalemateWarning  — готовый текст предупреждения для лобби (или null);
+      // drawReason        — 'stalemate', если партия закончилась ничьёй по этому правилу;
+      // drawPlayers       — id игроков, между которыми объявлена ничья.
+      idleRounds: this.idleRounds,
+      idleRoundsLimit: this.rules.stalemateLimit,
+      stalemateWarning: this.stalemateWarning,
+      drawReason: this.drawReason,
+      drawPlayers: [...this.drawPlayers],
 
       // Правила партии — боту и сетевому клиенту (раздел 2 SMART_BOT_ROADMAP.md).
       // Одинаковы для всех игроков и ничего не раскрывают: это настройки партии,
