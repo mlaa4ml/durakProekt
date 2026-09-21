@@ -371,7 +371,11 @@ export class SmartBot {
     //    на цену отдаваемой карты (этап 4, issue #49; оценки — src/bots/estimate.js).
     let choice;
     let pressurePick = null;
-    if (this.profile.attackByPressure && this.tracker && !takingNow && defenderCards > 0) {
+    //    Правило работает только в дуэли: при 3+ игроках карту может побить не только
+    //    защитник (перевод/следующий круг), и оценка давления систематически завышена —
+    //    на фаззинге 36×4 и 52×3 это приводило к нескончаемым партиям.
+    if (this.profile.attackByPressure && this.tracker && !takingNow && defenderCards > 0
+        && alivePlayersCount(state) === 2) {
       try {
         const ranked = bestAttackByPressure(attacks, this.tracker, state, {
           costWeight: PRESSURE_COST_WEIGHT,
