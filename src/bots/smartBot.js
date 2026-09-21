@@ -31,6 +31,14 @@ import {
   suitControl,
   gamePhase,
 } from './analysis.js';
+import {
+  pOpponentBeats,
+  pDefenseSurvives,
+  expectedThrowIn,
+  bestAttackByPressure,
+  voidSuitsOf,
+  MAX_CARD_POWER,
+} from './estimate.js';
 
 /** Профиль эвристик. Каждый флаг — отдельное правило раздела 5.3, включается/выключается для A/B. */
 // Значения флагов — НЕ вкусовщина, а результат A/B-прогонов (`scripts/abProfile.js`,
