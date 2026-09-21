@@ -791,6 +791,52 @@ export class DurakGame {
     }
   }
 
+  // ---------- Защита от "вечной" партии (issue #55) ----------
+
+  // Вызывается один раз за завершённый заход (после добора и проверки выходов).
+  // Прогрессом считаем: карты ушли в бито, кто-то вышел из игры, либо убыла колода.
+  // Если ничего из этого не случилось — счётчик бессмысленных заходов растёт.
+  _noteRoundProgress() {
+    const limit = this.rules.stalemateLimit;
+    if (!limit) return;                       // правило выключено
+    if (this.phase === 'finished') return;    // партия уже закончилась сама
+
+    const mark = `${this.discardCount}|${this.finishedOrder.length}|${this.talon.length}`;
+    if (this._progressMark !== null && this._progressMark === mark) {
+      this.idleRounds += 1;
+    } else {
+      this.idleRounds = 0;
+      this.stalemateWarning = null;
+    }
+    this._progressMark = mark;
+
+    if (this.idleRounds >= limit) {
+      this._finishAsDraw();
+      return;
+    }
+
+    const roundsLeft = limit - this.idleRounds;
+    const warnAt = this.rules.stalemateWarnAt;
+    if (warnAt > 0 && roundsLeft <= warnAt) {
+      const text = `Партия зациклилась: если ничего не изменится, через ${roundsLeft} ${plural(roundsLeft, 'ход', 'хода', 'ходов')} будет объявлена ничья — дурака не будет.`;
+      this.stalemateWarning = { roundsLeft, limit, text };
+      this._log(() => `⚠ ${text}`);
+    } else {
+      this.stalemateWarning = null;
+    }
+  }
+
+  // Ничья по зацикливанию: дурака нет, "ничьими" считаются все, кто остался с картами.
+  _finishAsDraw() {
+    this.phase = 'finished';
+    this.durak = null;
+    this.drawReason = 'stalemate';
+    this.stalemateWarning = null;
+    this.drawPlayers = this.players.filter((p) => !p.out && p.hand.length > 0).map((p) => p.id);
+    const names = this.players.filter((p) => this.drawPlayers.includes(p.id)).map((p) => p.name);
+    this._log(() => `Игра окончена: ${this.rules.stalemateLimit} заходов подряд без движения — партия зациклилась. Ничья между игроками: ${names.join(', ')}. Дурака нет.`);
+  }
+
   _finishGame(durakId) {
     this.phase = 'finished';
     if (durakId !== undefined) {
