@@ -31,6 +31,14 @@ import {
   suitControl,
   gamePhase,
 } from './analysis.js';
+import {
+  pOpponentBeats,
+  pDefenseSurvives,
+  expectedThrowIn,
+  bestAttackByPressure,
+  voidSuitsOf,
+  MAX_CARD_POWER,
+} from './estimate.js';
 
 /** Профиль эвристик. Каждый флаг — отдельное правило раздела 5.3, включается/выключается для A/B. */
 // Значения флагов — НЕ вкусовщина, а результат A/B-прогонов (`scripts/abProfile.js`,
@@ -49,7 +57,29 @@ export const SMART_PROFILE = {
                                  // (src/bots/endgame.js, issue #48). Матрица A/B «с решателем против без»:
                                  // 2×24/36/52 — 36,9 / 38,9 / 40,4 % «дурака» у новой версии (по 900 партий,
                                  // ± 3,3 п.п.), остальные конфигурации ≤ 51 %. Бюджет — 2 с на ход.
+
+  // --- этап 4 (issue #49): вероятностные оценки из памяти, src/bots/estimate.js ---
+  attackByPressure: false,       // ходить/подкидывать картой с наибольшим шансом, что соперник НЕ отобьётся
+                                 // (`bestAttackByPressure`: давление минус нормированная цена карты),
+                                 // вместо «просто самой дешёвой».
+                                 // A/B (200 партий на конфигурацию, доля «дурака» у smart, меньше = лучше):
+                                 // 24×2 — 45,1 % с флагом против 28,4 % без него; 36×2 — 58,7 % против 57,1 %.
+                                 // Правило ВРЕДИТ, поэтому по умолчанию выключено (как holdHighCardsWhileTalon).
+  probabilisticTake: false,      // «брать или отбиваться» по ожидаемой цене: сравниваем ожидаемую цену
+                                 // защиты (карты, которые уйдут, с учётом `expectedThrowIn`) с ценой взятия,
+                                 // а не по порогам. Раздел 1.5 roadmap: грубый порог давал чистый шум.
+                                 // A/B: 24×2 — 45,1 % с флагом против 31,7 % без него; 36×2 — 58,7 % против 45,9 %.
+                                 // Тоже ВРЕДИТ: модель цены защиты переоценивает выгоду риска -> выключено
+                                 // до доработки (см. отчёт в issue #49).
 };
+
+// Вес цены отдаваемой карты в оценке атаки: 1 п.п. давления стоит примерно 1 % шкалы cardPower.
+// Значение не «на глаз»: cost нормирован на козырного туза (MAX_CARD_POWER), поэтому 0.35 означает
+// «отдать козырного туза вместо шестёрки оправдано, только если это даёт >35 п.п. давления».
+const PRESSURE_COST_WEIGHT = 0.35;
+
+// Порога «шанс отбиться ниже X — беру» здесь СОЗНАТЕЛЬНО нет (раздел 1.5 roadmap: такое правило
+// дало чистый шум). Решение принимается только сравнением двух ожидаемых цен в шкале cardPower.
 
 const HIGH_RANK = 12;  // дама и старше
 const BIG_TRUMP = 13;  // козырные король и туз
@@ -64,6 +94,17 @@ function myHandOf(state, playerId) {
 function handCountOf(state, id) {
   const p = (state.players || []).find((x) => x.id === id);
   return p ? p.handCount || 0 : 0;
+}
+
+/**
+ * Сколько игроков ещё в партии. Вероятностные правила этапа 4 (issue #49) включаются
+ * только в дуэли: оценка `pOpponentBeats` считает ОДНОГО соперника, а за столом на 3–4
+ * человека карту может побить любой другой игрок, и оценка систематически завышает
+ * давление. На фаззинге (`test/botLegality.test.js`, 36×4 и 52×3) это выливалось в
+ * бесконечно тянущиеся партии: боты перестают закрывать раунды и упираются в лимит шагов.
+ */
+function alivePlayersCount(state) {
+  return (state.players || []).filter((p) => !p.out).length;
 }
 
 /**
@@ -330,17 +371,65 @@ export class SmartBot {
       }
     }
 
-    // 2. Сортировка кандидатов: дешевле — лучше; парные ранги идут вперёд (разгрузка).
-    const scored = attacks.map((a) => {
-      let score = cardPower(a.card, trumpSuit);
-      if (this.profile.dumpPairs && (rankCount.get(a.card.rank) || 0) >= 2) score -= 3;
-      return { a, score };
-    });
-    scored.sort((x, y) => x.score - y.score || cardPower(x.a.card, trumpSuit) - cardPower(y.a.card, trumpSuit));
-    const choice = scored[0].a;
+    // 2. Сортировка кандидатов.
+    //    Базовая (как раньше): дешевле — лучше; парные ранги идут вперёд (разгрузка).
+    //    С флагом `attackByPressure` — по шансу, что соперник НЕ отобьётся, с поправкой
+    //    на цену отдаваемой карты (этап 4, issue #49; оценки — src/bots/estimate.js).
+    let choice;
+    let pressurePick = null;
+    //    Правило работает только в дуэли: при 3+ игроках карту может побить не только
+    //    защитник (перевод/следующий круг), и оценка давления систематически завышена —
+    //    на фаззинге 36×4 и 52×3 это приводило к нескончаемым партиям.
+    if (this.profile.attackByPressure && this.tracker && !takingNow && defenderCards > 0
+        && alivePlayersCount(state) === 2) {
+      try {
+        const ranked = bestAttackByPressure(attacks, this.tracker, state, {
+          costWeight: PRESSURE_COST_WEIGHT,
+          oppId: defenderId,
+          trumpSuit,
+        }).map((r) => {
+          // Разгрузка парами остаётся отдельным правилом и здесь тоже учитывается:
+          // пара по шкале давления стоит столько же, сколько 3 единицы cardPower раньше.
+          const bonus = this.profile.dumpPairs && (rankCount.get(r.card.rank) || 0) >= 2
+            ? (PRESSURE_COST_WEIGHT * 3) / MAX_CARD_POWER
+            : 0;
+          return { ...r, score: r.score + bonus };
+        });
+        ranked.sort((x, y) => y.score - x.score || x.cost - y.cost);
+        if (ranked.length) pressurePick = ranked[0];
+      } catch {
+        pressurePick = null;    // оценки — вспомогательный слой, без них играем как раньше
+      }
+    }
+    if (pressurePick) {
+      choice = pressurePick.action;
+    } else {
+      const scored = attacks.map((a) => {
+        let score = cardPower(a.card, trumpSuit);
+        if (this.profile.dumpPairs && (rankCount.get(a.card.rank) || 0) >= 2) score -= 3;
+        return { a, score };
+      });
+      scored.sort((x, y) => x.score - y.score || cardPower(x.a.card, trumpSuit) - cardPower(y.a.card, trumpSuit));
+      choice = scored[0].a;
+    }
     const card = choice.card;
     const isTrump = card.suit === trumpSuit;
     const isHigh = card.rank >= HIGH_RANK;
+
+    // 2б. Если выбор сделан по давлению и шанс, что соперник отобьётся, реально мал —
+    //     объясняем это словами, не раскрывая того, чего бот не знает.
+    if (pressurePick && pressurePick.pBeat <= 0.25 && defenderCards > 0) {
+      const voids = voidSuitsOf(this.tracker, defenderId);
+      const why = voids.includes(card.suit)
+        ? 'этой масти он ни разу не бил, скорее всего её у него нет'
+        : (pressurePick.pBeat === 0
+          ? 'побить такую карту ему, судя по всему, уже нечем'
+          : 'шансов отбиться у него тут почти нет');
+      return {
+        action: choice,
+        reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(card)} — ${why}.`,
+      };
+    }
 
     if (mustAttack) {
       return { action: choice, reason: `Захожу ${cardToString(card)} — это самая дешёвая карта, с которой не жалко начать.` };
@@ -443,6 +532,57 @@ export class SmartBot {
     // 3. Перевод дешевле защиты козырем — переводим.
     if (usesTrump && cheapTransfer) {
       return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — иначе пришлось бы тратить козырь.` };
+    }
+
+    // 3.5. Вероятностный выбор «брать или отбиваться» (этап 4, issue #49).
+    //      Никаких порогов «на глаз»: сравниваем ДВЕ ожидаемые цены в одной и той же шкале
+    //      ценности карт (`cardPower`).
+    //        цена взятия  = всё, что лежит на столе, плюс то, что ещё подкинут;
+    //        цена защиты  = карты, которые уйдут с руки на отбой, плюс риск,
+    //                       что отбиться всё равно не выйдет и стол придётся забрать.
+    //      Работает, только пока идёт прикуп: при пустой колоде решает точный счёт
+    //      (`exactEndgame` / `exactEndgameSolver`), там взятие оценивается иначе.
+    if (this.profile.probabilisticTake && take && !endgame && this.tracker
+        && alivePlayersCount(state) === 2) {
+      try {
+        const pSurv = pDefenseSurvives(table, hand, this.tracker, state);
+        const extra = expectedThrowIn(state, this.tracker, playerId);
+        const tableCost = table.reduce(
+          (s, t) => s + (t.attack ? cardPower(t.attack, trumpSuit) : 0) + (t.defense ? cardPower(t.defense, trumpSuit) : 0),
+          0,
+        );
+        const tableCards = table.reduce((s, t) => s + 1 + (t.defense ? 1 : 0), 0);
+        const avgCard = tableCards ? tableCost / tableCards : 0;
+        // Цена взятия: вся ценность, которая переедет со стола мне в руку (плюс то, что подкинут).
+        const costTake = tableCost + extra * avgCard;
+        // Цена защиты — НЕ вся потраченная карта: успешная защита уносит в бито и мою карту,
+        // и атаку соперника, то есть руку она разгружает. Реально теряю только «переплату»:
+        // насколько отдаваемая карта дороже той, которую она убирает со стола
+        // (бить семёрку козырным королём — переплата почти в целый козырь, своей восьмёркой — в единицу).
+        const overpay = plan.canDefendAll
+          ? plan.assignment.reduce(
+            (s, x) => s + Math.max(0, cardPower(x.card, trumpSuit) - cardPower(x.attack, trumpSuit)),
+            0,
+          )
+          : Infinity;
+        // Не отбился — всё равно забираю стол, да ещё и потратив карты на отбой.
+        const costDefend = overpay + (1 - pSurv) * (costTake + overpay);
+        if (costTake < costDefend) {
+          if (cheapTransfer) {
+            return {
+              action: cheapTransfer,
+              reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться до конца я вряд ли успею, а так стол уйдёт дальше.`,
+            };
+          }
+          const voids = voidSuitsOf(this.tracker, attackerId);
+          const why = voids.length
+            ? 'подкидывать ему есть чем, а я на этом потеряю больше, чем заберу'
+            : 'мне ещё подкинут, и защита обойдётся дороже, чем взятые карты';
+          return { action: take, reason: `Беру карты: ${why}.` };
+        }
+      } catch {
+        // Оценки — вспомогательный слой: если что-то пошло не так, решают обычные правила.
+      }
     }
 
     // 5. Эндшпиль: колода пуста, считаем по-простому и точно.
