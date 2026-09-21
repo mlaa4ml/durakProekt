@@ -24,6 +24,8 @@ function publicRulesOf(rules) {
     allowPerevod: rules.allowPerevod,
     perevodOnlyOnFirstCard: rules.perevodOnlyOnFirstCard,
     perevodRequiresEnoughCards: rules.perevodRequiresEnoughCards,
+    stalemateLimit: rules.stalemateLimit,
+    stalemateWarnAt: rules.stalemateWarnAt,
   });
 }
 
