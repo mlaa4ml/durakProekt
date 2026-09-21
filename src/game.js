@@ -748,6 +748,59 @@ export class DurakGame {
     this._maybeResolveNeedAttack();
   }
 
+  // --- Защита от вечной партии (issue #55) ---
+  // Вызывается ОДИН раз за завершённый заход (после того как стол закрыт, руки добраны
+  // и проверены выходы). Прогрессом считается любое из двух событий, названных в issue:
+  //   * изменилось количество карт в бито (discardCount) — значит кто-то реально отбился;
+  //   * кто-то вышел из партии (изменился состав finishedOrder).
+  // Дополнительно прогрессом считаем уменьшение колоды: пока идёт добор, партия
+  // объективно движется к концу и глушить её рано.
+  // Если прогресса нет stalemateLimit заходов подряд — партия заканчивается ничьёй
+  // между всеми, кто остался с картами (дурака нет).
+  _noteRoundProgress() {
+    const limit = this.rules.stalemateLimit;
+    if (!limit) return; // 0 = правило выключено
+
+    const snapshot = `${this.discardCount}|${this.finishedOrder.length}|${this.talon.length}`;
+    if (snapshot !== this._progressSnapshot) {
+      this._progressSnapshot = snapshot;
+      this.idleRounds = 0;
+      this.stalemateWarning = null;
+      return;
+    }
+
+    this.idleRounds += 1;
+
+    if (this.idleRounds >= limit) {
+      this._finishAsDraw();
+      return;
+    }
+
+    const left = limit - this.idleRounds;
+    if (left <= this.rules.stalemateWarnAt) {
+      this.stalemateWarning =
+        `Игра идёт по кругу: ${this.idleRounds} ходов подряд карты не уходят в отбой и никто не вышел. ` +
+        `Если так продлится ещё ${left} ${plural(left, 'ход', 'хода', 'ходов')} — будет объявлена ничья и дурака не будет.`;
+      this._log(() => `⚠ ${this.stalemateWarning}`);
+    } else {
+      this.stalemateWarning = null;
+    }
+  }
+
+  // Ничья по лимиту бессмысленных ходов: дурака нет, все оставшиеся с картами — «в ничьей».
+  _finishAsDraw() {
+    const active = this._activeIndices();
+    this.drawReason = 'stalemate';
+    this.drawPlayers = active.map((idx) => this.players[idx].id);
+    this.stalemateWarning = null;
+    this.phase = 'finished';
+    this.durak = null;
+    this._log(() =>
+      `Игра окончена: ничья. ${this.rules.stalemateLimit} ходов подряд карты не уходили в отбой и никто не выходил из партии. ` +
+      `С картами остались: ${active.map((idx) => this.players[idx].name).join(', ')}. Дурака нет.`
+    );
+  }
+
   _refillHands(startFromIdx) {
     if (this.talon.length === 0) return;
     // Порядок добора: атакующий и все, кто подкидывал (по кругу от атакующего), затем защищающийся последним.
