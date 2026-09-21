@@ -710,6 +710,7 @@ export class DurakGame {
 
     this._refillHands(prevDefenderIdx);
     this._checkFinishedPlayers();
+    this._noteRoundProgress();
 
     if (this.phase === 'finished') return;
 
