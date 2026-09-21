@@ -549,6 +549,11 @@ export class DurakGame {
     g.durak = null;
     g.phase = pos.phase;
     g.perevodUsedThisRound = false;
+    g.idleRounds = 0;
+    g.stalemateWarning = null;
+    g.drawReason = null;
+    g.drawPlayers = [];
+    g._progressMark = null;
     g.attackerIndex = attackerIndex;
     g._setDefender(defenderIndex);
     if (Number.isInteger(pos.defenderHandAtStart)) g._defenderHandAtStart = pos.defenderHandAtStart;
