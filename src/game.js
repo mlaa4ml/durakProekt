@@ -229,6 +229,15 @@ export class DurakGame {
       durak: this.durak,
       finished: this.phase === 'finished',
 
+      // Защита от "вечной" партии (issue #55).
+      // stalemateWarning — готовое сообщение для лобби (или null), drawReason === 'stalemate'
+      // означает, что партия закончилась ничьёй и дурака нет.
+      idleRounds: this.idleRounds || 0,
+      idleRoundsLimit: this.rules.stalemateLimit,
+      stalemateWarning: this.stalemateWarning || null,
+      drawReason: this.drawReason || null,
+      drawPlayers: this.drawPlayers ? this.drawPlayers.slice() : [],
+
       // Правила партии — боту и сетевому клиенту (раздел 2 SMART_BOT_ROADMAP.md).
       // Одинаковы для всех игроков и ничего не раскрывают: это настройки партии,
       // которые каждый видит и так. Простые значения — состояние уходит по сети как JSON.
