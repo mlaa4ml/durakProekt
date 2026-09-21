@@ -25,6 +25,15 @@ export const DEFAULT_RULES = {
   throwInPolicy: 'all',
 
   firstAttackerRule: 'lowestTrump', // кто ходит первым в самой первой раздаче
+
+  // Защита от "вечной" партии (issue #55): при трёх и более игроках карты могут
+  // бесконечно ходить по кругу — никто не выходит и в бито ничего не уходит.
+  // stalemateLimit — сколько заходов подряд без прогресса терпим, после чего объявляем
+  //                  ничью между всеми, кто остался с картами (0 = правило выключено);
+  // stalemateWarnAt — за сколько заходов до ничьей начинать предупреждать игроков
+  //                  (предупреждение уходит в лог партии и в getState().stalemateWarning).
+  stalemateLimit: 150,
+  stalemateWarnAt: 10,
 };
 
 const THROW_IN_POLICIES = ['attackerOnly', 'neighbors', 'all'];
@@ -40,6 +49,16 @@ export function resolveRules(overrides = {}) {
   }
   if (!THROW_IN_POLICIES.includes(rules.throwInPolicy)) {
     throw new Error(`throwInPolicy должен быть одним из: ${THROW_IN_POLICIES.join(', ')}`);
+  }
+  if (!Number.isInteger(rules.stalemateLimit) || rules.stalemateLimit < 0) {
+    throw new Error('stalemateLimit должен быть целым числом >= 0 (0 = правило выключено)');
+  }
+  if (!Number.isInteger(rules.stalemateWarnAt) || rules.stalemateWarnAt < 0) {
+    throw new Error('stalemateWarnAt должен быть целым числом >= 0');
+  }
+  // Предупреждать раньше, чем начался отсчёт, смысла нет.
+  if (rules.stalemateLimit > 0 && rules.stalemateWarnAt > rules.stalemateLimit) {
+    rules.stalemateWarnAt = rules.stalemateLimit;
   }
   // При 2 игроках "перевод" не отключаем: переводящий и получающий перевод
   // просто меняются ролями (переводящий сам становится атакующим).
