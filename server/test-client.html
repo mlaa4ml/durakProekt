@@ -217,9 +217,24 @@ function renderGame() {
 
   if (lastState.finished) {
     const durakPlayer = lastPlayers.find((p) => p.id === lastState.durak);
-    $('gameStatus').textContent = lastState.durak ? `Партия окончена — дурак: ${durakPlayer?.name || lastState.durak}` : 'Партия окончена — ничья';
+    if (lastState.durak) {
+      $('gameStatus').textContent = `Партия окончена — дурак: ${durakPlayer?.name || lastState.durak}`;
+    } else if (lastState.drawReason === 'stalemate') {
+      // Ничья по зацикливанию (issue #55): дурака нет, ничья между теми, кто остался с картами.
+      const names = (lastState.drawPlayers || [])
+        .map((id) => lastPlayers.find((p) => p.id === id)?.name || id)
+        .join(', ');
+      $('gameStatus').textContent = `Партия окончена — ничья: партия зациклилась${names ? ` (${names})` : ''}. Дурака нет.`;
+    } else {
+      $('gameStatus').textContent = 'Партия окончена — ничья';
+    }
   } else {
-    $('gameStatus').textContent = `Козырь: ${cardStr(lastState.trumpCard)} · в колоде: ${lastState.talonCount}`;
+    let status = `Козырь: ${cardStr(lastState.trumpCard)} · в колоде: ${lastState.talonCount}`;
+    // Предупреждение о скорой ничьей из-за зацикливания (issue #55).
+    if (lastState.stalemateWarning) {
+      status += ` · ⚠ ${lastState.stalemateWarning.text || `до ничьей осталось ходов: ${lastState.stalemateWarning.roundsLeft}`}`;
+    }
+    $('gameStatus').textContent = status;
   }
 
   const tableParts = lastState.table.map((t) => `${cardStr(t.attack)}${t.defense ? '→' + cardStr(t.defense) : ''}`);
