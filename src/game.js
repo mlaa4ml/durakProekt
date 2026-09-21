@@ -24,6 +24,9 @@ function publicRulesOf(rules) {
     allowPerevod: rules.allowPerevod,
     perevodOnlyOnFirstCard: rules.perevodOnlyOnFirstCard,
     perevodRequiresEnoughCards: rules.perevodRequiresEnoughCards,
+    // Защита от "вечной" партии (issue #55) — боту и клиенту полезно знать пределы.
+    stalemateLimit: rules.stalemateLimit,
+    stalemateWarnAt: rules.stalemateWarnAt,
   });
 }
 
