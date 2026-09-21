@@ -397,6 +397,21 @@ export class SmartBot {
     const isTrump = card.suit === trumpSuit;
     const isHigh = card.rank >= HIGH_RANK;
 
+    // 2б. Если выбор сделан по давлению и шанс, что соперник отобьётся, реально мал —
+    //     объясняем это словами, не раскрывая того, чего бот не знает.
+    if (pressurePick && pressurePick.pBeat <= 0.25 && defenderCards > 0) {
+      const voids = voidSuitsOf(this.tracker, defenderId);
+      const why = voids.includes(card.suit)
+        ? 'этой масти он ни разу не бил, скорее всего её у него нет'
+        : (pressurePick.pBeat === 0
+          ? 'побить такую карту ему, судя по всему, уже нечем'
+          : 'шансов отбиться у него тут почти нет');
+      return {
+        action: choice,
+        reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(card)} — ${why}.`,
+      };
+    }
+
     if (mustAttack) {
       return { action: choice, reason: `Захожу ${cardToString(card)} — это самая дешёвая карта, с которой не жалко начать.` };
     }
