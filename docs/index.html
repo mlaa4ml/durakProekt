@@ -3018,6 +3018,320 @@ function solveFromState(state, tracker, meId, options = {}) {
   }
 }
 
+/* ---------- src/bots/estimate.js ---------- */
+// Вероятностные оценки середины партии для умного бота: ЧИСТЫЕ функции.
+//
+// Этап 4 плана умного бота (issue #49, раздел 3 SMART_BOT_ROADMAP.md).
+//
+// Зачем отдельный файл: `analysis.js` отвечает на вопросы «что я могу прямо сейчас»
+// (побить / сколько стоит / какая фаза), а здесь — «чем это скорее всего кончится»:
+// оценки вероятностей поверх памяти (`./memory.js`, CardTracker).
+//
+// Правила файла — те же, что и у analysis.js:
+//   * ни одна функция ничего не мутирует (ни трекер, ни состояние, ни переданные массивы)
+//     и ничего не помнит между вызовами;
+//   * знание о картах берётся ТОЛЬКО из трекера, то есть выведено из наблюдаемых состояний;
+//     доступа к чужим рукам здесь нет и быть не может;
+//   * без трекера функции работают по «пессимистичному» предположению (соперник отобьётся),
+//     чтобы вероятностные правила без памяти просто ничего не советовали;
+//   * все вероятности лежат в [0, 1]; когда рука соперника восстановлена точно
+//     (`isOpponentHandCertain`), оценка вырождается в точный ответ 0 или 1.
+//
+// Движок (`src/game.js`) и простой бот (`src/bots/simpleBot.js`) этим файлом не затрагиваются.
+
+/** Приведение к отрезку [0, 1] (страховка от накопленной погрешности). */
+function clamp01(p) {
+  if (!Number.isFinite(p)) return 0;
+  if (p < 0) return 0;
+  if (p > 1) return 1;
+  return p;
+}
+
+/**
+ * Гипергеометрика без факториалов: вероятность вытянуть хотя бы одну «нужную» карту,
+ * если из пула `N` карт (в нём `K` нужных) соперник держит `n` штук.
+ *   P = 1 - C(N-K, n) / C(N, n)  = 1 - произведение (N-K-i)/(N-i), i = 0..n-1
+ */
+function pAtLeastOne(N, K, n) {
+  if (n <= 0 || K <= 0 || N <= 0) return 0;
+  if (n >= N) return 1;              // держит весь пул целиком — значит, и нужную карту тоже
+  let q = 1;
+  for (let i = 0; i < n; i++) {
+    const bad = N - K - i;           // сколько «ненужных» ещё осталось
+    const total = N - i;
+    if (bad <= 0) return 1;
+    q *= bad / total;
+  }
+  return clamp01(1 - q);
+}
+
+/**
+ * Что я знаю о руке соперника, в одном объекте (копии карт, трекер не меняется).
+ *
+ * @returns {{ known: Array, pool: Array, slots: number, certain: boolean, handCount: number }}
+ *   known     — карты, которые он ТОЧНО держит;
+ *   pool      — кандидаты на остальные его карты (пул неизвестного, отфильтрованный
+ *               предположениями `voidSuits` / «спасовал → нет ранга», если useAssumptions);
+ *   slots     — сколько карт его руки ещё не опознано (из pool);
+ *   certain   — рука восстановлена полностью.
+ */
+function opponentView(tracker, oppId, { useAssumptions = true } = {}) {
+  const empty = { known: [], pool: [], slots: 0, certain: false, handCount: 0 };
+  if (!tracker || !oppId || typeof tracker.opponentPossibleCards !== 'function') return empty;
+  try {
+    const handCount = tracker.handCounts.get(oppId) || 0;
+    const knownKeys = tracker.opponentKnownCards(oppId);
+    const known = tracker.toCards(knownKeys);
+    const certain = tracker.isOpponentHandCertain(oppId);
+    const possible = tracker.opponentPossibleCards(oppId, { useAssumptions });
+    const pool = tracker.toCards([...possible].filter((k) => !knownKeys.has(k)));
+    const slots = Math.max(0, (handCount || known.length) - known.length);
+    return { known, pool, slots, certain, handCount };
+  } catch {
+    return empty;
+  }
+}
+
+/** Масти, которых у соперника (по наблюдениям) скорее всего нет. Только для объяснений. */
+function voidSuitsOf(tracker, oppId) {
+  if (!tracker || !oppId || !tracker.voidSuits) return [];
+  const set = tracker.voidSuits.get(oppId);
+  return set ? [...set] : [];
+}
+
+/**
+ * Вероятность, что соперник `oppId` побьёт карту `card`.
+ *
+ * Учитывает `voidSuits`: если масти у него, судя по игре, нет, то побить он сможет
+ * только козырем — такие варианты из пула кандидатов просто исчезают.
+ *
+ * Без трекера возвращает 1 (пессимизм): правила, построенные на этой оценке,
+ * в таком случае ничего не советуют и политика играет как раньше.
+ */
+function pOpponentBeats(card, tracker, oppId, trumpSuit = null, options = {}) {
+  if (!card) return 0;
+  if (!tracker || !oppId) return 1;
+  const trump = trumpSuit || tracker.trumpSuit || null;
+  const view = opponentView(tracker, oppId, options);
+  if (view.handCount === 0 && view.known.length === 0) return 0;   // карт у него нет
+  if (view.known.some((c) => beats(c, card, trump))) return 1;     // точно знаю, чем побьёт
+  if (view.certain || view.slots <= 0) return 0;                   // рука известна, бить нечем
+  const beaters = view.pool.filter((c) => beats(c, card, trump)).length;
+  return pAtLeastOne(view.pool.length, beaters, view.slots);
+}
+
+// ---------------------------------------------------------------------------
+//  Подкидывание
+// ---------------------------------------------------------------------------
+
+/** Ранги, которые сейчас разрешено подкидывать: массив, либо null = «любая карта». */
+function allowedThrowInRanksOf(state) {
+  if (!state) return null;
+  if (Array.isArray(state.allowedThrowInRanks)) return [...state.allowedThrowInRanks];
+  if (state.allowedThrowInRanks === null && 'allowedThrowInRanks' in state) return null;
+  const table = state.table || [];
+  if (table.length === 0) return null;
+  const ranks = new Set();
+  for (const t of table) {
+    if (t && t.attack) ranks.add(t.attack.rank);
+    if (t && t.defense) ranks.add(t.defense.rank);
+  }
+  return [...ranks].sort((a, b) => a - b);
+}
+
+/** Кто по правилам партии имеет право подкидывать (без меня и без защитника). */
+function throwInPlayersOf(state, meId = null) {
+  if (!state) return [];
+  const players = state.players || [];
+  const alive = (id) => {
+    const p = players.find((x) => x.id === id);
+    return !!p && !p.out && (p.handCount || 0) > 0;
+  };
+  const skip = new Set([state.defender, meId].filter((x) => x !== null && x !== undefined));
+
+  if (Array.isArray(state.throwInPlayers) && state.throwInPlayers.length) {
+    return state.throwInPlayers.filter((id) => !skip.has(id) && alive(id));
+  }
+  const policy = (state.rules && state.rules.throwInPolicy) || 'all';
+  if (policy === 'attackerOnly') {
+    return [state.attacker].filter((id) => id && !skip.has(id) && alive(id));
+  }
+  if (policy === 'neighbors') {
+    const ids = players.map((p) => p.id);
+    const di = ids.indexOf(state.defender);
+    const res = new Set();
+    if (state.attacker) res.add(state.attacker);
+    if (di !== -1 && ids.length > 1) {
+      res.add(ids[(di + 1) % ids.length]);
+      res.add(ids[(di - 1 + ids.length) % ids.length]);
+    }
+    return [...res].filter((id) => !skip.has(id) && alive(id));
+  }
+  return players.map((p) => p.id).filter((id) => !skip.has(id) && alive(id));
+}
+
+/** Сколько карт ещё физически влезет на стол в этом заходе. */
+function throwInRoom(state) {
+  if (!state) return 0;
+  const table = state.table || [];
+  if (Number.isInteger(state.maxAttacksNow)) return Math.max(0, state.maxAttacksNow);
+  const rules = (state.rules && typeof state.rules === 'object') ? state.rules : {};
+  const limit = Number.isInteger(rules.maxTableAttacks) ? rules.maxTableAttacks : 6;
+  const undefended = table.filter((t) => t && t.attack && !t.defense).length;
+  const defender = (state.players || []).find((p) => p.id === state.defender);
+  const defHand = defender ? (defender.handCount || 0) : limit;
+  return Math.max(0, Math.min(limit - table.length, defHand - undefended));
+}
+
+/**
+ * Сколько карт мне реально подкинут в этом заходе (ожидание, дробное число).
+ *
+ * Учитывает: сколько места осталось на столе (`maxAttacksNow` / правила),
+ * какие ранги сейчас разрешены (`allowedThrowInRanks`), кто имеет право подкидывать
+ * (`throwInPolicy` / `throwInPlayers`) и сколько подходящих карт у них может быть
+ * по памяти (точно известные считаются как есть, неизвестные — по вероятности).
+ */
+function expectedThrowIn(state, tracker = null, meId = null) {
+  const room = throwInRoom(state);
+  if (room <= 0) return 0;
+  const ranks = allowedThrowInRanksOf(state);
+  const rankOk = (c) => ranks === null || ranks.includes(c.rank);
+  const throwers = throwInPlayersOf(state, meId);
+  if (throwers.length === 0) return 0;
+
+  let expected = 0;
+  for (const oppId of throwers) {
+    const view = opponentView(tracker, oppId, { useAssumptions: true });
+    if (!tracker || (view.handCount === 0 && view.known.length === 0)) {
+      // Без памяти: грубо считаем, что разрешённые ранги распределены по руке равномерно.
+      const p = (state.players || []).find((x) => x.id === oppId);
+      const hand = p ? (p.handCount || 0) : 0;
+      const deckSize = (state.rules && state.rules.deckSize) || 36;
+      const share = ranks === null ? 1 : Math.min(1, (ranks.length * 4) / deckSize);
+      expected += hand * share;
+      continue;
+    }
+    expected += view.known.filter(rankOk).length;
+    if (view.slots > 0 && view.pool.length > 0) {
+      const good = view.pool.filter(rankOk).length;
+      expected += view.slots * (good / view.pool.length);
+    }
+  }
+  return clamp01(expected / room) * room;   // ожидание, обрезанное местом на столе
+}
+
+/**
+ * Карты, которыми меня сейчас реально могут подкинуть: разрешённые ранги
+ * из того, что может быть на руках у подкидывающих.
+ */
+function throwInCandidates(state, tracker = null, myHand = [], meId = null) {
+  const ranks = allowedThrowInRanksOf(state);
+  const rankOk = (c) => ranks === null || ranks.includes(c.rank);
+  const seen = new Set();
+  const res = [];
+  const push = (c) => {
+    const k = cardKey(c);
+    if (seen.has(k)) return;
+    seen.add(k);
+    res.push({ ...c });
+  };
+
+  const throwers = throwInPlayersOf(state, meId);
+  if (tracker && throwers.length) {
+    for (const oppId of throwers) {
+      const view = opponentView(tracker, oppId, { useAssumptions: true });
+      for (const c of view.known) if (rankOk(c)) push(c);
+      if (view.slots > 0) for (const c of view.pool) if (rankOk(c)) push(c);
+    }
+    return res;
+  }
+  const deckSize = (state && state.rules && state.rules.deckSize) || 36;
+  for (const c of outsideCards(myHand, null, { deckSize, table: (state && state.table) || [] })) {
+    if (rankOk(c)) push(c);
+  }
+  return res;
+}
+
+/**
+ * Вероятность отбиться, когда защитник — я: отбить весь стол и пережить подкидывание.
+ *
+ * Стол считается точно (моя рука мне известна: `planDefense`), а подкидывание —
+ * вероятностно: сколько карт ещё положат (`expectedThrowIn`) и какая доля возможных
+ * подкидышей мне по зубам оставшейся рукой.
+ */
+function pDefenseSurvives(table, myHand, tracker = null, state = {}) {
+  const hand = Array.isArray(myHand) ? myHand : [];
+  const trump = (state && state.trumpSuit) || (tracker && tracker.trumpSuit) || null;
+  const plan = planDefense(table, hand, trump);
+  if (!plan.canDefendAll) return 0;
+
+  const used = new Set(plan.assignment.map((x) => cardKey(x.card)));
+  let rest = hand.filter((c) => !used.has(cardKey(c)));
+  const meId = (state && state.defender) || (tracker && tracker.meId) || null;
+  const extra = Math.min(expectedThrowIn(state, tracker, meId), rest.length);
+  if (extra <= 0) return 1;
+
+  const candidates = throwInCandidates(state, tracker, hand, meId);
+  if (candidates.length === 0) return 1;
+
+  // Доля подкидышей, которые я могу побить текущим остатком руки.
+  const share = (pool) => {
+    if (pool.length === 0) return 0;
+    const ok = candidates.filter((c) => pool.some((m) => beats(m, c, trump))).length;
+    return ok / candidates.length;
+  };
+  // Каждая отбитая карта уходит с руки: снимаем самую дешёвую из тех, что вообще что-то бьют.
+  const spendCheapest = (pool) => {
+    let idx = -1;
+    for (let i = 0; i < pool.length; i++) {
+      if (!candidates.some((c) => beats(pool[i], c, trump))) continue;
+      if (idx === -1 || cardPower(pool[i], trump) < cardPower(pool[idx], trump)) idx = i;
+    }
+    if (idx === -1) return pool;
+    return pool.filter((_, i) => i !== idx);
+  };
+
+  let p = 1;
+  const whole = Math.floor(extra);
+  for (let i = 0; i < whole; i++) {
+    p *= share(rest);
+    if (p === 0) return 0;
+    rest = spendCheapest(rest);
+  }
+  const frac = extra - whole;
+  if (frac > 0) p *= 1 - frac * (1 - share(rest));
+  return clamp01(p);
+}
+
+// ---------------------------------------------------------------------------
+//  Выбор атаки
+// ---------------------------------------------------------------------------
+
+/** Козырный туз — верхняя граница шкалы `cardPower`, по ней нормируем цену карты. */
+const MAX_CARD_POWER = 114;
+
+/**
+ * Упорядочить атаки по «шансу, что соперник НЕ отобьётся», с поправкой на цену
+ * отдаваемой карты: дорогую карту не стоит дарить ради пары процентов давления.
+ *
+ * @returns {Array<{action, card, pBeat, pressure, cost, score}>} новый массив,
+ *          отсортированный по убыванию `score`; входной массив не меняется.
+ */
+function bestAttackByPressure(legalAttacks, tracker, state, options = {}) {
+  const { costWeight = 0.35, oppId = null, trumpSuit = null } = options;
+  const trump = trumpSuit || (state && state.trumpSuit) || (tracker && tracker.trumpSuit) || null;
+  const defenderId = oppId || (state && state.defender) || null;
+  return [...(legalAttacks || [])]
+    .map((a) => {
+      const card = a && a.card ? a.card : a;
+      const pBeat = pOpponentBeats(card, tracker, defenderId, trump);
+      const cost = cardPower(card, trump) / MAX_CARD_POWER;
+      const pressure = 1 - pBeat;
+      return { action: a, card, pBeat, pressure, cost, score: pressure - costWeight * cost };
+    })
+    .sort((x, y) => y.score - x.score || x.cost - y.cost);
+}
+
 /* ---------- src/bots/smartBot.js ---------- */
 // Умный бот: политика решений (раздел 5.3 SMART_BOT_PLAN.md, issue #33, этап 3).
 //
@@ -3056,7 +3370,23 @@ const SMART_PROFILE = {
                                  // (src/bots/endgame.js, issue #48). Матрица A/B «с решателем против без»:
                                  // 2×24/36/52 — 36,9 / 38,9 / 40,4 % «дурака» у новой версии (по 900 партий,
                                  // ± 3,3 п.п.), остальные конфигурации ≤ 51 %. Бюджет — 2 с на ход.
+
+  // --- этап 4 (issue #49): вероятностные оценки из памяти, src/bots/estimate.js ---
+  attackByPressure: true,        // ходить/подкидывать картой с наибольшим шансом, что соперник НЕ отобьётся
+                                 // (`bestAttackByPressure`: давление минус нормированная цена карты),
+                                 // вместо «просто самой дешёвой». Цифры A/B — в отчёте issue #49.
+  probabilisticTake: true,       // «брать или отбиваться» по ожидаемой цене: сравниваем ожидаемую цену
+                                 // защиты (карты, которые уйдут, с учётом `expectedThrowIn`) с ценой взятия,
+                                 // а не по порогам. Раздел 1.5 roadmap: грубый порог давал чистый шум.
 };
+
+// Вес цены отдаваемой карты в оценке атаки: 1 п.п. давления стоит примерно 1 % шкалы cardPower.
+// Значение не «на глаз»: cost нормирован на козырного туза (MAX_CARD_POWER), поэтому 0.35 означает
+// «отдать козырного туза вместо шестёрки оправдано, только если это даёт >35 п.п. давления».
+const PRESSURE_COST_WEIGHT = 0.35;
+
+// Порога «шанс отбиться ниже X — беру» здесь СОЗНАТЕЛЬНО нет (раздел 1.5 roadmap: такое правило
+// дало чистый шум). Решение принимается только сравнением двух ожидаемых цен в шкале cardPower.
 
 const HIGH_RANK = 12;  // дама и старше
 const BIG_TRUMP = 13;  // козырные король и туз
@@ -3071,6 +3401,17 @@ function myHandOf(state, playerId) {
 function handCountOf(state, id) {
   const p = (state.players || []).find((x) => x.id === id);
   return p ? p.handCount || 0 : 0;
+}
+
+/**
+ * Сколько игроков ещё в партии. Вероятностные правила этапа 4 (issue #49) включаются
+ * только в дуэли: оценка `pOpponentBeats` считает ОДНОГО соперника, а за столом на 3–4
+ * человека карту может побить любой другой игрок, и оценка систематически завышает
+ * давление. На фаззинге (`test/botLegality.test.js`, 36×4 и 52×3) это выливалось в
+ * бесконечно тянущиеся партии: боты перестают закрывать раунды и упираются в лимит шагов.
+ */
+function alivePlayersCount(state) {
+  return (state.players || []).filter((p) => !p.out).length;
 }
 
 /**
@@ -3337,17 +3678,65 @@ class SmartBot {
       }
     }
 
-    // 2. Сортировка кандидатов: дешевле — лучше; парные ранги идут вперёд (разгрузка).
-    const scored = attacks.map((a) => {
-      let score = cardPower(a.card, trumpSuit);
-      if (this.profile.dumpPairs && (rankCount.get(a.card.rank) || 0) >= 2) score -= 3;
-      return { a, score };
-    });
-    scored.sort((x, y) => x.score - y.score || cardPower(x.a.card, trumpSuit) - cardPower(y.a.card, trumpSuit));
-    const choice = scored[0].a;
+    // 2. Сортировка кандидатов.
+    //    Базовая (как раньше): дешевле — лучше; парные ранги идут вперёд (разгрузка).
+    //    С флагом `attackByPressure` — по шансу, что соперник НЕ отобьётся, с поправкой
+    //    на цену отдаваемой карты (этап 4, issue #49; оценки — src/bots/estimate.js).
+    let choice;
+    let pressurePick = null;
+    //    Правило работает только в дуэли: при 3+ игроках карту может побить не только
+    //    защитник (перевод/следующий круг), и оценка давления систематически завышена —
+    //    на фаззинге 36×4 и 52×3 это приводило к нескончаемым партиям.
+    if (this.profile.attackByPressure && this.tracker && !takingNow && defenderCards > 0
+        && alivePlayersCount(state) === 2) {
+      try {
+        const ranked = bestAttackByPressure(attacks, this.tracker, state, {
+          costWeight: PRESSURE_COST_WEIGHT,
+          oppId: defenderId,
+          trumpSuit,
+        }).map((r) => {
+          // Разгрузка парами остаётся отдельным правилом и здесь тоже учитывается:
+          // пара по шкале давления стоит столько же, сколько 3 единицы cardPower раньше.
+          const bonus = this.profile.dumpPairs && (rankCount.get(r.card.rank) || 0) >= 2
+            ? (PRESSURE_COST_WEIGHT * 3) / MAX_CARD_POWER
+            : 0;
+          return { ...r, score: r.score + bonus };
+        });
+        ranked.sort((x, y) => y.score - x.score || x.cost - y.cost);
+        if (ranked.length) pressurePick = ranked[0];
+      } catch {
+        pressurePick = null;    // оценки — вспомогательный слой, без них играем как раньше
+      }
+    }
+    if (pressurePick) {
+      choice = pressurePick.action;
+    } else {
+      const scored = attacks.map((a) => {
+        let score = cardPower(a.card, trumpSuit);
+        if (this.profile.dumpPairs && (rankCount.get(a.card.rank) || 0) >= 2) score -= 3;
+        return { a, score };
+      });
+      scored.sort((x, y) => x.score - y.score || cardPower(x.a.card, trumpSuit) - cardPower(y.a.card, trumpSuit));
+      choice = scored[0].a;
+    }
     const card = choice.card;
     const isTrump = card.suit === trumpSuit;
     const isHigh = card.rank >= HIGH_RANK;
+
+    // 2б. Если выбор сделан по давлению и шанс, что соперник отобьётся, реально мал —
+    //     объясняем это словами, не раскрывая того, чего бот не знает.
+    if (pressurePick && pressurePick.pBeat <= 0.25 && defenderCards > 0) {
+      const voids = voidSuitsOf(this.tracker, defenderId);
+      const why = voids.includes(card.suit)
+        ? 'этой масти он ни разу не бил, скорее всего её у него нет'
+        : (pressurePick.pBeat === 0
+          ? 'побить такую карту ему, судя по всему, уже нечем'
+          : 'шансов отбиться у него тут почти нет');
+      return {
+        action: choice,
+        reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(card)} — ${why}.`,
+      };
+    }
 
     if (mustAttack) {
       return { action: choice, reason: `Захожу ${cardToString(card)} — это самая дешёвая карта, с которой не жалко начать.` };
@@ -3450,6 +3839,57 @@ class SmartBot {
     // 3. Перевод дешевле защиты козырем — переводим.
     if (usesTrump && cheapTransfer) {
       return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — иначе пришлось бы тратить козырь.` };
+    }
+
+    // 3.5. Вероятностный выбор «брать или отбиваться» (этап 4, issue #49).
+    //      Никаких порогов «на глаз»: сравниваем ДВЕ ожидаемые цены в одной и той же шкале
+    //      ценности карт (`cardPower`).
+    //        цена взятия  = всё, что лежит на столе, плюс то, что ещё подкинут;
+    //        цена защиты  = карты, которые уйдут с руки на отбой, плюс риск,
+    //                       что отбиться всё равно не выйдет и стол придётся забрать.
+    //      Работает, только пока идёт прикуп: при пустой колоде решает точный счёт
+    //      (`exactEndgame` / `exactEndgameSolver`), там взятие оценивается иначе.
+    if (this.profile.probabilisticTake && take && !endgame && this.tracker
+        && alivePlayersCount(state) === 2) {
+      try {
+        const pSurv = pDefenseSurvives(table, hand, this.tracker, state);
+        const extra = expectedThrowIn(state, this.tracker, playerId);
+        const tableCost = table.reduce(
+          (s, t) => s + (t.attack ? cardPower(t.attack, trumpSuit) : 0) + (t.defense ? cardPower(t.defense, trumpSuit) : 0),
+          0,
+        );
+        const tableCards = table.reduce((s, t) => s + 1 + (t.defense ? 1 : 0), 0);
+        const avgCard = tableCards ? tableCost / tableCards : 0;
+        // Цена взятия: вся ценность, которая переедет со стола мне в руку (плюс то, что подкинут).
+        const costTake = tableCost + extra * avgCard;
+        // Цена защиты — НЕ вся потраченная карта: успешная защита уносит в бито и мою карту,
+        // и атаку соперника, то есть руку она разгружает. Реально теряю только «переплату»:
+        // насколько отдаваемая карта дороже той, которую она убирает со стола
+        // (бить семёрку козырным королём — переплата почти в целый козырь, своей восьмёркой — в единицу).
+        const overpay = plan.canDefendAll
+          ? plan.assignment.reduce(
+            (s, x) => s + Math.max(0, cardPower(x.card, trumpSuit) - cardPower(x.attack, trumpSuit)),
+            0,
+          )
+          : Infinity;
+        // Не отбился — всё равно забираю стол, да ещё и потратив карты на отбой.
+        const costDefend = overpay + (1 - pSurv) * (costTake + overpay);
+        if (costTake < costDefend) {
+          if (cheapTransfer) {
+            return {
+              action: cheapTransfer,
+              reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться до конца я вряд ли успею, а так стол уйдёт дальше.`,
+            };
+          }
+          const voids = voidSuitsOf(this.tracker, attackerId);
+          const why = voids.length
+            ? 'подкидывать ему есть чем, а я на этом потеряю больше, чем заберу'
+            : 'мне ещё подкинут, и защита обойдётся дороже, чем взятые карты';
+          return { action: take, reason: `Беру карты: ${why}.` };
+        }
+      } catch {
+        // Оценки — вспомогательный слой: если что-то пошло не так, решают обычные правила.
+      }
     }
 
     // 5. Эндшпиль: колода пуста, считаем по-простому и точно.
