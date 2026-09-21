@@ -536,7 +536,8 @@ export class SmartBot {
     //                       что отбиться всё равно не выйдет и стол придётся забрать.
     //      Работает, только пока идёт прикуп: при пустой колоде решает точный счёт
     //      (`exactEndgame` / `exactEndgameSolver`), там взятие оценивается иначе.
-    if (this.profile.probabilisticTake && take && !endgame && this.tracker) {
+    if (this.profile.probabilisticTake && take && !endgame && this.tracker
+        && alivePlayersCount(state) === 2) {
       try {
         const pSurv = pDefenseSurvives(table, hand, this.tracker, state);
         const extra = expectedThrowIn(state, this.tracker, playerId);
