@@ -25,6 +25,19 @@ export const DEFAULT_RULES = {
   throwInPolicy: 'all',
 
   firstAttackerRule: 'lowestTrump', // кто ходит первым в самой первой раздаче
+
+  // --- Защита от вечной партии (issue #55) ---
+  // Трое и более продвинутых ботов умеют бесконечно гонять карты по кругу:
+  // никто не выходит из игры, в отбой ничего не уходит (все заходы заканчиваются
+  // взятием карт), и партия не кончается никогда.
+  // stalemateLimit — сколько раундов (заходов) подряд без ЛЮБОГО прогресса
+  //   (не изменилось число карт в бито И никто не вышел из партии) допускается,
+  //   прежде чем партия объявляется ничьей между всеми, кто остался с картами.
+  //   0 = правило выключено (бесконечная партия разрешена).
+  stalemateLimit: 150,
+  // stalemateWarnAt — за сколько раундов до ничьей начинать предупреждать игроков
+  //   (сообщение уходит в лог партии и в состояние — лобби показывает его на экране).
+  stalemateWarnAt: 10,
 };
 
 const THROW_IN_POLICIES = ['attackerOnly', 'neighbors', 'all'];
@@ -40,6 +53,16 @@ export function resolveRules(overrides = {}) {
   }
   if (!THROW_IN_POLICIES.includes(rules.throwInPolicy)) {
     throw new Error(`throwInPolicy должен быть одним из: ${THROW_IN_POLICIES.join(', ')}`);
+  }
+  if (!Number.isInteger(rules.stalemateLimit) || rules.stalemateLimit < 0) {
+    throw new Error('stalemateLimit должен быть целым числом >= 0 (0 = правило выключено)');
+  }
+  if (!Number.isInteger(rules.stalemateWarnAt) || rules.stalemateWarnAt < 0) {
+    throw new Error('stalemateWarnAt должен быть целым числом >= 0');
+  }
+  // Предупреждать раньше, чем начался отсчёт, смысла нет: обрезаем до лимита.
+  if (rules.stalemateLimit > 0 && rules.stalemateWarnAt > rules.stalemateLimit) {
+    rules.stalemateWarnAt = rules.stalemateLimit;
   }
   // При 2 игроках "перевод" не отключаем: переводящий и получающий перевод
   // просто меняются ролями (переводящий сам становится атакующим).
