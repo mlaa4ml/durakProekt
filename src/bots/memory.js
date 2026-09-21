@@ -76,7 +76,12 @@ export class CardTracker {
   /** Удобный конструктор «из первого состояния». Сразу же выполняет observe(state). */
   static fromState(state, meId, deckSizeHint = null) {
     const ids = (state.players || []).map((p) => p.id);
-    const deckSize = deckSizeHint || CardTracker.guessDeckSize(state);
+    // Размер колоды: явная подсказка → правила из состояния (движок отдаёт state.rules) →
+    // угадывание по картам. Последнее нужно для старых состояний и рукописных в тестах.
+    const ruleDeckSize = state && state.rules ? state.rules.deckSize : null;
+    const deckSize = deckSizeHint
+      || ([24, 36, 52].includes(ruleDeckSize) ? ruleDeckSize : null)
+      || CardTracker.guessDeckSize(state);
     const t = new CardTracker(deckSize, state.trumpSuit, state.trumpCard, meId, ids);
     t.observe(state);
     return t;

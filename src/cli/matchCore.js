@@ -58,6 +58,7 @@ export function seatLevels(levelA, levelB, numPlayers, direction) {
  * @param {number}   numPlayers      2..6
  * @param {boolean}  collectTrace    собирать ли пошаговый разбор решений (--verbose)
  * @param {object}   [options]       { rng?: () => number, throwInPolicy?: string,
+ *                                     seatOptions?: object[]  (опции createBotBrain по местам: profile, solver),
  *                                     maxSteps?: number }
  * @returns {{ durakSeat: number, steps: number, stuck: boolean, trace: object[],
  *             log: string[], finishedOrder: string[] }}
@@ -77,7 +78,7 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
 
   const brains = new Map();
   players.forEach((p, i) => {
-    const brain = createBotBrain(levels[i], { explain: collectTrace });
+    const brain = createBotBrain(levels[i], { explain: collectTrace, ...(options.seatOptions && options.seatOptions[i]) });
     brain.reset(game.getState(p.id), p.id);
     brains.set(p.id, brain);
   });

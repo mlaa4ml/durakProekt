@@ -11,6 +11,22 @@ function cardIndexInHand(hand, card) {
   return hand.findIndex((c) => c.suit === card.suit && c.rank === card.rank);
 }
 
+// Правила, которые видны игрокам и уходят в getState().rules (только простые значения — JSON).
+function publicRulesOf(rules) {
+  return Object.freeze({
+    deckSize: rules.deckSize,
+    numPlayers: rules.numPlayers,
+    handSize: rules.handSize,
+    throwInPolicy: rules.throwInPolicy,
+    throwInAfterTake: rules.throwInAfterTake,
+    maxTableAttacks: rules.maxTableAttacks,
+    attackLimitByDefenderHand: rules.attackLimitByDefenderHand,
+    allowPerevod: rules.allowPerevod,
+    perevodOnlyOnFirstCard: rules.perevodOnlyOnFirstCard,
+    perevodRequiresEnoughCards: rules.perevodRequiresEnoughCards,
+  });
+}
+
 /**
  * DurakGame — движок партии "переводной дурак".
  * Работает через явные действия (attack/transfer/defend/take/pass),
@@ -20,8 +36,12 @@ function cardIndexInHand(hand, card) {
 export class DurakGame {
   constructor(playerDefs, ruleOverrides = {}, rng = Math.random) {
     this.rules = resolveRules({ ...ruleOverrides, numPlayers: playerDefs.length });
+    // Публичная копия правил для getState(): правила за партию не меняются, поэтому строим её
+    // один раз и замораживаем — её нельзя испортить снаружи, а боту дёшево проверить «правила те же».
+    this._publicRules = publicRulesOf(this.rules);
     this.rng = rng;
     this.log = [];
+    this.silent = false; // true = не вести лог и не собирать состояние (перебор позиций в src/bots/endgame.js)
 
     this.players = playerDefs.map((p) => ({
       id: p.id,
@@ -48,12 +68,20 @@ export class DurakGame {
     this.attackCountThisRound = 0; // счётчик всех подкинутых карт за раунд (включая подкинутые после взятия) — для лимита attackLimitByDefenderHand
     this._resetThrowInQueue();
 
-    this._log(`Игра началась. Козырь: ${this.trumpCard ? cardToString(this.trumpCard) : '?'} (масть ${this.trumpSuit})`);
-    this._log(`Первый ход: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
+    this._log(() => `Игра началась. Козырь: ${this.trumpCard ? cardToString(this.trumpCard) : '?'} (масть ${this.trumpSuit})`);
+    this._log(() => `Первый ход: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
   }
 
+  // Сообщение можно передать строкой или функцией, возвращающей строку: в «тихом» режиме
+  // (перебор позиций, см. fromPosition) функция не вызывается вовсе, и строки не собираются зря.
   _log(msg) {
-    this.log.push(msg);
+    if (this.silent) return;
+    this.log.push(typeof msg === 'function' ? msg() : msg);
+  }
+
+  // Что возвращают действия: полное состояние, а в тихом режиме — ничего (его никто не читает).
+  _result() {
+    return this.silent ? null : this.getState();
   }
 
   _deal() {
@@ -188,6 +216,37 @@ export class DurakGame {
       })),
       durak: this.durak,
       finished: this.phase === 'finished',
+
+      // Правила партии — боту и сетевому клиенту (раздел 2 SMART_BOT_ROADMAP.md).
+      // Одинаковы для всех игроков и ничего не раскрывают: это настройки партии,
+      // которые каждый видит и так. Простые значения — состояние уходит по сети как JSON.
+      // Объект общий и замороженный (см. конструктор): править его нельзя, копию можно взять
+      // через structuredClone / JSON.
+      rules: this._publicRules,
+      // Производные величины — считаем в движке, чтобы бот не пересчитывал их сам
+      // и не мог разойтись с реальными ограничениями. Все выводятся из публичных данных
+      // (стол, размер руки защитника на начало раунда, места за столом) и одинаковы
+      // для любого игрока, поэтому от forPlayerId не зависят.
+      ...this._throwInInfo(),
+    };
+  }
+
+  // maxAttacksNow      — сколько ещё карт вообще можно положить на стол в этом раунде
+  //                      (0 — подкидывать больше нельзя, что бы ни лежало в руках);
+  // allowedThrowInRanks — какие ранги разрешено подкидывать сейчас: массив по возрастанию
+  //                      (Set в JSON не превращается) или null = разрешена любая карта (начало раунда);
+  // throwInPlayers     — id игроков, у которых по политике throwInPolicy есть право
+  //                      подкидывать в этом заходе, в порядке очереди (атакующий — первым).
+  //                      Это право, а не «чей ход прямо сейчас»: спасовавшие остаются в списке.
+  _throwInInfo() {
+    if (this.phase === 'finished') {
+      return { maxAttacksNow: 0, allowedThrowInRanks: [], throwInPlayers: [] };
+    }
+    const ranks = this._currentAllowedThrowInRanks();
+    return {
+      maxAttacksNow: this._attackRoomLeft(),
+      allowedThrowInRanks: ranks === null ? null : [...ranks].sort((a, b) => a - b),
+      throwInPlayers: this.throwInQueue.map((idx) => this.players[idx].id),
     };
   }
 
@@ -235,12 +294,24 @@ export class DurakGame {
     const ranksLabel = allowedRanks === null
       ? 'любые (новый раунд)'
       : (allowedRanks.size > 0 ? [...allowedRanks].map(rankName).join(', ') : 'нет (подкидывать нечем)');
-    const limit = Math.min(
+    const limit = this._attackLimit();
+    return `Можно подкидывать ранги: ${ranksLabel}. Лимит атак за раунд: ${this.attackCountThisRound}/${limit} (осталось ${this._attackRoomLeft()}).`;
+  }
+
+  // Лимит карт, которые можно положить на стол за весь раунд (с учётом maxTableAttacks
+  // и, если включено, размера руки защищающегося на начало раунда).
+  _attackLimit() {
+    return Math.min(
       this.rules.maxTableAttacks,
       this.rules.attackLimitByDefenderHand ? this._defenderHandSizeAtRoundStart() : Infinity
     );
-    const roomLeft = limit - this.attackCountThisRound;
-    return `Можно подкидывать ранги: ${ranksLabel}. Лимит атак за раунд: ${this.attackCountThisRound}/${limit} (осталось ${Math.max(roomLeft, 0)}).`;
+  }
+
+  // Сколько карт ещё можно положить на стол в этом раунде. Считаем ВСЕ подкинутые за раунд
+  // карты, включая те, что ушли в руку защитника после взятия (this.table в этот момент
+  // уже пуст и не отражает их). Единая точка правды для _legalThrowInActions и getState().
+  _attackRoomLeft() {
+    return Math.max(this._attackLimit() - this.attackCountThisRound, 0);
   }
 
   _legalThrowInActions(idx) {
@@ -249,15 +320,7 @@ export class DurakGame {
     const tableEmpty = this.table.length === 0;
     const allowedRanks = this._currentAllowedThrowInRanks();
 
-    const limit = Math.min(
-      this.rules.maxTableAttacks,
-      this.rules.attackLimitByDefenderHand ? this._defenderHandSizeAtRoundStart() : Infinity
-    );
-    // Считаем ВСЕ подкинутые за раунд карты, включая те, что ушли в руку защитника
-    // после взятия (this.table в этот момент уже пуст и не отражает их).
-    const roomLeft = limit - this.attackCountThisRound;
-
-    if (roomLeft > 0) {
+    if (this._attackRoomLeft() > 0) {
       for (const c of hand) {
         if (allowedRanks === null || allowedRanks.has(c.rank)) {
           actions.push({ type: 'attack', card: c });
@@ -335,15 +398,131 @@ export class DurakGame {
     }
 
     const idx = this.players.findIndex((p) => p.id === playerId);
+    return this._dispatch(idx, match);
+  }
 
-    switch (action.type) {
+  // Выполняет уже проверенное действие (объект из getLegalActions).
+  _dispatch(idx, match) {
+    switch (match.type) {
       case 'attack': return this._doAttack(idx, match.card);
       case 'pass': return this._doPass(idx);
       case 'defend': return this._doDefend(idx, match.card, match.against);
       case 'transfer': return this._doTransfer(idx, match.cards);
       case 'take': return this._doTake(idx);
-      default: throw new Error('Неизвестное действие: ' + action.type);
+      default: throw new Error('Неизвестное действие: ' + match.type);
     }
+  }
+
+  // ---------- Копии позиции (для перебора: src/bots/endgame.js) ----------
+
+  /** id игрока, чей ход прямо сейчас (или null, если партия окончена / ходить некому). */
+  currentActorId() {
+    if (this.phase === 'finished') return null;
+    if (this.phase === 'defender-to-act') return this.players[this.defenderIndex].id;
+    const idx = this.throwInQueue[this.throwInQueuePos];
+    return idx === undefined ? null : this.players[idx].id;
+  }
+
+  /**
+   * Выполняет действие БЕЗ повторной проверки: `legalAction` обязан быть объектом из
+   * `getLegalActions(playerId)`. Нужен перебору позиций, где список легальных действий
+   * уже получен и проверять его второй раз — лишняя работа. Для всего остального — applyAction.
+   */
+  applyLegalAction(playerId, legalAction) {
+    const idx = this.players.findIndex((p) => p.id === playerId);
+    if (idx === -1) throw new Error(`Нет игрока ${playerId}`);
+    return this._dispatch(idx, legalAction);
+  }
+
+  /**
+   * Независимая копия партии: её можно играть дальше, не трогая оригинал. Карты — неизменяемые
+   * объекты и общие; руки, стол, очередь подкидывания — свои. Тест test/endgame.test.js сверяет
+   * копию с оригиналом по всем полям, так что забытое при добавлении нового поля будет поймано.
+   */
+  clone() {
+    const g = Object.create(DurakGame.prototype);
+    g.rules = this.rules;
+    g._publicRules = this._publicRules;
+    g.rng = this.rng;
+    g.silent = this.silent;
+    g.log = this.silent ? [] : this.log.slice();
+    g.players = this.players.map((p) => ({ ...p, hand: p.hand.slice() }));
+    g.trumpCard = this.trumpCard;
+    g.trumpSuit = this.trumpSuit;
+    g.talon = this.talon.slice();
+    g.table = this.table.map((t) => ({ attack: t.attack, defense: t.defense }));
+    g.discardCount = this.discardCount;
+    g.finishedOrder = this.finishedOrder.slice();
+    g.durak = this.durak;
+    g.phase = this.phase;
+    g.perevodUsedThisRound = this.perevodUsedThisRound;
+    g.attackerIndex = this.attackerIndex;
+    g.defenderIndex = this.defenderIndex;
+    g._defenderHandAtStart = this._defenderHandAtStart;
+    g.allowAnyCardNow = this.allowAnyCardNow;
+    g.tookCards = this.tookCards;
+    g.postTakeMode = this.postTakeMode;
+    g.attackCountThisRound = this.attackCountThisRound;
+    g.throwInQueue = this.throwInQueue.slice();
+    g.throwInQueuePos = this.throwInQueuePos;
+    g.passedPlayers = new Set(this.passedPlayers);
+    if (this._talonEmptyLogged !== undefined) g._talonEmptyLogged = this._talonEmptyLogged;
+    return g;
+  }
+
+  /**
+   * «Тихая» партия из готовой позиции — без раздачи и прикупа (talon пуст). Правила хода
+   * (что можно подкинуть, перевод, лимит стола, конец партии) в ней — ровно движка, потому что
+   * дальше её играет тот же код. Позиция описывается простыми данными:
+   *   { rules,                               // state.rules (см. getState)
+   *     trumpSuit, trumpCard?,
+   *     players: [{ id, hand }, …],          // только живые игроки; порядок — по кругу
+   *     attacker, defender,                  // id
+   *     phase: 'need-attack' | 'defender-to-act',
+   *     table: [{ attack, defense|null }],
+   *     tookCards?,                          // защитник уже решил забрать (tableGoingToDefender)
+   *     allowAnyCardNow?,                    // пустой стол, начало раунда: можно любую карту
+   *     attackCountThisRound?, defenderHandAtStart?,   // счётчики лимита стола
+   *     discardCount? }
+   * Бросает Error, если позиция противоречива.
+   */
+  static fromPosition(pos) {
+    if (!pos || !Array.isArray(pos.players) || pos.players.length < 2) throw new Error('В позиции должно быть минимум два игрока');
+    if (pos.phase !== 'need-attack' && pos.phase !== 'defender-to-act') throw new Error(`Фаза позиции не поддерживается: ${pos.phase}`);
+    const idOf = (id) => pos.players.findIndex((p) => p.id === id);
+    const attackerIndex = idOf(pos.attacker);
+    const defenderIndex = idOf(pos.defender);
+    if (attackerIndex === -1 || defenderIndex === -1 || attackerIndex === defenderIndex) {
+      throw new Error('Атакующий и защищающийся должны быть разными игроками позиции');
+    }
+    const copy = (c) => ({ suit: c.suit, rank: c.rank });
+
+    const g = Object.create(DurakGame.prototype);
+    g.rules = resolveRules({ ...pos.rules, numPlayers: pos.players.length });
+    g._publicRules = publicRulesOf(g.rules);
+    g.rng = Math.random;
+    g.silent = true;
+    g.log = [];
+    g.players = pos.players.map((p) => ({ id: p.id, name: p.id, hand: p.hand.map(copy), out: false, finishRank: null }));
+    g.trumpSuit = pos.trumpSuit;
+    g.trumpCard = pos.trumpCard ? copy(pos.trumpCard) : null;
+    g.talon = [];
+    g.table = (pos.table || []).map((t) => ({ attack: copy(t.attack), defense: t.defense ? copy(t.defense) : null }));
+    g.discardCount = pos.discardCount || 0;
+    g.finishedOrder = [];
+    g.durak = null;
+    g.phase = pos.phase;
+    g.perevodUsedThisRound = false;
+    g.attackerIndex = attackerIndex;
+    g._setDefender(defenderIndex);
+    if (Number.isInteger(pos.defenderHandAtStart)) g._defenderHandAtStart = pos.defenderHandAtStart;
+    g.allowAnyCardNow = pos.allowAnyCardNow === true;
+    g.tookCards = pos.tookCards === true;
+    g.postTakeMode = g.tookCards;
+    g.attackCountThisRound = Number.isInteger(pos.attackCountThisRound) ? pos.attackCountThisRound : 0;
+    g._talonEmptyLogged = true;
+    g._resetThrowInQueue();
+    return g;
   }
 
   _actionsEqual(a, b) {
@@ -383,28 +562,28 @@ export class DurakGame {
       // ложится на стол рядом с остальными — видно всем, что она тоже уйдёт защитнику
       // при закрытии стола. Отбиваться от неё не нужно, фаза защиты не открывается.
       const defender = this.players[this.defenderIndex];
-      this._log(`${this.players[idx].name} подкидывает ${cardToString(card)} — карта ляжет в стопку, которую забирает ${defender.name}`);
+      this._log(() => `${this.players[idx].name} подкидывает ${cardToString(card)} — карта ляжет в стопку, которую забирает ${defender.name}`);
       this.allowAnyCardNow = false;
       this.passedPlayers.clear();
       this._advanceThrowInQueue();
       this._maybeResolveNeedAttack();
-      return this.getState();
+      return this._result();
     }
 
-    this._log(`${this.players[idx].name} подкидывает ${cardToString(card)}`);
+    this._log(() => `${this.players[idx].name} подкидывает ${cardToString(card)}`);
     this.allowAnyCardNow = false;
     this.passedPlayers.clear();
     this._advanceThrowInQueue();
     this.phase = 'defender-to-act';
-    return this.getState();
+    return this._result();
   }
 
   _doPass(idx) {
     this.passedPlayers.add(idx);
-    this._log(`${this.players[idx].name} пасует`);
+    this._log(() => `${this.players[idx].name} пасует`);
     this._advanceThrowInQueue();
     this._maybeResolveNeedAttack();
-    return this.getState();
+    return this._result();
   }
 
   _advanceThrowInQueue() {
@@ -423,7 +602,7 @@ export class DurakGame {
     this._removeFromHand(idx, card);
     const entry = this.table.find((t) => t.defense === null && t.attack.suit === against.suit && t.attack.rank === against.rank);
     entry.defense = card;
-    this._log(`${this.players[idx].name} отбивается ${cardToString(card)} от ${cardToString(against)}`);
+    this._log(() => `${this.players[idx].name} отбивается ${cardToString(card)} от ${cardToString(against)}`);
 
     if (this._undefendedAttacks().length > 0) {
       // есть ещё неотбитые — защищающийся продолжает
@@ -432,10 +611,10 @@ export class DurakGame {
       // всё отбито — снова очередь подкидывающих
       this.phase = 'need-attack';
       this._resetThrowInQueue();
-      this._log(`Стол отбит. ${this._throwInStatusText()}`);
+      this._log(() => `Стол отбит. ${this._throwInStatusText()}`);
       this._maybeResolveNeedAttack(); // на случай если подкидывать больше некому/нечем
     }
-    return this.getState();
+    return this._result();
   }
 
   _doTransfer(idx, cards) {
@@ -444,7 +623,7 @@ export class DurakGame {
       this.table.push({ attack: c, defense: null });
     }
     this.attackCountThisRound += cards.length;
-    this._log(`${this.players[idx].name} переводит: ${cards.map(cardToString).join(', ')}`);
+    this._log(() => `${this.players[idx].name} переводит: ${cards.map(cardToString).join(', ')}`);
     this.perevodUsedThisRound = true;
 
     // Переводящий сам становится атакующим (актуально прежде всего при
@@ -453,9 +632,9 @@ export class DurakGame {
     this._setDefender(this._nextActiveIndex(idx)); // лимит фиксируется под нового защищающегося сразу
     this.allowAnyCardNow = false;
     this._resetThrowInQueue();
-    this._log(`Теперь защищается: ${this.players[this.defenderIndex].name}`);
+    this._log(() => `Теперь защищается: ${this.players[this.defenderIndex].name}`);
     this.phase = 'defender-to-act';
-    return this.getState();
+    return this._result();
   }
 
   _doTake(idx) {
@@ -466,11 +645,11 @@ export class DurakGame {
     this.tookCards = true;
     this.postTakeMode = true;
     this.allowAnyCardNow = false;
-    this._log(`${this.players[idx].name} решает забрать карты (пока на столе ${cardCount} шт.). ${this._throwInStatusText()}`);
+    this._log(() => `${this.players[idx].name} решает забрать карты (пока на столе ${cardCount} шт.). ${this._throwInStatusText()}`);
     this.phase = 'need-attack';
     this._resetThrowInQueueForThrowInAfterTake();
     this._maybeResolveNeedAttack();
-    return this.getState();
+    return this._result();
   }
 
   _resetThrowInQueueForThrowInAfterTake() {
@@ -501,11 +680,11 @@ export class DurakGame {
         if (t.defense) defender.hand.push(t.defense);
       }
       this.table = [];
-      this._log(`${defender.name} забирает карты со стола (${cardCount} шт.)`);
+      this._log(() => `${defender.name} забирает карты со стола (${cardCount} шт.)`);
     } else {
       this.discardCount += this.table.length * 2;
       this.table = [];
-      this._log(`Карты биты, уходят в отбой.`);
+      this._log(() => `Карты биты, уходят в отбой.`);
     }
 
     this._refillHands(prevDefenderIdx);
@@ -541,7 +720,7 @@ export class DurakGame {
     this.attackCountThisRound = 0;
     this.phase = 'need-attack';
     this._resetThrowInQueue();
-    this._log(`Новый раунд. Ходит: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
+    this._log(() => `Новый раунд. Ходит: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
     this._maybeResolveNeedAttack();
   }
 
@@ -565,12 +744,12 @@ export class DurakGame {
         drawn.push(card);
       }
       if (drawn.length > 0) {
-        this._log(`${player.name} добирает из колоды: ${drawn.map(cardToString).join(', ')} (в колоде осталось ${this.talon.length})`);
+        this._log(() => `${player.name} добирает из колоды: ${drawn.map(cardToString).join(', ')} (в колоде осталось ${this.talon.length})`);
       }
     }
     if (this.talon.length === 0 && !this._talonEmptyLogged) {
       this._talonEmptyLogged = true;
-      this._log(`Колода закончилась — дальше играем без добора.`);
+      this._log(() => `Колода закончилась — дальше играем без добора.`);
     }
   }
 
@@ -580,7 +759,7 @@ export class DurakGame {
         p.out = true;
         p.finishRank = this.finishedOrder.length + 1;
         this.finishedOrder.push(p.id);
-        this._log(`${p.name} избавился от карт и выходит из игры (место ${p.finishRank})`);
+        this._log(() => `${p.name} избавился от карт и выходит из игры (место ${p.finishRank})`);
       }
     });
 
@@ -599,9 +778,9 @@ export class DurakGame {
       this.durak = active.length === 1 ? this.players[active[0]].id : null;
     }
     if (this.durak) {
-      this._log(`Игра окончена. Дурак: ${this.players.find(p=>p.id===this.durak).name}`);
+      this._log(() => `Игра окончена. Дурак: ${this.players.find(p=>p.id===this.durak).name}`);
     } else {
-      this._log(`Игра окончена. Ничья (колода закончилась, карты у нескольких игроков не совпали по времени).`);
+      this._log(() => `Игра окончена. Ничья (колода закончилась, карты у нескольких игроков не совпали по времени).`);
     }
   }
 }

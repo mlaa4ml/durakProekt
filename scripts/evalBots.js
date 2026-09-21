@@ -27,6 +27,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { normalizeBotLevel, botLevelLabel, BOT_LEVELS } from '../src/bots/index.js';
 import { seatLevels, playOneGame } from '../src/cli/matchCore.js';
+import { SMART_PROFILE } from '../src/bots/smartBot.js';
 
 // ---------------------------------------------------------------------------
 // Seeded PRNG
@@ -124,6 +125,12 @@ function seatBelongsToA(seat, direction) {
 // Аргументы
 // ---------------------------------------------------------------------------
 
+// "exactEndgameSolver,dumpPairs" -> флаги профиля умного бота, включаемые для стороны.
+// Включаются ТОЛЬКО перечисленные: остальной профиль остаётся по умолчанию.
+function parseFlagList(raw) {
+  return String(raw || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
 function parseArgs(argv) {
   const opts = {
     games: 10000,
@@ -139,6 +146,10 @@ function parseArgs(argv) {
     gate: true,
     date: null,
     quiet: false,
+    aFlags: [],
+    bFlags: [],
+    solverNodes: null,
+    solverMs: null,
   };
   for (const arg of argv) {
     const m = /^--([a-z0-9-]+)(?:=(.*))?$/i.exec(arg);
@@ -159,6 +170,10 @@ function parseArgs(argv) {
       case 'gate': opts.gate = value !== 'off' && value !== 'false'; break;
       case 'date': opts.date = value; break;
       case 'quiet': opts.quiet = true; break;
+      case 'a-flag': opts.aFlags = parseFlagList(value); break;
+      case 'b-flag': opts.bFlags = parseFlagList(value); break;
+      case 'solver-nodes': opts.solverNodes = Number(value); break;
+      case 'solver-ms': opts.solverMs = Number(value); break;
       case 'help': opts.help = true; break;
       default: throw new Error(`Неизвестный флаг "--${name}". Смотри шапку файла.`);
     }
@@ -194,7 +209,7 @@ function round2(x) {
 // Прогон одной конфигурации
 // ---------------------------------------------------------------------------
 
-function runConfig({ players, deckSize, throwInPolicy, games, levelA, levelB, seed }) {
+function runConfig({ players, deckSize, throwInPolicy, games, levelA, levelB, seed, brainA = {}, brainB = {} }) {
   let errors = 0;
   let stuck = 0;
   let draws = 0;
@@ -212,7 +227,9 @@ function runConfig({ players, deckSize, throwInPolicy, games, levelA, levelB, se
     // какие конфигурации гонялись до неё и в каком порядке.
     const rng = mulberry32(hash32(`${seed}|${players}x${deckSize}|${throwInPolicy}|${g}`));
     try {
-      const res = playOneGame(levels, deckSize, players, false, { rng, throwInPolicy });
+      // Опции «мозга» по местам: у стороны A — brainA, у стороны B — brainB (см. --a-flag / --b-flag).
+      const seatOptions = levels.map((_, seat) => (seatBelongsToA(seat, direction) ? brainA : brainB));
+      const res = playOneGame(levels, deckSize, players, false, { rng, throwInPolicy, seatOptions });
       played++;
       totalSteps += res.steps;
       if (res.stuck) stuck++;
@@ -342,9 +359,14 @@ const HELP = `Прогонщик матрицы конфигураций (issue 
                            [--json=bench/run.json] [--baseline=bench/baseline.json]
                            [--seed=<n>] [--target=4x24,4x36] [--no-gate]
                            [--date=<ISO>] [--quiet]
+                           [--a-flag=exactEndgameSolver] [--b-flag=...]
+                           [--solver-nodes=20000] [--solver-ms=200]
 
   --target   целевые конфигурации: доля «дурака» у A должна быть ≤ ${TARGET_LIMIT} %,
              у остальных ≤ ${OTHER_LIMIT} %. Не выполнено — ненулевой код возврата.
+  --a-flag   включить флаги профиля умного бота стороне A (через запятую); --b-flag — стороне B.
+             Так сравнивают «новую версию» с «текущей»: --a=smart --b=smart --a-flag=exactEndgameSolver.
+  --solver-nodes / --solver-ms  бюджет решателя концовки (по умолчанию — как в игре: 400000 узлов, 2000 мс).
   --no-gate  не проверять критерий приёмки (короткий контроль в CI: только ошибки и зависания).
   --date     проставить дату в JSON. Без него дата не пишется — чтобы два прогона
              с одним --seed давали побайтово одинаковый файл.
@@ -373,6 +395,26 @@ function main() {
       );
     }
   }
+
+  // Флаги профиля умного бота для сторон A/B и бюджет решателя концовки.
+  const buildBrain = (flags) => {
+    const brain = {};
+    if (flags.length) {
+      const unknown = flags.filter((f) => !(f in SMART_PROFILE));
+      if (unknown.length) {
+        console.error(`Неизвестные флаги профиля: ${unknown.join(', ')}. Есть: ${Object.keys(SMART_PROFILE).join(', ')}.`);
+        process.exit(2);
+      }
+      brain.profile = Object.fromEntries(flags.map((f) => [f, true]));
+    }
+    const solver = {};
+    if (opts.solverNodes != null) solver.maxNodes = opts.solverNodes;
+    if (opts.solverMs != null) solver.maxMs = opts.solverMs;
+    if (Object.keys(solver).length) brain.solver = solver;
+    return brain;
+  };
+  const brainA = buildBrain(opts.aFlags);
+  const brainB = buildBrain(opts.bFlags);
 
   if (!Number.isFinite(opts.games) || opts.games < 1) {
     console.error('--games должно быть положительным числом.');
@@ -408,6 +450,12 @@ function main() {
   console.log(
     `Партий на конфигурацию: ${opts.games} | throwInPolicy: ${opts.throwIn} | seed: ${opts.seed} | конфигураций: ${configs.length}`,
   );
+  if (opts.aFlags.length || opts.bFlags.length) {
+    console.log(`Включённые флаги: A [${opts.aFlags.join(', ') || '—'}], B [${opts.bFlags.join(', ') || '—'}]`);
+  }
+  if (opts.solverNodes != null || opts.solverMs != null) {
+    console.log(`Бюджет решателя концовки: узлов ${opts.solverNodes ?? 'по умолчанию'}, мс ${opts.solverMs ?? 'по умолчанию'}`);
+  }
   if (opts.target.length) console.log(`Целевые конфигурации: ${opts.target.join(', ')}`);
   console.log('');
 
@@ -421,6 +469,8 @@ function main() {
       levelA,
       levelB,
       seed: opts.seed,
+      brainA,
+      brainB,
     });
     if (baseline) row._delta = deltaVsBaseline(row, baseline.byKey.get(configKey(players, deckSize)));
     rows.push(row);
@@ -473,6 +523,8 @@ function main() {
       throwInPolicy: opts.throwIn,
       matrix: opts.configs ? 'custom' : opts.matrix,
       target: opts.target,
+      ...(opts.aFlags.length || opts.bFlags.length ? { aFlags: opts.aFlags, bFlags: opts.bFlags } : {}),
+      ...(opts.solverNodes != null || opts.solverMs != null ? { solver: { maxNodes: opts.solverNodes, maxMs: opts.solverMs } } : {}),
       configs: rows.map((r) => ({
         players: r.players,
         deckSize: r.deckSize,
