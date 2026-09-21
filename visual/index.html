@@ -921,6 +921,22 @@ function cardIndexInHand(hand, card) {
   return hand.findIndex((c) => c.suit === card.suit && c.rank === card.rank);
 }
 
+// Правила, которые видны игрокам и уходят в getState().rules (только простые значения — JSON).
+function publicRulesOf(rules) {
+  return Object.freeze({
+    deckSize: rules.deckSize,
+    numPlayers: rules.numPlayers,
+    handSize: rules.handSize,
+    throwInPolicy: rules.throwInPolicy,
+    throwInAfterTake: rules.throwInAfterTake,
+    maxTableAttacks: rules.maxTableAttacks,
+    attackLimitByDefenderHand: rules.attackLimitByDefenderHand,
+    allowPerevod: rules.allowPerevod,
+    perevodOnlyOnFirstCard: rules.perevodOnlyOnFirstCard,
+    perevodRequiresEnoughCards: rules.perevodRequiresEnoughCards,
+  });
+}
+
 /**
  * DurakGame — движок партии "переводной дурак".
  * Работает через явные действия (attack/transfer/defend/take/pass),
@@ -930,8 +946,12 @@ function cardIndexInHand(hand, card) {
 class DurakGame {
   constructor(playerDefs, ruleOverrides = {}, rng = Math.random) {
     this.rules = resolveRules({ ...ruleOverrides, numPlayers: playerDefs.length });
+    // Публичная копия правил для getState(): правила за партию не меняются, поэтому строим её
+    // один раз и замораживаем — её нельзя испортить снаружи, а боту дёшево проверить «правила те же».
+    this._publicRules = publicRulesOf(this.rules);
     this.rng = rng;
     this.log = [];
+    this.silent = false; // true = не вести лог и не собирать состояние (перебор позиций в src/bots/endgame.js)
 
     this.players = playerDefs.map((p) => ({
       id: p.id,
@@ -958,12 +978,20 @@ class DurakGame {
     this.attackCountThisRound = 0; // счётчик всех подкинутых карт за раунд (включая подкинутые после взятия) — для лимита attackLimitByDefenderHand
     this._resetThrowInQueue();
 
-    this._log(`Игра началась. Козырь: ${this.trumpCard ? cardToString(this.trumpCard) : '?'} (масть ${this.trumpSuit})`);
-    this._log(`Первый ход: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
+    this._log(() => `Игра началась. Козырь: ${this.trumpCard ? cardToString(this.trumpCard) : '?'} (масть ${this.trumpSuit})`);
+    this._log(() => `Первый ход: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
   }
 
+  // Сообщение можно передать строкой или функцией, возвращающей строку: в «тихом» режиме
+  // (перебор позиций, см. fromPosition) функция не вызывается вовсе, и строки не собираются зря.
   _log(msg) {
-    this.log.push(msg);
+    if (this.silent) return;
+    this.log.push(typeof msg === 'function' ? msg() : msg);
+  }
+
+  // Что возвращают действия: полное состояние, а в тихом режиме — ничего (его никто не читает).
+  _result() {
+    return this.silent ? null : this.getState();
   }
 
   _deal() {
@@ -1098,6 +1126,37 @@ class DurakGame {
       })),
       durak: this.durak,
       finished: this.phase === 'finished',
+
+      // Правила партии — боту и сетевому клиенту (раздел 2 SMART_BOT_ROADMAP.md).
+      // Одинаковы для всех игроков и ничего не раскрывают: это настройки партии,
+      // которые каждый видит и так. Простые значения — состояние уходит по сети как JSON.
+      // Объект общий и замороженный (см. конструктор): править его нельзя, копию можно взять
+      // через structuredClone / JSON.
+      rules: this._publicRules,
+      // Производные величины — считаем в движке, чтобы бот не пересчитывал их сам
+      // и не мог разойтись с реальными ограничениями. Все выводятся из публичных данных
+      // (стол, размер руки защитника на начало раунда, места за столом) и одинаковы
+      // для любого игрока, поэтому от forPlayerId не зависят.
+      ...this._throwInInfo(),
+    };
+  }
+
+  // maxAttacksNow      — сколько ещё карт вообще можно положить на стол в этом раунде
+  //                      (0 — подкидывать больше нельзя, что бы ни лежало в руках);
+  // allowedThrowInRanks — какие ранги разрешено подкидывать сейчас: массив по возрастанию
+  //                      (Set в JSON не превращается) или null = разрешена любая карта (начало раунда);
+  // throwInPlayers     — id игроков, у которых по политике throwInPolicy есть право
+  //                      подкидывать в этом заходе, в порядке очереди (атакующий — первым).
+  //                      Это право, а не «чей ход прямо сейчас»: спасовавшие остаются в списке.
+  _throwInInfo() {
+    if (this.phase === 'finished') {
+      return { maxAttacksNow: 0, allowedThrowInRanks: [], throwInPlayers: [] };
+    }
+    const ranks = this._currentAllowedThrowInRanks();
+    return {
+      maxAttacksNow: this._attackRoomLeft(),
+      allowedThrowInRanks: ranks === null ? null : [...ranks].sort((a, b) => a - b),
+      throwInPlayers: this.throwInQueue.map((idx) => this.players[idx].id),
     };
   }
 
@@ -1145,12 +1204,24 @@ class DurakGame {
     const ranksLabel = allowedRanks === null
       ? 'любые (новый раунд)'
       : (allowedRanks.size > 0 ? [...allowedRanks].map(rankName).join(', ') : 'нет (подкидывать нечем)');
-    const limit = Math.min(
+    const limit = this._attackLimit();
+    return `Можно подкидывать ранги: ${ranksLabel}. Лимит атак за раунд: ${this.attackCountThisRound}/${limit} (осталось ${this._attackRoomLeft()}).`;
+  }
+
+  // Лимит карт, которые можно положить на стол за весь раунд (с учётом maxTableAttacks
+  // и, если включено, размера руки защищающегося на начало раунда).
+  _attackLimit() {
+    return Math.min(
       this.rules.maxTableAttacks,
       this.rules.attackLimitByDefenderHand ? this._defenderHandSizeAtRoundStart() : Infinity
     );
-    const roomLeft = limit - this.attackCountThisRound;
-    return `Можно подкидывать ранги: ${ranksLabel}. Лимит атак за раунд: ${this.attackCountThisRound}/${limit} (осталось ${Math.max(roomLeft, 0)}).`;
+  }
+
+  // Сколько карт ещё можно положить на стол в этом раунде. Считаем ВСЕ подкинутые за раунд
+  // карты, включая те, что ушли в руку защитника после взятия (this.table в этот момент
+  // уже пуст и не отражает их). Единая точка правды для _legalThrowInActions и getState().
+  _attackRoomLeft() {
+    return Math.max(this._attackLimit() - this.attackCountThisRound, 0);
   }
 
   _legalThrowInActions(idx) {
@@ -1159,15 +1230,7 @@ class DurakGame {
     const tableEmpty = this.table.length === 0;
     const allowedRanks = this._currentAllowedThrowInRanks();
 
-    const limit = Math.min(
-      this.rules.maxTableAttacks,
-      this.rules.attackLimitByDefenderHand ? this._defenderHandSizeAtRoundStart() : Infinity
-    );
-    // Считаем ВСЕ подкинутые за раунд карты, включая те, что ушли в руку защитника
-    // после взятия (this.table в этот момент уже пуст и не отражает их).
-    const roomLeft = limit - this.attackCountThisRound;
-
-    if (roomLeft > 0) {
+    if (this._attackRoomLeft() > 0) {
       for (const c of hand) {
         if (allowedRanks === null || allowedRanks.has(c.rank)) {
           actions.push({ type: 'attack', card: c });
@@ -1245,15 +1308,131 @@ class DurakGame {
     }
 
     const idx = this.players.findIndex((p) => p.id === playerId);
+    return this._dispatch(idx, match);
+  }
 
-    switch (action.type) {
+  // Выполняет уже проверенное действие (объект из getLegalActions).
+  _dispatch(idx, match) {
+    switch (match.type) {
       case 'attack': return this._doAttack(idx, match.card);
       case 'pass': return this._doPass(idx);
       case 'defend': return this._doDefend(idx, match.card, match.against);
       case 'transfer': return this._doTransfer(idx, match.cards);
       case 'take': return this._doTake(idx);
-      default: throw new Error('Неизвестное действие: ' + action.type);
+      default: throw new Error('Неизвестное действие: ' + match.type);
     }
+  }
+
+  // ---------- Копии позиции (для перебора: src/bots/endgame.js) ----------
+
+  /** id игрока, чей ход прямо сейчас (или null, если партия окончена / ходить некому). */
+  currentActorId() {
+    if (this.phase === 'finished') return null;
+    if (this.phase === 'defender-to-act') return this.players[this.defenderIndex].id;
+    const idx = this.throwInQueue[this.throwInQueuePos];
+    return idx === undefined ? null : this.players[idx].id;
+  }
+
+  /**
+   * Выполняет действие БЕЗ повторной проверки: `legalAction` обязан быть объектом из
+   * `getLegalActions(playerId)`. Нужен перебору позиций, где список легальных действий
+   * уже получен и проверять его второй раз — лишняя работа. Для всего остального — applyAction.
+   */
+  applyLegalAction(playerId, legalAction) {
+    const idx = this.players.findIndex((p) => p.id === playerId);
+    if (idx === -1) throw new Error(`Нет игрока ${playerId}`);
+    return this._dispatch(idx, legalAction);
+  }
+
+  /**
+   * Независимая копия партии: её можно играть дальше, не трогая оригинал. Карты — неизменяемые
+   * объекты и общие; руки, стол, очередь подкидывания — свои. Тест test/endgame.test.js сверяет
+   * копию с оригиналом по всем полям, так что забытое при добавлении нового поля будет поймано.
+   */
+  clone() {
+    const g = Object.create(DurakGame.prototype);
+    g.rules = this.rules;
+    g._publicRules = this._publicRules;
+    g.rng = this.rng;
+    g.silent = this.silent;
+    g.log = this.silent ? [] : this.log.slice();
+    g.players = this.players.map((p) => ({ ...p, hand: p.hand.slice() }));
+    g.trumpCard = this.trumpCard;
+    g.trumpSuit = this.trumpSuit;
+    g.talon = this.talon.slice();
+    g.table = this.table.map((t) => ({ attack: t.attack, defense: t.defense }));
+    g.discardCount = this.discardCount;
+    g.finishedOrder = this.finishedOrder.slice();
+    g.durak = this.durak;
+    g.phase = this.phase;
+    g.perevodUsedThisRound = this.perevodUsedThisRound;
+    g.attackerIndex = this.attackerIndex;
+    g.defenderIndex = this.defenderIndex;
+    g._defenderHandAtStart = this._defenderHandAtStart;
+    g.allowAnyCardNow = this.allowAnyCardNow;
+    g.tookCards = this.tookCards;
+    g.postTakeMode = this.postTakeMode;
+    g.attackCountThisRound = this.attackCountThisRound;
+    g.throwInQueue = this.throwInQueue.slice();
+    g.throwInQueuePos = this.throwInQueuePos;
+    g.passedPlayers = new Set(this.passedPlayers);
+    if (this._talonEmptyLogged !== undefined) g._talonEmptyLogged = this._talonEmptyLogged;
+    return g;
+  }
+
+  /**
+   * «Тихая» партия из готовой позиции — без раздачи и прикупа (talon пуст). Правила хода
+   * (что можно подкинуть, перевод, лимит стола, конец партии) в ней — ровно движка, потому что
+   * дальше её играет тот же код. Позиция описывается простыми данными:
+   *   { rules,                               // state.rules (см. getState)
+   *     trumpSuit, trumpCard?,
+   *     players: [{ id, hand }, …],          // только живые игроки; порядок — по кругу
+   *     attacker, defender,                  // id
+   *     phase: 'need-attack' | 'defender-to-act',
+   *     table: [{ attack, defense|null }],
+   *     tookCards?,                          // защитник уже решил забрать (tableGoingToDefender)
+   *     allowAnyCardNow?,                    // пустой стол, начало раунда: можно любую карту
+   *     attackCountThisRound?, defenderHandAtStart?,   // счётчики лимита стола
+   *     discardCount? }
+   * Бросает Error, если позиция противоречива.
+   */
+  static fromPosition(pos) {
+    if (!pos || !Array.isArray(pos.players) || pos.players.length < 2) throw new Error('В позиции должно быть минимум два игрока');
+    if (pos.phase !== 'need-attack' && pos.phase !== 'defender-to-act') throw new Error(`Фаза позиции не поддерживается: ${pos.phase}`);
+    const idOf = (id) => pos.players.findIndex((p) => p.id === id);
+    const attackerIndex = idOf(pos.attacker);
+    const defenderIndex = idOf(pos.defender);
+    if (attackerIndex === -1 || defenderIndex === -1 || attackerIndex === defenderIndex) {
+      throw new Error('Атакующий и защищающийся должны быть разными игроками позиции');
+    }
+    const copy = (c) => ({ suit: c.suit, rank: c.rank });
+
+    const g = Object.create(DurakGame.prototype);
+    g.rules = resolveRules({ ...pos.rules, numPlayers: pos.players.length });
+    g._publicRules = publicRulesOf(g.rules);
+    g.rng = Math.random;
+    g.silent = true;
+    g.log = [];
+    g.players = pos.players.map((p) => ({ id: p.id, name: p.id, hand: p.hand.map(copy), out: false, finishRank: null }));
+    g.trumpSuit = pos.trumpSuit;
+    g.trumpCard = pos.trumpCard ? copy(pos.trumpCard) : null;
+    g.talon = [];
+    g.table = (pos.table || []).map((t) => ({ attack: copy(t.attack), defense: t.defense ? copy(t.defense) : null }));
+    g.discardCount = pos.discardCount || 0;
+    g.finishedOrder = [];
+    g.durak = null;
+    g.phase = pos.phase;
+    g.perevodUsedThisRound = false;
+    g.attackerIndex = attackerIndex;
+    g._setDefender(defenderIndex);
+    if (Number.isInteger(pos.defenderHandAtStart)) g._defenderHandAtStart = pos.defenderHandAtStart;
+    g.allowAnyCardNow = pos.allowAnyCardNow === true;
+    g.tookCards = pos.tookCards === true;
+    g.postTakeMode = g.tookCards;
+    g.attackCountThisRound = Number.isInteger(pos.attackCountThisRound) ? pos.attackCountThisRound : 0;
+    g._talonEmptyLogged = true;
+    g._resetThrowInQueue();
+    return g;
   }
 
   _actionsEqual(a, b) {
@@ -1293,28 +1472,28 @@ class DurakGame {
       // ложится на стол рядом с остальными — видно всем, что она тоже уйдёт защитнику
       // при закрытии стола. Отбиваться от неё не нужно, фаза защиты не открывается.
       const defender = this.players[this.defenderIndex];
-      this._log(`${this.players[idx].name} подкидывает ${cardToString(card)} — карта ляжет в стопку, которую забирает ${defender.name}`);
+      this._log(() => `${this.players[idx].name} подкидывает ${cardToString(card)} — карта ляжет в стопку, которую забирает ${defender.name}`);
       this.allowAnyCardNow = false;
       this.passedPlayers.clear();
       this._advanceThrowInQueue();
       this._maybeResolveNeedAttack();
-      return this.getState();
+      return this._result();
     }
 
-    this._log(`${this.players[idx].name} подкидывает ${cardToString(card)}`);
+    this._log(() => `${this.players[idx].name} подкидывает ${cardToString(card)}`);
     this.allowAnyCardNow = false;
     this.passedPlayers.clear();
     this._advanceThrowInQueue();
     this.phase = 'defender-to-act';
-    return this.getState();
+    return this._result();
   }
 
   _doPass(idx) {
     this.passedPlayers.add(idx);
-    this._log(`${this.players[idx].name} пасует`);
+    this._log(() => `${this.players[idx].name} пасует`);
     this._advanceThrowInQueue();
     this._maybeResolveNeedAttack();
-    return this.getState();
+    return this._result();
   }
 
   _advanceThrowInQueue() {
@@ -1333,7 +1512,7 @@ class DurakGame {
     this._removeFromHand(idx, card);
     const entry = this.table.find((t) => t.defense === null && t.attack.suit === against.suit && t.attack.rank === against.rank);
     entry.defense = card;
-    this._log(`${this.players[idx].name} отбивается ${cardToString(card)} от ${cardToString(against)}`);
+    this._log(() => `${this.players[idx].name} отбивается ${cardToString(card)} от ${cardToString(against)}`);
 
     if (this._undefendedAttacks().length > 0) {
       // есть ещё неотбитые — защищающийся продолжает
@@ -1342,10 +1521,10 @@ class DurakGame {
       // всё отбито — снова очередь подкидывающих
       this.phase = 'need-attack';
       this._resetThrowInQueue();
-      this._log(`Стол отбит. ${this._throwInStatusText()}`);
+      this._log(() => `Стол отбит. ${this._throwInStatusText()}`);
       this._maybeResolveNeedAttack(); // на случай если подкидывать больше некому/нечем
     }
-    return this.getState();
+    return this._result();
   }
 
   _doTransfer(idx, cards) {
@@ -1354,7 +1533,7 @@ class DurakGame {
       this.table.push({ attack: c, defense: null });
     }
     this.attackCountThisRound += cards.length;
-    this._log(`${this.players[idx].name} переводит: ${cards.map(cardToString).join(', ')}`);
+    this._log(() => `${this.players[idx].name} переводит: ${cards.map(cardToString).join(', ')}`);
     this.perevodUsedThisRound = true;
 
     // Переводящий сам становится атакующим (актуально прежде всего при
@@ -1363,9 +1542,9 @@ class DurakGame {
     this._setDefender(this._nextActiveIndex(idx)); // лимит фиксируется под нового защищающегося сразу
     this.allowAnyCardNow = false;
     this._resetThrowInQueue();
-    this._log(`Теперь защищается: ${this.players[this.defenderIndex].name}`);
+    this._log(() => `Теперь защищается: ${this.players[this.defenderIndex].name}`);
     this.phase = 'defender-to-act';
-    return this.getState();
+    return this._result();
   }
 
   _doTake(idx) {
@@ -1376,11 +1555,11 @@ class DurakGame {
     this.tookCards = true;
     this.postTakeMode = true;
     this.allowAnyCardNow = false;
-    this._log(`${this.players[idx].name} решает забрать карты (пока на столе ${cardCount} шт.). ${this._throwInStatusText()}`);
+    this._log(() => `${this.players[idx].name} решает забрать карты (пока на столе ${cardCount} шт.). ${this._throwInStatusText()}`);
     this.phase = 'need-attack';
     this._resetThrowInQueueForThrowInAfterTake();
     this._maybeResolveNeedAttack();
-    return this.getState();
+    return this._result();
   }
 
   _resetThrowInQueueForThrowInAfterTake() {
@@ -1411,11 +1590,11 @@ class DurakGame {
         if (t.defense) defender.hand.push(t.defense);
       }
       this.table = [];
-      this._log(`${defender.name} забирает карты со стола (${cardCount} шт.)`);
+      this._log(() => `${defender.name} забирает карты со стола (${cardCount} шт.)`);
     } else {
       this.discardCount += this.table.length * 2;
       this.table = [];
-      this._log(`Карты биты, уходят в отбой.`);
+      this._log(() => `Карты биты, уходят в отбой.`);
     }
 
     this._refillHands(prevDefenderIdx);
@@ -1451,7 +1630,7 @@ class DurakGame {
     this.attackCountThisRound = 0;
     this.phase = 'need-attack';
     this._resetThrowInQueue();
-    this._log(`Новый раунд. Ходит: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
+    this._log(() => `Новый раунд. Ходит: ${this.players[this.attackerIndex].name}, защищается: ${this.players[this.defenderIndex].name}`);
     this._maybeResolveNeedAttack();
   }
 
@@ -1475,12 +1654,12 @@ class DurakGame {
         drawn.push(card);
       }
       if (drawn.length > 0) {
-        this._log(`${player.name} добирает из колоды: ${drawn.map(cardToString).join(', ')} (в колоде осталось ${this.talon.length})`);
+        this._log(() => `${player.name} добирает из колоды: ${drawn.map(cardToString).join(', ')} (в колоде осталось ${this.talon.length})`);
       }
     }
     if (this.talon.length === 0 && !this._talonEmptyLogged) {
       this._talonEmptyLogged = true;
-      this._log(`Колода закончилась — дальше играем без добора.`);
+      this._log(() => `Колода закончилась — дальше играем без добора.`);
     }
   }
 
@@ -1490,7 +1669,7 @@ class DurakGame {
         p.out = true;
         p.finishRank = this.finishedOrder.length + 1;
         this.finishedOrder.push(p.id);
-        this._log(`${p.name} избавился от карт и выходит из игры (место ${p.finishRank})`);
+        this._log(() => `${p.name} избавился от карт и выходит из игры (место ${p.finishRank})`);
       }
     });
 
@@ -1509,9 +1688,9 @@ class DurakGame {
       this.durak = active.length === 1 ? this.players[active[0]].id : null;
     }
     if (this.durak) {
-      this._log(`Игра окончена. Дурак: ${this.players.find(p=>p.id===this.durak).name}`);
+      this._log(() => `Игра окончена. Дурак: ${this.players.find(p=>p.id===this.durak).name}`);
     } else {
-      this._log(`Игра окончена. Ничья (колода закончилась, карты у нескольких игроков не совпали по времени).`);
+      this._log(() => `Игра окончена. Ничья (колода закончилась, карты у нескольких игроков не совпали по времени).`);
     }
   }
 }
@@ -1669,7 +1848,12 @@ class CardTracker {
   /** Удобный конструктор «из первого состояния». Сразу же выполняет observe(state). */
   static fromState(state, meId, deckSizeHint = null) {
     const ids = (state.players || []).map((p) => p.id);
-    const deckSize = deckSizeHint || CardTracker.guessDeckSize(state);
+    // Размер колоды: явная подсказка → правила из состояния (движок отдаёт state.rules) →
+    // угадывание по картам. Последнее нужно для старых состояний и рукописных в тестах.
+    const ruleDeckSize = state && state.rules ? state.rules.deckSize : null;
+    const deckSize = deckSizeHint
+      || ([24, 36, 52].includes(ruleDeckSize) ? ruleDeckSize : null)
+      || CardTracker.guessDeckSize(state);
     const t = new CardTracker(deckSize, state.trumpSuit, state.trumpCard, meId, ids);
     t.observe(state);
     return t;
@@ -2457,6 +2641,383 @@ function gamePhase(state, handSize = 6) {
   return talon > handSize * active ? 'debut' : 'middle';
 }
 
+/* ---------- src/bots/endgame.js ---------- */
+// Точный решатель концовки (SMART_BOT_ROADMAP.md, этап 3, issue #48).
+//
+// Когда прикуп пуст, живых игроков двое и рука соперника восстановлена ТОЧНО
+// (`CardTracker.isOpponentHandCertain`), партия — игра с полной информацией. Тогда «дурак»
+// определяется не эвристикой, а перебором: какой ход ведёт к тому, что соперник останется
+// с картами, а я — без. Это самый большой нетронутый резерв силы бота в дуэли.
+//
+// Как устроено:
+//   * Правила НЕ дублируются. Каждый узел перебора — это сам `DurakGame` (тихая копия позиции,
+//     см. `DurakGame.fromPosition` / `clone` / `applyLegalAction`), а ходы берутся из его
+//     `getLegalActions`. Что можно подкинуть, разрешён ли перевод, лимит стола, кто вышел
+//     из игры — решает движок, поэтому решатель не может разойтись с ним.
+//   * Оценка — «глазами того, кто ходит в корне»: победа (соперник остался дураком), ничья
+//     (обе руки опустели одновременно), поражение (дураком остался я). Считается только исход,
+//     без «быстрее/медленнее»: так отсечений намного больше, а зацикливания нет — повтор
+//     позиции на ветке считается ничьей, значит, выигрывающая стратегия не ходит по кругу.
+//   * Перебор — alpha-beta с таблицей позиций (руки + стол + чей ход + счётчики лимита стола).
+//     В корне два прохода узким окном: сначала «есть ли выигрыш?», и только если нет — «есть ли
+//     ничья?». Результаты, зависящие от пути (повтор позиции выше по ветке), в таблицу не кладём.
+//   * Бюджет узлов и времени обязателен (`maxNodes`, `maxMs`). Когда он кончился, решатель
+//     возвращает `timedOut: true` без действия, а вызывающий откатывается на эвристику.
+//     Решатель НИКОГДА не бросает исключений наружу и не подвешивает партию.
+//
+// Модуль чистый: ни трекера, ни состояния бота — на входе позиция (простые данные).
+// Связку «состояние + трекер → позиция» делают `canSolve` и `positionFromState`.
+
+/**
+ * Бюджет по умолчанию — для живой игры: до 2 секунд на ход. Узлов при этом ≈ 400 000
+ * (порядка 4–5 мкс на узел); что тяжелее — откат на эвристику. Для массовых прогонов
+ * (`scripts/evalBots.js --solver-nodes= --solver-ms=`) бюджет уменьшают, чтобы прогон был быстрым:
+ * всё, что решено при малом бюджете, при большом решается так же, а решённых — только больше.
+ */
+const DEFAULT_SOLVER_OPTIONS = Object.freeze({ maxNodes: 400000, maxMs: 2000 });
+
+// Оценка позиции глазами того, кто ходит в корне: 1 — победа, 0 — ничья, -1 — поражение.
+// Считаем только исход, без «быстрее/медленнее»: так alpha-beta отсекает намного больше
+// (достаточно найти ЛЮБОЙ выигрывающий ход), а зацикливания при этом нет — повтор позиции
+// на ветке считается ничьей, значит, выигрывающая стратегия не ходит по кругу.
+const SCORE_INF = 2;
+const EXACT = 0;
+const LOWER = 1;
+const UPPER = 2;
+
+const SUIT_INDEX = new Map(SUITS.map((s, i) => [s, i]));
+const cardCode = (c) => SUIT_INDEX.get(c.suit) * 16 + c.rank;
+const byNumber = (a, b) => a - b;
+
+const nowMs = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+
+/** Одно и то же действие? (карты сравниваются по масти и рангу, переводы — как множества). */
+function sameEndgameAction(a, b) {
+  if (!a || !b || a.type !== b.type) return false;
+  const eq = (x, y) => x.suit === y.suit && x.rank === y.rank;
+  if (a.type === 'attack' || a.type === 'defend') return eq(a.card, b.card);
+  if (a.type === 'transfer') {
+    if (a.cards.length !== b.cards.length) return false;
+    const rest = b.cards.slice();
+    for (const c of a.cards) {
+      const i = rest.findIndex((x) => eq(x, c));
+      if (i === -1) return false;
+      rest.splice(i, 1);
+    }
+    return true;
+  }
+  return true; // pass / take
+}
+
+// Порядок перебора влияет только на скорость (и на то, какой из равных ходов будет назван
+// лучшим): дешёвое — раньше, «взять» и «пас» — позже.
+function moveWeight(a, trumpSuit) {
+  switch (a.type) {
+    case 'attack':
+    case 'defend': return cardPower(a.card, trumpSuit);
+    case 'transfer': return 200 + cardPower(a.cards[0], trumpSuit);
+    case 'pass': return 300;
+    default: return 400;
+  }
+}
+
+function orderMoves(actions, trumpSuit) {
+  return actions
+    .map((a) => ({ a, w: moveWeight(a, trumpSuit) }))
+    .sort((x, y) => x.w - y.w)
+    .map((x) => x.a);
+}
+
+/**
+ * Ключ позиции для таблицы: всё, от чего зависит дальнейшая игра, и ничего лишнего.
+ *  - порядок карт в руке не важен;
+ *  - на столе отбитые пары — просто набор (порядок не важен), а неотбитые атаки — очередь:
+ *    отбивается самая ранняя;
+ *  - счётчики лимита стола нужны по отдельности, только пока возможен перевод (он пересчитывает
+ *    «руку защитника на начало раунда»); иначе для будущего важно лишь, сколько ещё можно
+ *    положить, — так позиции, пришедшие разными путями, склеиваются.
+ */
+function positionKey(g) {
+  const [p0, p1] = g.players;
+  const hand = (p) => p.hand.map(cardCode).sort(byNumber).join(',');
+  const defended = [];
+  const open = [];
+  for (const t of g.table) {
+    if (t.defense) defended.push(cardCode(t.attack) * 256 + cardCode(t.defense));
+    else open.push(cardCode(t.attack));
+  }
+  defended.sort(byNumber);
+  const rules = g.rules;
+  const transferPossibleLater = rules.allowPerevod && !g.tookCards
+    && !(rules.perevodOnlyOnFirstCard && defended.length > 0);
+  const counters = transferPossibleLater
+    ? `${g.attackCountThisRound}.${g._defenderHandAtStart}`
+    : `r${g._attackRoomLeft()}`;
+  return (
+    `${g.phase === 'defender-to-act' ? 'd' : 'a'}${g.attackerIndex}` +
+    `${g.tookCards ? 1 : 0}${g.allowAnyCardNow ? 1 : 0}` +
+    `|${counters}|${hand(p0)}|${hand(p1)}|${defended.join(',')}|${open.join(',')}`
+  );
+}
+
+/**
+ * Решает позицию.
+ *
+ * @param {object} position  см. `DurakGame.fromPosition`; ходит тот, чей ход в позиции
+ * @param {object} [options] { maxNodes = 400000, maxMs = 2000, table?: Map }
+ * @returns {{
+ *   win: boolean,        // ходящий выигрывает при правильной игре обеих сторон
+ *   value: 1|0|-1,       // 1 победа, 0 ничья, -1 поражение (win === (value === 1))
+ *   action: object|null, // лучшее действие из getLegalActions ходящего (null, если не решено)
+ *   bestActions: object[], // действия с лучшим исходом (сейчас — одно, первое найденное)
+ *   depth: number,       // глубина перебора: самая длинная просмотренная цепочка полуходов
+ *   nodes: number,       // сколько позиций просмотрено
+ *   ms: number,          // сколько времени ушло
+ *   timedOut: boolean,   // бюджет кончился — результату верить нельзя, action === null
+ *   solved: boolean,     // перебор завершён и результат достоверен
+ *   player: string|null, // кто ходит в корне
+ *   legal: object[],     // легальные действия ходящего в корне (для сверки с движком)
+ * }}
+ */
+function solveEndgame(position, options = {}) {
+  const maxNodes = Number.isFinite(options.maxNodes) ? options.maxNodes : DEFAULT_SOLVER_OPTIONS.maxNodes;
+  const maxMs = Number.isFinite(options.maxMs) ? options.maxMs : DEFAULT_SOLVER_OPTIONS.maxMs;
+  const startedAt = nowMs();
+
+  let nodes = 0;
+  let maxDepth = 0;
+  let aborted = false;
+  let cycleTarget = Infinity; // на какой глубине пути лежит самая «верхняя» позиция, повторённая в поддереве
+  // Таблицу можно передать снаружи и переиспользовать между вызовами: ключ позиции описывает
+  // её полностью, поэтому найденное для одной позиции верно и в следующем ходе той же партии
+  // (и в другой партии с теми же правилами и козырем — вызывающий сам следит за этим).
+  const table = options.table instanceof Map ? options.table : new Map();
+  const path = new Map(); // ключ позиции на текущей ветке → её глубина
+
+  const result = (over) => ({
+    win: false, value: 0, action: null, bestActions: [], depth: maxDepth,
+    nodes, ms: nowMs() - startedAt, timedOut: aborted, solved: false, player: null, legal: [],
+    ...over,
+  });
+
+  try {
+    const root = DurakGame.fromPosition(position);
+    const me = root.currentActorId();
+    if (me === null) return result({});
+    const opponent = root.players.find((p) => p.id !== me).id;
+    const trumpSuit = root.trumpSuit;
+
+    const terminalScore = (g) => (g.durak === opponent ? 1 : g.durak === me ? -1 : 0);
+
+    // Возвращает оценку позиции для `me` (в окне alpha-beta) или undefined, если бюджет кончился.
+    function search(g, alpha, beta, ply) {
+      nodes++;
+      if (ply > maxDepth) maxDepth = ply;
+      if (nodes > maxNodes || ((nodes & 31) === 0 && nowMs() - startedAt > maxMs)) {
+        aborted = true;
+        return undefined;
+      }
+      if (g.phase === 'finished') return terminalScore(g);
+
+      const key = positionKey(g);
+      const hit = table.get(key);
+      const alphaOrig = alpha;
+      if (hit) {
+        if (hit.flag === EXACT) return hit.score;
+        if (hit.flag === LOWER) alpha = Math.max(alpha, hit.score);
+        else beta = Math.min(beta, hit.score);
+        if (alpha >= beta) return hit.score;
+      }
+      const seenAt = path.get(key);
+      if (seenAt !== undefined) { // повтор позиции на этой ветке — ничья
+        if (seenAt < cycleTarget) cycleTarget = seenAt;
+        return 0;
+      }
+      path.set(key, ply);
+      const outerTarget = cycleTarget;
+      cycleTarget = Infinity;
+
+      const actor = g.currentActorId();
+      const legal = actor === null ? [] : g.getLegalActions(actor);
+      let best;
+      if (legal.length === 0) {
+        best = 0; // в живой партии такого не бывает; безопасно считаем ничьёй
+      } else {
+        const maximizing = actor === me;
+        best = maximizing ? -SCORE_INF : SCORE_INF;
+        let a = alpha;
+        let b = beta;
+        for (const move of orderMoves(legal, trumpSuit)) {
+          const child = g.clone();
+          child.applyLegalAction(actor, move);
+          const s = search(child, a, b, ply + 1);
+          if (s === undefined) { path.delete(key); return undefined; }
+          if (maximizing) {
+            if (s > best) best = s;
+            if (best > a) a = best;
+          } else {
+            if (s < best) best = s;
+            if (best < b) b = best;
+          }
+          if (a >= b) break;
+        }
+      }
+      path.delete(key);
+
+      // Результат можно запомнить, если он не зависит от того, КАК мы сюда пришли: повторы
+      // позиций внутри поддерева (в том числе самой этой позиции) — не в счёт, а повтор позиции
+      // выше по ветке делает оценку зависимой от ветки, и такую в таблицу не кладём.
+      if (cycleTarget >= ply) {
+        const flag = best <= alphaOrig ? UPPER : best >= beta ? LOWER : EXACT;
+        table.set(key, { score: best, flag });
+      }
+      cycleTarget = Math.min(outerTarget, cycleTarget);
+      return best;
+    }
+
+    // Корень: перебираем ходы сами, чтобы знать, КАКОЙ ход лучший. Два прохода узким окном
+    // вместо одного полного: сначала «есть ли выигрыш?» (ничья и поражение для этого одно и то
+    // же — отсечений намного больше), и только если выигрыша нет — «есть ли ничья?».
+    const legal = root.getLegalActions(me);
+    if (legal.length === 0) return result({ player: me });
+    const ordered = orderMoves(legal, trumpSuit);
+
+    const probe = (move, alpha, beta) => {
+      const child = root.clone();
+      child.applyLegalAction(me, move);
+      return search(child, alpha, beta, 1);
+    };
+
+    let value = -1;
+    let action = ordered[0];
+    let found = false;
+    for (const move of ordered) {
+      const s = probe(move, 0, 1);
+      if (s === undefined) return result({ player: me, legal, timedOut: true });
+      if (s >= 1) { value = 1; action = move; found = true; break; }
+    }
+    if (!found) {
+      for (const move of ordered) {
+        const s = probe(move, -1, 0);
+        if (s === undefined) return result({ player: me, legal, timedOut: true });
+        if (s >= 0) { value = 0; action = move; break; }
+      }
+    }
+
+    return result({
+      win: value === 1,
+      value,
+      action,
+      bestActions: [action],
+      timedOut: false,
+      solved: true,
+      player: me,
+      legal,
+    });
+  } catch {
+    // Решатель — вспомогательный слой: что бы ни случилось, наружу уходит «не решено».
+    return result({ failed: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Связка с состоянием партии и трекером
+// ---------------------------------------------------------------------------
+
+/**
+ * Применим ли решатель прямо сейчас.
+ * Только когда: прикуп пуст, живых игроков двое (сначала дуэль), правила партии переданы
+ * (`state.rules`), и рука соперника восстановлена ТОЧНО — не догадками, а полностью.
+ */
+function canSolve(state, tracker, meId) {
+  try {
+    if (!state || !tracker || !meId) return false;
+    if (state.talonCount !== 0) return false;
+    if (state.phase !== 'need-attack' && state.phase !== 'defender-to-act') return false;
+    const rules = state.rules;
+    if (!rules || typeof rules !== 'object') return false;
+    if (!Number.isInteger(state.maxAttacksNow)) return false;
+
+    const alive = (state.players || []).filter((p) => !p.out);
+    if (alive.length !== 2) return false;
+    const me = alive.find((p) => p.id === meId);
+    const opp = alive.find((p) => p.id !== meId);
+    if (!me || !opp || !Array.isArray(me.hand)) return false;
+    if (![state.attacker, state.defender].includes(me.id) || ![state.attacker, state.defender].includes(opp.id)) return false;
+    if (state.attacker === state.defender) return false;
+
+    if (!tracker.isOpponentHandCertain(opp.id)) return false;
+    // «Certain» обязано означать: вся рука соперника названа поимённо.
+    if (tracker.opponentKnownCards(opp.id).size !== opp.handCount) return false;
+
+    // Счётчики лимита стола выводятся из публичных данных точно, кроме одного редкого варианта:
+    // перевод после частичной защиты при лимите «по руке защитника» — там размер руки на начало
+    // раунда неизвестен. В нём решатель не включаем: лучше эвристика, чем неверный лимит.
+    const defendedPairs = (state.table || []).filter((t) => t.defense).length;
+    if (defendedPairs > 0 && rules.allowPerevod && !rules.perevodOnlyOnFirstCard && rules.attackLimitByDefenderHand) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Позиция для решателя из публичного состояния и известной руки соперника.
+ * Счётчики лимита стола (`attackCountThisRound`, `defenderHandAtStart`) восстанавливаются
+ * так, чтобы `maxAttacksNow` движка совпал с тем, что отдало `getState()`.
+ */
+function positionFromState(state, meId, opponentHand) {
+  const alive = state.players.filter((p) => !p.out);
+  const copyCards = (cards) => cards.map((c) => ({ suit: c.suit, rank: c.rank }));
+  const handOf = (p) => copyCards(p.id === meId ? p.hand : opponentHand);
+  const rules = state.rules;
+
+  const table = state.table.map((t) => ({ attack: t.attack, defense: t.defense || null }));
+  const defender = alive.find((p) => p.id === state.defender);
+  const defendedPairs = table.filter((t) => t.defense).length;
+  // Защитник тратил на защиту карты из руки, поэтому в начале раунда у него было на столько больше.
+  const defenderHandAtStart = defender.handCount + defendedPairs;
+  const limit = Math.min(rules.maxTableAttacks, rules.attackLimitByDefenderHand ? defenderHandAtStart : Infinity);
+
+  return {
+    rules,
+    trumpSuit: state.trumpSuit,
+    trumpCard: state.trumpCard || null,
+    players: alive.map((p) => ({ id: p.id, hand: handOf(p) })),
+    attacker: state.attacker,
+    defender: state.defender,
+    phase: state.phase,
+    table,
+    tookCards: state.tableGoingToDefender === true,
+    allowAnyCardNow: state.allowedThrowInRanks === null,
+    defenderHandAtStart,
+    attackCountThisRound: Math.max(limit - state.maxAttacksNow, 0),
+    discardCount: state.discardCount || 0,
+  };
+}
+
+/**
+ * Всё вместе: проверяет `canSolve`, собирает позицию из состояния и известной руки соперника,
+ * решает. Возвращает результат `solveEndgame` либо `null`, если решатель неприменим.
+ * Дополнительно сверяет корень с движком: `maxAttacksNow` копии должен совпасть с состоянием,
+ * иначе позиция восстановлена неверно и результату верить нельзя (`solved: false`).
+ */
+function solveFromState(state, tracker, meId, options = {}) {
+  if (!canSolve(state, tracker, meId)) return null;
+  try {
+    const opp = state.players.find((p) => !p.out && p.id !== meId);
+    const oppHand = tracker.toCards(tracker.opponentKnownCards(opp.id));
+    const position = positionFromState(state, meId, oppHand);
+    const probe = DurakGame.fromPosition(position);
+    if (probe.getState().maxAttacksNow !== state.maxAttacksNow) {
+      return { win: false, value: 0, action: null, depth: 0, nodes: 0, ms: 0, timedOut: false, solved: false, player: meId, legal: [], mismatch: true };
+    }
+    return solveEndgame(position, options);
+  } catch {
+    return { win: false, value: 0, action: null, depth: 0, nodes: 0, ms: 0, timedOut: false, solved: false, player: meId, legal: [], failed: true };
+  }
+}
+
 /* ---------- src/bots/smartBot.js ---------- */
 // Умный бот: политика решений (раздел 5.3 SMART_BOT_PLAN.md, issue #33, этап 3).
 //
@@ -2491,6 +3052,10 @@ const SMART_PROFILE = {
   takeWhenTableUnbeatable: true, // брать сразу, если весь стол не отбить
   exactEndgame: true,            // точный счёт, когда прикуп пуст
   dumpPairs: true,               // разгружаться парами/тройками одного ранга (+3.2 п.п. без него)
+  exactEndgameSolver: true,      // ПОЛНЫЙ перебор концовки дуэли, когда рука соперника известна точно
+                                 // (src/bots/endgame.js, issue #48). Матрица A/B «с решателем против без»:
+                                 // 2×24/36/52 — 36,9 / 38,9 / 40,4 % «дурака» у новой версии (по 900 партий,
+                                 // ± 3,3 п.п.), остальные конфигурации ≤ 51 %. Бюджет — 2 с на ход.
 };
 
 const HIGH_RANK = 12;  // дама и старше
@@ -2508,6 +3073,25 @@ function handCountOf(state, id) {
   return p ? p.handCount || 0 : 0;
 }
 
+/**
+ * Правила партии глазами бота. Берёт `state.rules` (его отдаёт движок), а если его нет —
+ * старое состояние, рукописное в тесте или пришедшее от устаревшего сетевого клиента —
+ * подставляет безопасный фолбэк: значения по умолчанию, но число игроков и размер колоды
+ * выводятся из самого состояния. Возвращает новый объект, состояние не меняется.
+ * Производные величины (`maxAttacksNow`, `allowedThrowInRanks`, `throwInPlayers`) сюда
+ * не входят: их бот читает прямо из состояния, когда они понадобятся в решениях.
+ */
+function rulesOfState(state) {
+  const given = state && typeof state.rules === 'object' && state.rules !== null ? state.rules : null;
+  const players = state && Array.isArray(state.players) ? state.players : [];
+  const fallback = { ...DEFAULT_RULES };
+  if (players.length >= 2) fallback.numPlayers = players.length;
+  if (state && !(given && given.deckSize)) {
+    try { fallback.deckSize = CardTracker.guessDeckSize(state); } catch { /* остаётся значение по умолчанию */ }
+  }
+  return { ...fallback, ...(given || {}) };
+}
+
 const PHASE_LABEL = { debut: 'начало партии', middle: 'середина партии', endgame: 'эндшпиль' };
 
 /**
@@ -2519,11 +3103,18 @@ class SmartBot {
     this.explain = options.explain === true;
     this.meId = options.meId || null;
     this.tracker = null;
+    this.rules = { ...DEFAULT_RULES }; // правила партии; обновляются из state.rules при каждом наблюдении
+    this._rulesSrc = null;             // объект state.rules, из которого получен this.rules
+    // Бюджет решателя концовки (`exactEndgameSolver`) и счётчики его работы — чтобы стоимость
+    // можно было измерить снаружи: сколько раз звали, сколько решил, сколько упёрлось в бюджет.
+    this.solverOptions = { ...DEFAULT_SOLVER_OPTIONS, ...(options.solver || {}) };
+    this.solverStats = { calls: 0, used: 0, wins: 0, draws: 0, losses: 0, timedOut: 0, unusable: 0, nodes: 0, ms: 0 };
   }
 
   reset(state = null, meId = null) {
     if (meId) this.meId = meId;
     this.tracker = null;
+    this._rulesSrc = null;
     if (state) this.observe(state, this.meId);
     return this;
   }
@@ -2531,6 +3122,7 @@ class SmartBot {
   observe(state, meId = null) {
     if (meId) this.meId = meId;
     if (!state) return;
+    this._syncRules(state);
     try {
       if (!this.tracker) this.tracker = CardTracker.fromState(state, this.meId);
       else this.tracker.observe(state);
@@ -2539,6 +3131,14 @@ class SmartBot {
       // бот продолжает играть «вслепую», но НИКОГДА не падает и не ходит нелегально.
       this.tracker = null;
     }
+  }
+
+  /** Обновляет this.rules по состоянию; тот же объект state.rules, что и в прошлый раз, не пересчитывается. */
+  _syncRules(state) {
+    const src = state && state.rules ? state.rules : null;
+    if (src && src === this._rulesSrc) return;
+    this.rules = rulesOfState(state);
+    this._rulesSrc = src;
   }
 
   // ------------------------------------------------------------------
@@ -2604,6 +3204,7 @@ class SmartBot {
   decide(state, playerId, legalActions) {
     if (!legalActions || legalActions.length === 0) return { action: null };
     if (playerId) this.meId = playerId;
+    this._syncRules(state); // decide() можно вызвать и без observe()
 
     let picked;
     try {
@@ -2627,6 +3228,10 @@ class SmartBot {
   }
 
   _choose(state, playerId, legalActions) {
+    // Концовка дуэли с известной рукой соперника — точный счёт вместо эвристик.
+    const exact = this._tryExactSolver(state, playerId, legalActions);
+    if (exact) return exact;
+
     const defends = legalActions.filter((a) => a.type === 'defend');
     const transfers = legalActions.filter((a) => a.type === 'transfer');
     const take = legalActions.find((a) => a.type === 'take');
@@ -2634,6 +3239,58 @@ class SmartBot {
       return this._decideDefense(state, playerId, legalActions, { defends, transfers, take });
     }
     return this._decideAttack(state, playerId, legalActions);
+  }
+
+  // ------------------------------------------------------------------
+  //  Точный счёт концовки (src/bots/endgame.js)
+  // ------------------------------------------------------------------
+
+  /**
+   * Если прикуп пуст, живых двое и рука соперника известна точно — просчитывает партию
+   * до конца и возвращает ход, при котором выигрыш (или, если выигрыша нет, ничья) гарантирован.
+   * Возвращает null — и тогда решает обычная политика — если: флаг выключен, решатель неприменим,
+   * не уложился в бюджет, позиция проиграна (тут эвристики хотя бы могут рассчитывать на ошибку
+   * соперника) или результат не сошёлся с движком по списку легальных ходов.
+   */
+  _tryExactSolver(state, playerId, legalActions) {
+    if (!this.profile.exactEndgameSolver || !this.tracker) return null;
+    if (!canSolve(state, this.tracker, playerId)) return null;
+
+    const stats = this.solverStats;
+    const res = solveFromState(state, this.tracker, playerId, this.solverOptions);
+    if (!res) return null;
+    stats.calls++;
+    stats.nodes += res.nodes;
+    stats.ms += res.ms;
+    if (res.timedOut) { stats.timedOut++; return null; }
+    if (!res.solved || !res.action) { stats.unusable++; return null; }
+
+    // Страховка от расхождения с движком: копия позиции обязана дать те же легальные ходы.
+    const sameSet = res.legal.length === legalActions.length
+      && res.legal.every((r) => legalActions.some((a) => sameEndgameAction(a, r)));
+    const chosen = legalActions.find((a) => sameEndgameAction(a, res.action));
+    if (!sameSet || !chosen) { stats.unusable++; return null; }
+
+    if (res.value < 0) { stats.losses++; return null; }
+    if (res.value > 0) stats.wins++; else stats.draws++;
+    stats.used++;
+    return { action: chosen, reason: this._solverReason(chosen, res.value) };
+  }
+
+  _solverReason(action, value) {
+    let head;
+    switch (action.type) {
+      case 'attack': head = `Хожу ${cardToString(action.card)}`; break;
+      case 'defend': head = `Бью ${cardToString(action.against)} картой ${cardToString(action.card)}`; break;
+      case 'transfer': head = `Перевожу картой ${list(action.cards)}`; break;
+      case 'pass': head = 'Пропускаю подкидывание'; break;
+      case 'take': head = 'Беру карты'; break;
+      default: head = 'Делаю ход';
+    }
+    const why = 'прикуп пуст, рука соперника вычислена, партия просчитана до конца';
+    return value > 0
+      ? `${head}${action.type === 'attack' ? ' так, чтобы соперник остался с картами' : ''}: ${why} — при любой его игре выигрываю.`
+      : `${head}: ${why} — выиграть не выходит, но этот ход не даёт проиграть (ничья).`;
   }
 
   // ------------------------------------------------------------------
@@ -2955,13 +3612,14 @@ function createSimpleBrain(requestedLevel, options) {
 // поэтому вызывающему коду (CLI, клиент, сервер) знать об уровне ничего не нужно.
 function createSmartBrain(options) {
   const explain = options.explain === true;
-  const bot = new SmartBot({ explain, profile: options.profile });
+  const bot = new SmartBot({ explain, profile: options.profile, solver: options.solver });
   return {
     level: 'smart',
     actualLevel: 'smart',
     fallback: false,
     explain,
     profile: bot.profile,
+    solverStats: bot.solverStats,
     reset(state = null, meId = null) { bot.reset(state, meId); },
     observe(state, meId = null) { bot.observe(state, meId); },
     decide(state, playerId, legalActions) { return bot.decide(state, playerId, legalActions); },
@@ -2972,7 +3630,7 @@ function createSmartBrain(options) {
  * Фабрика «мозга» бота.
  *
  * @param {string} level  идентификатор уровня (`simple` | `smart`), нестрогий
- * @param {object} options  { explain?: boolean, profile?: object }
+ * @param {object} options  { explain?: boolean, profile?: object, solver?: { maxNodes, maxMs } }
  * @returns {{ level: string, actualLevel: string, fallback: boolean,
  *             reset: Function, observe: Function, decide: Function }}
  *

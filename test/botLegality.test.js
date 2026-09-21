@@ -24,6 +24,14 @@ import { createBotBrain } from '../src/bots/index.js';
 const MAX_STEPS = 3000;
 const TOTAL_GAMES = Number(process.env.FUZZ_GAMES || 300);
 
+// Бюджет решателя концовки (src/bots/endgame.js) на фаззинге. Боевой бюджет — до 2 с и 400 000 узлов
+// НА ХОД: если позиция не решается, каждый ход дуэли упирается в эти 2 секунды, и сотни партий
+// на 3–4 игроков давали суммарно >300 с (лимит CI на прогон тестов). Здесь проверяем ЛЕГАЛЬНОСТЬ и
+// «честность», а не силу: узкого бюджета хватает, чтобы решатель по-прежнему срабатывал на небольших
+// позициях (примерно в половине вызовов) и его ходы проходили те же проверки, а упёршиеся в бюджет
+// откатывались на эвристику. Лимит по узлам детерминирован; по времени — только страховка.
+const FUZZ_SOLVER = { maxNodes: 5000, maxMs: 1000 };
+
 // Конфигурации, которые обязаны работать (те же, что в метрике G2).
 const CONFIGS = [
   { deckSize: 24, numPlayers: 2 },
@@ -49,7 +57,7 @@ function playChecked(levels, deckSize, numPlayers, { explain = false } = {}) {
 
   const brains = new Map();
   players.forEach((p, i) => {
-    const brain = createBotBrain(levels[i], { explain });
+    const brain = createBotBrain(levels[i], { explain, solver: FUZZ_SOLVER });
     brain.reset(game.getState(p.id), p.id);
     brains.set(p.id, brain);
   });

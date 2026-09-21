@@ -84,13 +84,14 @@ function createSimpleBrain(requestedLevel, options) {
 // поэтому вызывающему коду (CLI, клиент, сервер) знать об уровне ничего не нужно.
 function createSmartBrain(options) {
   const explain = options.explain === true;
-  const bot = new SmartBot({ explain, profile: options.profile });
+  const bot = new SmartBot({ explain, profile: options.profile, solver: options.solver });
   return {
     level: 'smart',
     actualLevel: 'smart',
     fallback: false,
     explain,
     profile: bot.profile,
+    solverStats: bot.solverStats,
     reset(state = null, meId = null) { bot.reset(state, meId); },
     observe(state, meId = null) { bot.observe(state, meId); },
     decide(state, playerId, legalActions) { return bot.decide(state, playerId, legalActions); },
@@ -101,7 +102,7 @@ function createSmartBrain(options) {
  * Фабрика «мозга» бота.
  *
  * @param {string} level  идентификатор уровня (`simple` | `smart`), нестрогий
- * @param {object} options  { explain?: boolean, profile?: object }
+ * @param {object} options  { explain?: boolean, profile?: object, solver?: { maxNodes, maxMs } }
  * @returns {{ level: string, actualLevel: string, fallback: boolean,
  *             reset: Function, observe: Function, decide: Function }}
  *

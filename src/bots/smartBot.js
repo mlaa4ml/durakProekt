@@ -19,7 +19,9 @@
 // можно было измерить A/B-прогоном `src/cli/botMatch.js`.
 
 import { cardToString } from '../deck.js';
+import { DEFAULT_RULES } from '../rules.js';
 import { CardTracker } from './memory.js';
+import { canSolve, solveFromState, sameEndgameAction, DEFAULT_SOLVER_OPTIONS } from './endgame.js';
 import {
   beats,
   cardPower,
@@ -43,6 +45,10 @@ export const SMART_PROFILE = {
   takeWhenTableUnbeatable: true, // брать сразу, если весь стол не отбить
   exactEndgame: true,            // точный счёт, когда прикуп пуст
   dumpPairs: true,               // разгружаться парами/тройками одного ранга (+3.2 п.п. без него)
+  exactEndgameSolver: true,      // ПОЛНЫЙ перебор концовки дуэли, когда рука соперника известна точно
+                                 // (src/bots/endgame.js, issue #48). Матрица A/B «с решателем против без»:
+                                 // 2×24/36/52 — 36,9 / 38,9 / 40,4 % «дурака» у новой версии (по 900 партий,
+                                 // ± 3,3 п.п.), остальные конфигурации ≤ 51 %. Бюджет — 2 с на ход.
 };
 
 const HIGH_RANK = 12;  // дама и старше
@@ -60,6 +66,25 @@ function handCountOf(state, id) {
   return p ? p.handCount || 0 : 0;
 }
 
+/**
+ * Правила партии глазами бота. Берёт `state.rules` (его отдаёт движок), а если его нет —
+ * старое состояние, рукописное в тесте или пришедшее от устаревшего сетевого клиента —
+ * подставляет безопасный фолбэк: значения по умолчанию, но число игроков и размер колоды
+ * выводятся из самого состояния. Возвращает новый объект, состояние не меняется.
+ * Производные величины (`maxAttacksNow`, `allowedThrowInRanks`, `throwInPlayers`) сюда
+ * не входят: их бот читает прямо из состояния, когда они понадобятся в решениях.
+ */
+export function rulesOfState(state) {
+  const given = state && typeof state.rules === 'object' && state.rules !== null ? state.rules : null;
+  const players = state && Array.isArray(state.players) ? state.players : [];
+  const fallback = { ...DEFAULT_RULES };
+  if (players.length >= 2) fallback.numPlayers = players.length;
+  if (state && !(given && given.deckSize)) {
+    try { fallback.deckSize = CardTracker.guessDeckSize(state); } catch { /* остаётся значение по умолчанию */ }
+  }
+  return { ...fallback, ...(given || {}) };
+}
+
 const PHASE_LABEL = { debut: 'начало партии', middle: 'середина партии', endgame: 'эндшпиль' };
 
 /**
@@ -71,11 +96,18 @@ export class SmartBot {
     this.explain = options.explain === true;
     this.meId = options.meId || null;
     this.tracker = null;
+    this.rules = { ...DEFAULT_RULES }; // правила партии; обновляются из state.rules при каждом наблюдении
+    this._rulesSrc = null;             // объект state.rules, из которого получен this.rules
+    // Бюджет решателя концовки (`exactEndgameSolver`) и счётчики его работы — чтобы стоимость
+    // можно было измерить снаружи: сколько раз звали, сколько решил, сколько упёрлось в бюджет.
+    this.solverOptions = { ...DEFAULT_SOLVER_OPTIONS, ...(options.solver || {}) };
+    this.solverStats = { calls: 0, used: 0, wins: 0, draws: 0, losses: 0, timedOut: 0, unusable: 0, nodes: 0, ms: 0 };
   }
 
   reset(state = null, meId = null) {
     if (meId) this.meId = meId;
     this.tracker = null;
+    this._rulesSrc = null;
     if (state) this.observe(state, this.meId);
     return this;
   }
@@ -83,6 +115,7 @@ export class SmartBot {
   observe(state, meId = null) {
     if (meId) this.meId = meId;
     if (!state) return;
+    this._syncRules(state);
     try {
       if (!this.tracker) this.tracker = CardTracker.fromState(state, this.meId);
       else this.tracker.observe(state);
@@ -91,6 +124,14 @@ export class SmartBot {
       // бот продолжает играть «вслепую», но НИКОГДА не падает и не ходит нелегально.
       this.tracker = null;
     }
+  }
+
+  /** Обновляет this.rules по состоянию; тот же объект state.rules, что и в прошлый раз, не пересчитывается. */
+  _syncRules(state) {
+    const src = state && state.rules ? state.rules : null;
+    if (src && src === this._rulesSrc) return;
+    this.rules = rulesOfState(state);
+    this._rulesSrc = src;
   }
 
   // ------------------------------------------------------------------
@@ -156,6 +197,7 @@ export class SmartBot {
   decide(state, playerId, legalActions) {
     if (!legalActions || legalActions.length === 0) return { action: null };
     if (playerId) this.meId = playerId;
+    this._syncRules(state); // decide() можно вызвать и без observe()
 
     let picked;
     try {
@@ -179,6 +221,10 @@ export class SmartBot {
   }
 
   _choose(state, playerId, legalActions) {
+    // Концовка дуэли с известной рукой соперника — точный счёт вместо эвристик.
+    const exact = this._tryExactSolver(state, playerId, legalActions);
+    if (exact) return exact;
+
     const defends = legalActions.filter((a) => a.type === 'defend');
     const transfers = legalActions.filter((a) => a.type === 'transfer');
     const take = legalActions.find((a) => a.type === 'take');
@@ -186,6 +232,58 @@ export class SmartBot {
       return this._decideDefense(state, playerId, legalActions, { defends, transfers, take });
     }
     return this._decideAttack(state, playerId, legalActions);
+  }
+
+  // ------------------------------------------------------------------
+  //  Точный счёт концовки (src/bots/endgame.js)
+  // ------------------------------------------------------------------
+
+  /**
+   * Если прикуп пуст, живых двое и рука соперника известна точно — просчитывает партию
+   * до конца и возвращает ход, при котором выигрыш (или, если выигрыша нет, ничья) гарантирован.
+   * Возвращает null — и тогда решает обычная политика — если: флаг выключен, решатель неприменим,
+   * не уложился в бюджет, позиция проиграна (тут эвристики хотя бы могут рассчитывать на ошибку
+   * соперника) или результат не сошёлся с движком по списку легальных ходов.
+   */
+  _tryExactSolver(state, playerId, legalActions) {
+    if (!this.profile.exactEndgameSolver || !this.tracker) return null;
+    if (!canSolve(state, this.tracker, playerId)) return null;
+
+    const stats = this.solverStats;
+    const res = solveFromState(state, this.tracker, playerId, this.solverOptions);
+    if (!res) return null;
+    stats.calls++;
+    stats.nodes += res.nodes;
+    stats.ms += res.ms;
+    if (res.timedOut) { stats.timedOut++; return null; }
+    if (!res.solved || !res.action) { stats.unusable++; return null; }
+
+    // Страховка от расхождения с движком: копия позиции обязана дать те же легальные ходы.
+    const sameSet = res.legal.length === legalActions.length
+      && res.legal.every((r) => legalActions.some((a) => sameEndgameAction(a, r)));
+    const chosen = legalActions.find((a) => sameEndgameAction(a, res.action));
+    if (!sameSet || !chosen) { stats.unusable++; return null; }
+
+    if (res.value < 0) { stats.losses++; return null; }
+    if (res.value > 0) stats.wins++; else stats.draws++;
+    stats.used++;
+    return { action: chosen, reason: this._solverReason(chosen, res.value) };
+  }
+
+  _solverReason(action, value) {
+    let head;
+    switch (action.type) {
+      case 'attack': head = `Хожу ${cardToString(action.card)}`; break;
+      case 'defend': head = `Бью ${cardToString(action.against)} картой ${cardToString(action.card)}`; break;
+      case 'transfer': head = `Перевожу картой ${list(action.cards)}`; break;
+      case 'pass': head = 'Пропускаю подкидывание'; break;
+      case 'take': head = 'Беру карты'; break;
+      default: head = 'Делаю ход';
+    }
+    const why = 'прикуп пуст, рука соперника вычислена, партия просчитана до конца';
+    return value > 0
+      ? `${head}${action.type === 'attack' ? ' так, чтобы соперник остался с картами' : ''}: ${why} — при любой его игре выигрываю.`
+      : `${head}: ${why} — выиграть не выходит, но этот ход не даёт проиграть (ничья).`;
   }
 
   // ------------------------------------------------------------------
