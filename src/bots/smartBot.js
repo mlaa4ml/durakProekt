@@ -531,12 +531,23 @@ export class SmartBot {
           (s, t) => s + (t.attack ? cardPower(t.attack, trumpSuit) : 0) + (t.defense ? cardPower(t.defense, trumpSuit) : 0),
           0,
         );
-        const avgCard = table.length ? tableCost / table.reduce((s, t) => s + 1 + (t.defense ? 1 : 0), 0) : 0;
+        const tableCards = table.reduce((s, t) => s + 1 + (t.defense ? 1 : 0), 0);
+        const avgCard = tableCards ? tableCost / tableCards : 0;
+        // Цена взятия: вся ценность, которая переедет со стола мне в руку (плюс то, что подкинут).
         const costTake = tableCost + extra * avgCard;
-        const defendCost = plan.canDefendAll ? plan.cost : Infinity;
-        // Не отбился — забираю и стол, и уже потраченные на отбой карты.
-        const costDefend = defendCost + (1 - pSurv) * (costTake + defendCost);
-        if (costTake < costDefend || pSurv < DEFENSE_HOPELESS_P) {
+        // Цена защиты — НЕ вся потраченная карта: успешная защита уносит в бито и мою карту,
+        // и атаку соперника, то есть руку она разгружает. Реально теряю только «переплату»:
+        // насколько отдаваемая карта дороже той, которую она убирает со стола
+        // (бить семёрку козырным королём — переплата почти в целый козырь, своей восьмёркой — в единицу).
+        const overpay = plan.canDefendAll
+          ? plan.assignment.reduce(
+            (s, x) => s + Math.max(0, cardPower(x.card, trumpSuit) - cardPower(x.attack, trumpSuit)),
+            0,
+          )
+          : Infinity;
+        // Не отбился — всё равно забираю стол, да ещё и потратив карты на отбой.
+        const costDefend = overpay + (1 - pSurv) * (costTake + overpay);
+        if (costTake < costDefend) {
           if (cheapTransfer) {
             return {
               action: cheapTransfer,
