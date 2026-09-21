@@ -68,6 +68,14 @@ export class DurakGame {
     this.tookCards = false;       // true = защищающийся решил забрать; карты со стола пока НЕ убраны — лежат "на взятие"
     this.postTakeMode = false;    // true = защищающийся уже решил забрать карты в этом раунде; сам он больше не отбивается
     this.attackCountThisRound = 0; // счётчик всех подкинутых карт за раунд (включая подкинутые после взятия) — для лимита attackLimitByDefenderHand
+
+    // Защита от вечной партии (issue #55): сколько раундов подряд не было прогресса
+    // (в бито ничего не ушло И никто не вышел из партии). Подробности — в _noteRoundProgress.
+    this.idleRounds = 0;
+    this.stalemateWarning = null; // текст предупреждения для лобби/клиента (или null)
+    this.drawReason = null;       // 'stalemate' — партия закончилась ничьёй по лимиту бессмысленных ходов
+    this.drawPlayers = [];        // id игроков, между которыми объявлена ничья
+
     this._resetThrowInQueue();
 
     this._log(() => `Игра началась. Козырь: ${this.trumpCard ? cardToString(this.trumpCard) : '?'} (масть ${this.trumpSuit})`);
