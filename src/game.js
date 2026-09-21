@@ -487,6 +487,11 @@ export class DurakGame {
     g.durak = this.durak;
     g.phase = this.phase;
     g.perevodUsedThisRound = this.perevodUsedThisRound;
+    g.idleRounds = this.idleRounds;
+    g.stalemateWarning = this.stalemateWarning ? { ...this.stalemateWarning } : null;
+    g.drawReason = this.drawReason;
+    g.drawPlayers = this.drawPlayers.slice();
+    g._progressMark = this._progressMark;
     g.attackerIndex = this.attackerIndex;
     g.defenderIndex = this.defenderIndex;
     g._defenderHandAtStart = this._defenderHandAtStart;
