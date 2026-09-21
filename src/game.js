@@ -11,6 +11,16 @@ function cardIndexInHand(hand, card) {
   return hand.findIndex((c) => c.suit === card.suit && c.rank === card.rank);
 }
 
+// Склонение существительного после числительного: plural(3, 'ход', 'хода', 'ходов') -> 'хода'.
+function plural(n, one, few, many) {
+  const mod100 = Math.abs(n) % 100;
+  const mod10 = mod100 % 10;
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
+
 // Правила, которые видны игрокам и уходят в getState().rules (только простые значения — JSON).
 function publicRulesOf(rules) {
   return Object.freeze({
