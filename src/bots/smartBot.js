@@ -356,14 +356,43 @@ export class SmartBot {
       }
     }
 
-    // 2. Сортировка кандидатов: дешевле — лучше; парные ранги идут вперёд (разгрузка).
-    const scored = attacks.map((a) => {
-      let score = cardPower(a.card, trumpSuit);
-      if (this.profile.dumpPairs && (rankCount.get(a.card.rank) || 0) >= 2) score -= 3;
-      return { a, score };
-    });
-    scored.sort((x, y) => x.score - y.score || cardPower(x.a.card, trumpSuit) - cardPower(y.a.card, trumpSuit));
-    const choice = scored[0].a;
+    // 2. Сортировка кандидатов.
+    //    Базовая (как раньше): дешевле — лучше; парные ранги идут вперёд (разгрузка).
+    //    С флагом `attackByPressure` — по шансу, что соперник НЕ отобьётся, с поправкой
+    //    на цену отдаваемой карты (этап 4, issue #49; оценки — src/bots/estimate.js).
+    let choice;
+    let pressurePick = null;
+    if (this.profile.attackByPressure && this.tracker && !takingNow && defenderCards > 0) {
+      try {
+        const ranked = bestAttackByPressure(attacks, this.tracker, state, {
+          costWeight: PRESSURE_COST_WEIGHT,
+          oppId: defenderId,
+          trumpSuit,
+        }).map((r) => {
+          // Разгрузка парами остаётся отдельным правилом и здесь тоже учитывается:
+          // пара по шкале давления стоит столько же, сколько 3 единицы cardPower раньше.
+          const bonus = this.profile.dumpPairs && (rankCount.get(r.card.rank) || 0) >= 2
+            ? (PRESSURE_COST_WEIGHT * 3) / MAX_CARD_POWER
+            : 0;
+          return { ...r, score: r.score + bonus };
+        });
+        ranked.sort((x, y) => y.score - x.score || x.cost - y.cost);
+        if (ranked.length) pressurePick = ranked[0];
+      } catch {
+        pressurePick = null;    // оценки — вспомогательный слой, без них играем как раньше
+      }
+    }
+    if (pressurePick) {
+      choice = pressurePick.action;
+    } else {
+      const scored = attacks.map((a) => {
+        let score = cardPower(a.card, trumpSuit);
+        if (this.profile.dumpPairs && (rankCount.get(a.card.rank) || 0) >= 2) score -= 3;
+        return { a, score };
+      });
+      scored.sort((x, y) => x.score - y.score || cardPower(x.a.card, trumpSuit) - cardPower(y.a.card, trumpSuit));
+      choice = scored[0].a;
+    }
     const card = choice.card;
     const isTrump = card.suit === trumpSuit;
     const isHigh = card.rank >= HIGH_RANK;
