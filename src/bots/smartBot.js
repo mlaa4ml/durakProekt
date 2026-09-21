@@ -515,6 +515,45 @@ export class SmartBot {
       return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — иначе пришлось бы тратить козырь.` };
     }
 
+    // 3.5. Вероятностный выбор «брать или отбиваться» (этап 4, issue #49).
+    //      Никаких порогов «на глаз»: сравниваем ДВЕ ожидаемые цены в одной и той же шкале
+    //      ценности карт (`cardPower`).
+    //        цена взятия  = всё, что лежит на столе, плюс то, что ещё подкинут;
+    //        цена защиты  = карты, которые уйдут с руки на отбой, плюс риск,
+    //                       что отбиться всё равно не выйдет и стол придётся забрать.
+    //      Работает, только пока идёт прикуп: при пустой колоде решает точный счёт
+    //      (`exactEndgame` / `exactEndgameSolver`), там взятие оценивается иначе.
+    if (this.profile.probabilisticTake && take && !endgame && this.tracker) {
+      try {
+        const pSurv = pDefenseSurvives(table, hand, this.tracker, state);
+        const extra = expectedThrowIn(state, this.tracker, playerId);
+        const tableCost = table.reduce(
+          (s, t) => s + (t.attack ? cardPower(t.attack, trumpSuit) : 0) + (t.defense ? cardPower(t.defense, trumpSuit) : 0),
+          0,
+        );
+        const avgCard = table.length ? tableCost / table.reduce((s, t) => s + 1 + (t.defense ? 1 : 0), 0) : 0;
+        const costTake = tableCost + extra * avgCard;
+        const defendCost = plan.canDefendAll ? plan.cost : Infinity;
+        // Не отбился — забираю и стол, и уже потраченные на отбой карты.
+        const costDefend = defendCost + (1 - pSurv) * (costTake + defendCost);
+        if (costTake < costDefend || pSurv < DEFENSE_HOPELESS_P) {
+          if (cheapTransfer) {
+            return {
+              action: cheapTransfer,
+              reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться до конца я вряд ли успею, а так стол уйдёт дальше.`,
+            };
+          }
+          const voids = voidSuitsOf(this.tracker, attackerId);
+          const why = voids.length
+            ? 'подкидывать ему есть чем, а я на этом потеряю больше, чем заберу'
+            : 'мне ещё подкинут, и защита обойдётся дороже, чем взятые карты';
+          return { action: take, reason: `Беру карты: ${why}.` };
+        }
+      } catch {
+        // Оценки — вспомогательный слой: если что-то пошло не так, решают обычные правила.
+      }
+    }
+
     // 5. Эндшпиль: колода пуста, считаем по-простому и точно.
     if (this.profile.exactEndgame && endgame) {
       const known = this._opponentKnownHand(attackerId);
