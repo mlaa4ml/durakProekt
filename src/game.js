@@ -63,6 +63,15 @@ export class DurakGame {
     this.phase = 'need-attack'; // need-attack | defender-to-act | finished
     this.perevodUsedThisRound = false;
 
+    // Защита от "вечной" партии (issue #55): если заходы идут один за другим, а партия
+    // не двигается (никто не выходит, в бито ничего не уходит, колода не убывает) —
+    // объявляем ничью между всеми, кто остался с картами.
+    this.idleRounds = 0;           // заходов подряд без прогресса
+    this.stalemateWarning = null;  // { roundsLeft, text } — то, что показывает лобби
+    this.drawReason = null;        // 'stalemate', если партия окончена ничьёй по зацикливанию
+    this.drawPlayers = [];         // id тех, кто остался с картами на момент ничьей
+    this._progressMark = null;     // снимок "прогресса" на конец прошлого захода
+
     this.attackerIndex = this._pickFirstAttacker();
     this._setDefender(this._nextActiveIndex(this.attackerIndex));
     this.allowAnyCardNow = true;  // разрешено класть любую карту (только на пустой стол в начале раунда)
