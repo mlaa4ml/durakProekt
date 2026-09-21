@@ -713,6 +713,9 @@ export class DurakGame {
 
     if (this.phase === 'finished') return;
 
+    this._noteRoundProgress();
+    if (this.phase === 'finished') return;
+
     // Следующий раунд:
     // - если защищавшийся отбился — он сам становится атакующим (роли переходят по кругу),
     //   если только он этим же ходом не вышел из игры (тогда ход передаётся дальше);
