@@ -3523,6 +3523,62 @@ const SMART_PROFILE = {
                                  // оба флага выключенными во всех конфигурациях, пока модель не доработана.
 };
 
+// ---------------------------------------------------------------------------
+//  Профили по варианту игры (этап 5, issue #50)
+// ---------------------------------------------------------------------------
+//
+// Раздел 1.4 roadmap: эвристики выше подбирались на колоде 24 на 2 игрока, и на других
+// столах те же флаги ведут себя иначе. Поэтому профиль теперь не один: бот САМ выбирает
+// его по `state.rules` (этап 2, issue #47). Наружу (в интерфейс) профили не выводятся —
+// уровней для пользователя по-прежнему два, «простой» и «умный».
+//
+//   duel  — 2 игрока     (историческая калибровка, колоды 24/36/52)
+//   small — 3–4 игрока   (проблемные точки 4×24 и 4×36)
+//   large — 5–6 игроков  (проблемная точка 6×52)
+//
+// Все профили строятся спредом от `SMART_PROFILE`, поэтому набор ключей у них ОДИНАКОВ
+// (флаг нельзя потерять в одном из профилей — это проверяет test/profiles.test.js).
+// Каждое отличие от базы сопровождается цифрой A/B-прогона (`scripts/abProfile.js`).
+const SMART_PROFILES = {
+  // 2 игрока — исторический профиль: цифры см. в комментариях к SMART_PROFILE выше.
+  duel: SMART_PROFILE,
+
+  // 3–4 игрока.
+  small: {
+    ...SMART_PROFILE,
+    avoidBurningBigTrump: false, // A/B 4×36: БЕЗ флага результат лучше (раздел 1.4 roadmap: ≈ 2 п.п.).
+                                 // За столом 3–4 человек отбой чаще доигрывают подкидыванием, и
+                                 // «поберечь козырного короля, взяв карты» оборачивается лишним взятием.
+    dumpPairs: true,             // A/B: +3,2 п.п. на 24×2, на 36×4 разница в пределах шума ->
+                                 // оставлен включённым (полезен, когда стол сводится к дуэли).
+  },
+
+  // 5–6 игроков.
+  large: {
+    ...SMART_PROFILE,
+    avoidBurningBigTrump: false, // то же, что в `small`, только сильнее: чем больше подкидывающих,
+                                 // тем дороже взятие и тем менее оправдана экономия крупного козыря.
+    finishOffWeakOpponent: true, // за большим столом добить игрока с 1–2 картами по-прежнему выгодно:
+                                 // он выбывает, и стол быстрее сводится к дуэли.
+  },
+};
+
+/** Имя профиля по правилам партии. Неизвестное/отсутствующее `rules` -> безопасный дефолт `duel`. */
+function pickProfileName(rules) {
+  const n = rules && typeof rules === 'object' ? Number(rules.numPlayers) : NaN;
+  if (!Number.isFinite(n) || n <= 2) return 'duel';
+  if (n <= 4) return 'small';
+  return 'large';
+}
+
+/**
+ * Профиль эвристик по правилам партии (`state.rules` или его фолбэк из `rulesOfState`).
+ * Никогда не бросает и всегда возвращает существующий объект профиля.
+ */
+function pickProfile(rules) {
+  return SMART_PROFILES[pickProfileName(rules)] || SMART_PROFILES.duel;
+}
+
 // Вес цены отдаваемой карты в оценке атаки: 1 п.п. давления стоит примерно 1 % шкалы cardPower.
 // Значение не «на глаз»: cost нормирован на козырного туза (MAX_CARD_POWER), поэтому 0.35 означает
 // «отдать козырного туза вместо шестёрки оправдано, только если это даёт >35 п.п. давления».
@@ -3583,7 +3639,13 @@ const PHASE_LABEL = { debut: 'начало партии', middle: 'середи�
  */
 class SmartBot {
   constructor(options = {}) {
-    this.profile = { ...SMART_PROFILE, ...(options.profile || {}) };
+    // Явно переданный профиль (A/B-прогоны, тесты) ПЕРЕКРЫВАЕТ автоподбор: то, что попросили
+    // снаружи, важнее. Если его нет — профиль выбирается по правилам партии (`pickProfile`)
+    // и фиксируется на партию, как и уровень бота.
+    this.profileOverride = options.profile ? { ...options.profile } : null;
+    this.profileName = this.profileOverride ? 'custom' : 'duel';
+    this.profile = { ...SMART_PROFILE, ...(this.profileOverride || {}) };
+    this._profileFixed = this.profileOverride !== null; // профиль на эту партию уже определён
     this.explain = options.explain === true;
     this.meId = options.meId || null;
     this.tracker = null;
@@ -3599,6 +3661,8 @@ class SmartBot {
     if (meId) this.meId = meId;
     this.tracker = null;
     this._rulesSrc = null;
+    // Новая партия — профиль подбирается заново (если его не задали снаружи).
+    this._profileFixed = this.profileOverride !== null;
     if (state) this.observe(state, this.meId);
     return this;
   }
@@ -3620,9 +3684,23 @@ class SmartBot {
   /** Обновляет this.rules по состоянию; тот же объект state.rules, что и в прошлый раз, не пересчитывается. */
   _syncRules(state) {
     const src = state && state.rules ? state.rules : null;
-    if (src && src === this._rulesSrc) return;
+    if (src && src === this._rulesSrc) { this._applyProfile(); return; }
     this.rules = rulesOfState(state);
     this._rulesSrc = src;
+    this._applyProfile();
+  }
+
+  /**
+   * Профиль по варианту игры (этап 5, issue #50). Выбирается АВТОМАТИЧЕСКИ по this.rules
+   * и фиксируется до следующего reset(): менять эвристики посреди партии (например, когда
+   * за столом на 4 человек осталось двое) — значит играть двумя разными ботами в одной
+   * раздаче; проверка такой смены в issue #49 улучшения не дала.
+   */
+  _applyProfile() {
+    if (this._profileFixed) return;
+    this.profileName = pickProfileName(this.rules);
+    this.profile = { ...pickProfile(this.rules) };
+    this._profileFixed = true;
   }
 
   // ------------------------------------------------------------------
