@@ -1,0 +1,146 @@
+# Облачная проверка проекта БЕЗ Codespaces.
+#
+# Зачем: создание Codespace требует отдельных прав (scope `Codespaces: RW`)
+# и включённых Codespaces для аккаунта/организации — см. issue #5.
+# GitHub Actions таких прав не требует и доступен всем (в т.ч. агентам,
+# которые могут только пушить ветку): достаточно запушить ветку — и во
+# вкладке Actions будет полный лог прогона.
+#
+# Что проверяется:
+#   1. движок и боты офлайн (playVerbose + simulate на разных конфигурациях);
+#   2. бенчмарк ботов `botMatch` (калибровочный прогон simple vs simple: 0 ошибок, 0 зависаний)
+#      и короткий контроль матрицы `npm run eval-bots:quick` (issue #46 — ловим ошибки движка
+#      и зависания на 2×24 / 4×36 / 6×52; силу бота полной матрицей здесь НЕ меряем);
+#   3. идентичность клиентов: `visual/index.html` и `docs/index.html` байт-в-байт
+#      (расхождение валит сборку; чинится `npm run sync-client`);
+#   4. HTTP-эндпоинты сервера: /health, /, /visual;
+#   5. если в ветке есть `npm run smoke` (scripts/smoke.js) — прогоняется и он
+#      (полная партия по WebSocket).
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Установить зависимости
+        run: npm install
+
+      - name: Версии
+        run: node -v && npm -v
+
+      - name: Юнит-тесты (node:test, если в ветке есть test/)
+        run: |
+          set -e
+          if [ -d test ]; then
+            node --test test/
+          else
+            echo "В этой ветке нет каталога test/ — пропускаю."
+          fi
+
+      - name: Движок — подробный лог одной партии
+        run: |
+          node src/cli/playVerbose.js 2 24 | tail -20
+          node src/cli/playVerbose.js 4 36 | tail -20
+
+      - name: Движок — массовый прогон
+        run: |
+          set -e
+          for cfg in "300 2 24" "200 3 36" "200 4 36" "150 6 52"; do
+            echo "=== simulate $cfg ==="
+            out=$(node src/cli/simulate.js $cfg)
+            echo "$out"
+            echo "$out" | grep -q "Ошибок движка: 0" || {
+              echo "::error::simulate $cfg — ненулевое число ошибок движка"; exit 1;
+            }
+          done
+
+      - name: Бенчмарк ботов — botMatch (калибровка simple vs simple)
+        run: |
+          set -e
+          if [ ! -f src/cli/botMatch.js ]; then
+            echo "В этой ветке нет src/cli/botMatch.js — пропускаю (см. issue #31)."
+            exit 0
+          fi
+          out=$(node src/cli/botMatch.js 400 simple simple 24 2)
+          echo "$out"
+          echo "$out" | grep -q "Ошибок движка: 0" || {
+            echo "::error::botMatch — ненулевое число ошибок движка"; exit 1;
+          }
+          echo "$out" | grep -q "Зависших (упёрлись в предохранитель): 0" || {
+            echo "::error::botMatch — есть зависшие партии"; exit 1;
+          }
+
+      - name: Матрица конфигураций — eval-bots:quick (короткий контроль)
+        run: |
+          set -e
+          if [ ! -f scripts/evalBots.js ]; then
+            echo "В этой ветке нет scripts/evalBots.js — пропускаю (см. issue #46)."
+            exit 0
+          fi
+          # Здесь НЕ меряем силу бота (для этого нужна полная матрица на 3–5 минут),
+          # а ловим ошибки движка и зависания на разных конфигурациях. Поэтому --no-gate
+          # и маленькое число партий.
+          out=$(npm run --silent eval-bots:quick -- --games=200 --a=simple --b=simple --no-gate)
+          echo "$out"
+          echo "$out" | grep -qE "ошибок движка 0, зависаний 0" || {
+            echo "::error::eval-bots:quick — есть ошибки движка или зависания"; exit 1;
+          }
+
+      - name: Клиенты идентичны — visual/index.html == docs/index.html
+        run: |
+          set -e
+          if cmp -s visual/index.html docs/index.html; then
+            echo "OK: visual/index.html и docs/index.html идентичны ($(wc -c < visual/index.html) байт)."
+          else
+            echo "::error::visual/index.html и docs/index.html разошлись — выполните 'npm run sync-client' и закоммитьте docs/index.html"
+            diff -u <(head -c 4000 visual/index.html) <(head -c 4000 docs/index.html) | head -40 || true
+            exit 1
+          fi
+
+      - name: Сервер — /health, /, /visual
+        run: |
+          set -e
+          PORT=8099 node server/index.js &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8099/health > /dev/null; then break; fi
+            sleep 1
+          done
+
+          echo "--- /health ---"
+          curl -sf http://127.0.0.1:8099/health | tee /tmp/health.json
+          echo
+          grep -q '"ok":true' /tmp/health.json
+
+          for path in / /visual; do
+            code=$(curl -s -o /tmp/page.html -w '%{http_code}' "http://127.0.0.1:8099$path")
+            size=$(wc -c < /tmp/page.html)
+            echo "$path -> HTTP $code, $size байт"
+            [ "$code" = "200" ] || { echo "::error::$path вернул $code"; exit 1; }
+            [ "$size" -gt 100 ] || { echo "::error::$path вернул пустую страницу"; exit 1; }
+          done
+
+      - name: Smoke-тест (если есть в ветке)
+        run: |
+          if grep -q '"smoke"' package.json; then
+            npm run smoke
+          else
+            echo "В этой ветке нет скрипта npm run smoke — пропускаю (см. issue #4)."
+          fi
