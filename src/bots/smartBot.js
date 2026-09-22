@@ -206,7 +206,13 @@ const PHASE_LABEL = { debut: 'начало партии', middle: 'середи�
  */
 export class SmartBot {
   constructor(options = {}) {
-    this.profile = { ...SMART_PROFILE, ...(options.profile || {}) };
+    // Явно переданный профиль (A/B-прогоны, тесты) ПЕРЕКРЫВАЕТ автоподбор: то, что попросили
+    // снаружи, важнее. Если его нет — профиль выбирается по правилам партии (`pickProfile`)
+    // и фиксируется на партию, как и уровень бота.
+    this.profileOverride = options.profile ? { ...options.profile } : null;
+    this.profileName = this.profileOverride ? 'custom' : 'duel';
+    this.profile = { ...SMART_PROFILE, ...(this.profileOverride || {}) };
+    this._profileFixed = this.profileOverride !== null; // профиль на эту партию уже определён
     this.explain = options.explain === true;
     this.meId = options.meId || null;
     this.tracker = null;
