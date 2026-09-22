@@ -251,9 +251,23 @@ export class SmartBot {
   /** Обновляет this.rules по состоянию; тот же объект state.rules, что и в прошлый раз, не пересчитывается. */
   _syncRules(state) {
     const src = state && state.rules ? state.rules : null;
-    if (src && src === this._rulesSrc) return;
+    if (src && src === this._rulesSrc) { this._applyProfile(); return; }
     this.rules = rulesOfState(state);
     this._rulesSrc = src;
+    this._applyProfile();
+  }
+
+  /**
+   * Профиль по варианту игры (этап 5, issue #50). Выбирается АВТОМАТИЧЕСКИ по this.rules
+   * и фиксируется до следующего reset(): менять эвристики посреди партии (например, когда
+   * за столом на 4 человек осталось двое) — значит играть двумя разными ботами в одной
+   * раздаче; проверка такой смены в issue #49 улучшения не дала.
+   */
+  _applyProfile() {
+    if (this._profileFixed) return;
+    this.profileName = pickProfileName(this.rules);
+    this.profile = { ...pickProfile(this.rules) };
+    this._profileFixed = true;
   }
 
   // ------------------------------------------------------------------
