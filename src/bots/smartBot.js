@@ -228,6 +228,8 @@ export class SmartBot {
     if (meId) this.meId = meId;
     this.tracker = null;
     this._rulesSrc = null;
+    // Новая партия — профиль подбирается заново (если его не задали снаружи).
+    this._profileFixed = this.profileOverride !== null;
     if (state) this.observe(state, this.meId);
     return this;
   }
