@@ -24,7 +24,18 @@ function publicRulesOf(rules) {
     allowPerevod: rules.allowPerevod,
     perevodOnlyOnFirstCard: rules.perevodOnlyOnFirstCard,
     perevodRequiresEnoughCards: rules.perevodRequiresEnoughCards,
+    stallLimit: rules.stallLimit,
+    stallWarning: rules.stallWarning,
   });
+}
+
+// Русское склонение «ход/хода/ходов» для сообщений о ничьей и предупреждений о ней.
+function pluralMoves(n) {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return 'ход';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'хода';
+  return 'ходов';
 }
 
 /**
@@ -57,6 +68,9 @@ export class DurakGame {
     this.discardCount = 0;
     this.finishedOrder = [];
     this.durak = null;
+    this.drawReason = null; // null | 'stall' (ничья по застою) | 'simultaneous' (несколько вышли одновременно)
+    this.stallActions = 0;  // сколько ДЕЙСТВИЙ подряд прошло без прогресса — см. rules.stallLimit
+    this._stallWarned = false;
     this.phase = 'need-attack'; // need-attack | defender-to-act | finished
     this.perevodUsedThisRound = false;
 
@@ -216,6 +230,13 @@ export class DurakGame {
       })),
       durak: this.durak,
       finished: this.phase === 'finished',
+      // Партия окончена без дурака: либо по застою (drawReason: 'stall'), либо несколько
+      // игроков вышли в один и тот же момент, когда колода уже опустела ('simultaneous').
+      draw: this.phase === 'finished' && this.durak === null,
+      drawReason: this.drawReason,
+      // Обратный отсчёт до ничьей «по застою» (см. rules.stallLimit); remaining === null,
+      // если правило выключено (stallLimit: 0).
+      stall: this.getStallInfo(),
 
       // Правила партии — боту и сетевому клиенту (раздел 2 SMART_BOT_ROADMAP.md).
       // Одинаковы для всех игроков и ничего не раскрывают: это настройки партии,
@@ -248,6 +269,32 @@ export class DurakGame {
       allowedThrowInRanks: ranks === null ? null : [...ranks].sort((a, b) => a - b),
       throwInPlayers: this.throwInQueue.map((idx) => this.players[idx].id),
     };
+  }
+
+  /**
+   * Состояние отсчёта до ничьей «по застою»:
+   *   actions   — сколько ДЕЙСТВИЙ подряд без прогресса уже прошло;
+   *   limit     — на каком количестве действий наступит ничья (0 = правило выключено);
+   *   remaining — сколько действий осталось до ничьей (null, если правило выключено);
+   *   warning   — true, когда до ничьи осталось не больше rules.stallWarning действий
+   *               (пора показывать предупреждение в интерфейсе).
+   */
+  getStallInfo() {
+    const limit = this._stallLimit();
+    if (limit <= 0) return { actions: 0, limit: 0, remaining: null, warning: false };
+    const remaining = Math.max(limit - this.stallActions, 0);
+    return {
+      actions: this.stallActions,
+      limit,
+      remaining,
+      warning: this.phase !== 'finished' && this.stallActions > 0 && remaining <= this.rules.stallWarning,
+    };
+  }
+
+  // «Тихие» партии (перебор позиций решателя, src/bots/endgame.js) правило застоя не применяют:
+  // там своя защита от зацикливания — повтор позиции на ветке перебора считается ничьей.
+  _stallLimit() {
+    return this.silent ? 0 : this.rules.stallLimit;
   }
 
   getLegalActions(playerId) {
@@ -402,15 +449,61 @@ export class DurakGame {
   }
 
   // Выполняет уже проверенное действие (объект из getLegalActions).
+  // Учёт застоя оборачивает вызов снаружи (а не встроен в отдельные _doX), поэтому считает
+  // ЛЮБОЕ действие любого игрока — атаку, перевод, отбой, взятие, пас — одинаково, и его
+  // не может случайно обойти будущий новый тип действия.
   _dispatch(idx, match) {
+    const before = { discard: this.discardCount, talon: this.talon.length, out: this.finishedOrder.length };
     switch (match.type) {
-      case 'attack': return this._doAttack(idx, match.card);
-      case 'pass': return this._doPass(idx);
-      case 'defend': return this._doDefend(idx, match.card, match.against);
-      case 'transfer': return this._doTransfer(idx, match.cards);
-      case 'take': return this._doTake(idx);
+      case 'attack': this._doAttack(idx, match.card); break;
+      case 'pass': this._doPass(idx); break;
+      case 'defend': this._doDefend(idx, match.card, match.against); break;
+      case 'transfer': this._doTransfer(idx, match.cards); break;
+      case 'take': this._doTake(idx); break;
       default: throw new Error('Неизвестное действие: ' + match.type);
     }
+    this._trackStall(before);
+    return this._result();
+  }
+
+  // Прогресс — то, что гарантированно приближает партию к концу: пара карт ушла в бито,
+  // игрок вышел из игры, кто-то взял карту из колоды (колода конечна, поэтому взятие из неё
+  // тоже прогресс). Если за stallLimit действий подряд прогресса не было — ничья.
+  _trackStall(before) {
+    if (this.phase === 'finished') return;
+    const limit = this._stallLimit();
+    if (limit <= 0) return;
+
+    const progressed = this.discardCount > before.discard
+      || this.finishedOrder.length > before.out
+      || this.talon.length < before.talon;
+
+    if (progressed) {
+      if (this._stallWarned) {
+        this._log(() => 'Угроза ничьей по застою снята: счётчик действий без прогресса обнулён.');
+      }
+      this.stallActions = 0;
+      this._stallWarned = false;
+      return;
+    }
+
+    this.stallActions++;
+    const remaining = limit - this.stallActions;
+    if (remaining <= 0) {
+      this._finishDraw('stall');
+      return;
+    }
+    if (remaining <= this.rules.stallWarning) {
+      this._stallWarned = true;
+      this._log(() => `Внимание: ничья через ${remaining} ${pluralMoves(remaining)}, если ни одна пара карт не уйдёт в бито, никто не выйдет из игры и никто не возьмёт карту из колоды.`);
+    }
+  }
+
+  _finishDraw(reason) {
+    this.phase = 'finished';
+    this.durak = null;
+    this.drawReason = reason;
+    this._log(() => `Игра окончена: ничья (${this.stallActions} ${pluralMoves(this.stallActions)} подряд без прогресса — ни одна пара карт не ушла в бито, никто не вышел из игры). Дурака нет, места игрокам, оставшимся с картами, не присваиваются.`);
   }
 
   // ---------- Копии позиции (для перебора: src/bots/endgame.js) ----------
@@ -454,6 +547,9 @@ export class DurakGame {
     g.discardCount = this.discardCount;
     g.finishedOrder = this.finishedOrder.slice();
     g.durak = this.durak;
+    g.drawReason = this.drawReason;
+    g.stallActions = this.stallActions;
+    g._stallWarned = this._stallWarned;
     g.phase = this.phase;
     g.perevodUsedThisRound = this.perevodUsedThisRound;
     g.attackerIndex = this.attackerIndex;
@@ -511,6 +607,9 @@ export class DurakGame {
     g.discardCount = pos.discardCount || 0;
     g.finishedOrder = [];
     g.durak = null;
+    g.drawReason = null;
+    g.stallActions = 0;
+    g._stallWarned = false;
     g.phase = pos.phase;
     g.perevodUsedThisRound = false;
     g.attackerIndex = attackerIndex;
@@ -777,6 +876,7 @@ export class DurakGame {
       const active = this._activeIndices();
       this.durak = active.length === 1 ? this.players[active[0]].id : null;
     }
+    this.drawReason = this.durak ? null : 'simultaneous';
     if (this.durak) {
       this._log(() => `Игра окончена. Дурак: ${this.players.find(p=>p.id===this.durak).name}`);
     } else {

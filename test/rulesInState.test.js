@@ -24,6 +24,7 @@ const RULE_FIELDS = [
   'throwInPolicy', 'throwInAfterTake',
   'maxTableAttacks', 'attackLimitByDefenderHand',
   'allowPerevod', 'perevodOnlyOnFirstCard', 'perevodRequiresEnoughCards',
+  'stallLimit', 'stallWarning',
 ];
 const POLICIES = ['attackerOnly', 'neighbors', 'all'];
 const MAX_STEPS = 4000;
@@ -184,7 +185,7 @@ test('getState(id) содержит rules со всеми перечисленн
   const { rules } = game.getState('p1');
 
   assert.deepEqual(Object.keys(rules).sort(), [...RULE_FIELDS].sort(), 'набор полей rules');
-  assert.deepEqual(rules, { ...overrides, numPlayers: 3 });
+  assert.deepEqual(rules, { ...overrides, numPlayers: 3, stallLimit: DEFAULT_RULES.stallLimit, stallWarning: DEFAULT_RULES.stallWarning });
 });
 
 test('rules по умолчанию берутся из DEFAULT_RULES; numPlayers — по числу игроков', () => {
