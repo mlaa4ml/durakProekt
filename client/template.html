@@ -450,6 +450,8 @@
   .hud-chip.trump .suit{ font-family:var(--display); font-size:16px; line-height:1; color:var(--text-strong); }
   .hud-chip.trump .suit.red{ color:#d2483a; }
   .hud-chip.finished{ border-color:var(--gold); font-size:12px; }
+  .hud-chip.stall-warning{ border-color:#d2483a; color:#d2483a; animation:stall-pulse 1.4s ease-in-out infinite; }
+  @keyframes stall-pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.55; } }
 
   /* Кольцо вокруг места того, кто сейчас атакует / защищается. */
   .opp:has(.role-tag.attacker) .hand-count::after,
@@ -830,6 +832,7 @@ class RecordingGame extends DurakGame {
       attackerIndex:this.attackerIndex, defenderIndex:this.defenderIndex,
       players:this.players.map(p=>({id:p.id,name:p.name,hand:p.hand.slice(),out:p.out,finishRank:p.finishRank})),
       durak:this.durak, finished:this.phase==='finished',
+      stall:this.getStallInfo(),
     };
   }
   _log(msg){
@@ -1091,6 +1094,7 @@ function renderInteractive(){
     trumpSuit: igame.trumpSuit,
     talonCount: igame.talon.length,
     discardCount: igame.discardCount,
+    stall: igame.getStallInfo(),
   });
   document.getElementById('eventDesc').textContent = igame.log[igame.log.length-1] || '';
   document.getElementById('stepCounter').textContent = '';
@@ -1443,6 +1447,7 @@ function renderNetwork(){
     trumpSuit: st.trumpSuit,
     talonCount: st.talonCount,
     discardCount: st.discardCount,
+    stall: st.stall,
   });
   document.getElementById('eventDesc').textContent='';
   document.getElementById('stepCounter').textContent='';
@@ -1707,6 +1712,12 @@ window.addEventListener('resize', ()=>{
    поэтому «кто атакует / кто защищается» читается одним взглядом.
    Функция общая для всех трёх режимов (просмотр ботов / против ботов / сеть). */
 function hudEsc(s){ return String(s==null?'':s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function moveWord(n){
+  const m10=n%10, m100=n%100;
+  if(m10===1 && m100!==11) return 'ход';
+  if(m10>=2 && m10<=4 && (m100<12 || m100>14)) return 'хода';
+  return 'ходов';
+}
 function hudSuitHtml(suit){
   return `<span class="suit${RED_SUITS.has(suit)?' red':''}">${hudEsc(suit)}</span>`;
 }
@@ -1725,6 +1736,11 @@ function renderStatusHud(o){
   chips.push(`<span class="hud-chip defender"><span class="dot"></span>защищается <b>${hudEsc(o.defenderName||'?')}</b></span>`);
   chips.push(`<span class="hud-chip">колода <b>${o.talonCount==null?'?':o.talonCount}</b></span>`);
   chips.push(`<span class="hud-chip">бито <b>${o.discardCount||0}</b></span>`);
+  // Обратный отсчёт до ничьей «по застою» (см. rules.stallLimit): предупреждаем игроков заранее,
+  // чтобы они понимали, почему партия вот-вот закончится вничью, а не потому что кто-то дурак.
+  if(o.stall && o.stall.warning){
+    chips.push(`<span class="hud-chip stall-warning">ничья через <b>${o.stall.remaining}</b> ${moveWord(o.stall.remaining)}, если не будет бито или выхода из игры</span>`);
+  }
   box.innerHTML = chips.join('');
 }
 // Подсветка «сейчас ходите вы»: окантовка стола + контрастная подсказка +
@@ -1863,6 +1879,7 @@ function render(){
     trumpSuit: snap.trumpSuit,
     talonCount: snap.talonCount,
     discardCount: snap.discardCount,
+    stall: snap.stall,
   });
   markYourTurn(false); // режим просмотра ботов — «вашего хода» здесь не бывает
 
