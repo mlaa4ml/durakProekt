@@ -3474,54 +3474,59 @@ function bestAttackByPressure(legalAttacks, tracker, state, options = {}) {
 // можно было измерить A/B-прогоном `src/cli/botMatch.js`.
 
 /** Профиль эвристик. Каждый флаг — отдельное правило раздела 5.3, включается/выключается для A/B. */
-// Значения флагов — НЕ вкусовщина, а результат A/B-прогонов (`scripts/abProfile.js`,
-// 2000 партий smart против simple, колода 24 на 2). Флаг, который не улучшает метрику,
-// по требованию issue #33 выключен; таблица цифр приложена к отчёту в issue.
-const SMART_PROFILE = {
-  holdTrumpsWhileTalon: true,    // беречь козыри при подкидывании, пока идёт прикуп (+1.3 п.п. без него)
-  holdHighCardsWhileTalon: false,// ВЫКЛЮЧЕН: придерживание Q+ стоило 12.6 п.п. — некозырную мелочь
-                                 // выгоднее сбрасывать сразу, иначе рука к эндшпилю забита старьём
-  avoidBurningBigTrump: true,    // лучше взять, чем спалить козырного K/A ради мелочи
-  finishOffWeakOpponent: true,   // добивать соперника картой, которую он (по подсчётам) не бьёт
-  takeWhenTableUnbeatable: true, // брать сразу, если весь стол не отбить
-  exactEndgame: true,            // точный счёт, когда прикуп пуст
-  dumpPairs: true,               // разгружаться парами/тройками одного ранга (+3.2 п.п. без него)
-  exactEndgameSolver: true,      // ПОЛНЫЙ перебор концовки дуэли, когда рука соперника известна точно
-                                 // (src/bots/endgame.js, issue #48). Матрица A/B «с решателем против без»:
-                                 // 2×24/36/52 — 36,9 / 38,9 / 40,4 % «дурака» у новой версии (по 900 партий,
-                                 // ± 3,3 п.п.), остальные конфигурации ≤ 51 %. Бюджет — 2 с на ход.
-
-  // --- этап 4 (issue #49): вероятностные оценки из памяти, src/bots/estimate.js ---
-  attackByPressure: false,       // ходить/подкидывать картой с наибольшим шансом, что соперник НЕ отобьётся
-                                 // (`bestAttackByPressure`: давление минус нормированная цена карты),
-                                 // вместо «просто самой дешёвой».
-                                 // A/B (200 партий на конфигурацию, доля «дурака» у smart, меньше = лучше):
-                                 // 24×2 — 45,1 % с флагом против 28,4 % без него; 36×2 — 58,7 % против 57,1 %.
-                                 // Правило ВРЕДИТ, поэтому по умолчанию выключено (как holdHighCardsWhileTalon).
-  probabilisticTake: false,      // «брать или отбиваться» по ожидаемой цене: сравниваем ожидаемую цену
-                                 // защиты (карты, которые уйдут, с учётом `expectedThrowIn`) с ценой взятия,
-                                 // а не по порогам. Раздел 1.5 roadmap: грубый порог давал чистый шум.
-                                 // A/B: 24×2 — 45,1 % с флагом против 31,7 % без него; 36×2 — 58,7 % против 45,9 %.
-                                 // Тоже ВРЕДИТ: модель цены защиты переоценивает выгоду риска -> выключено
-                                 // до доработки (см. отчёт в issue #49).
-                                 //
-                                 // Проверялась гипотеза «включить оба флага только в дуэли, до которой партия
-                                 // ДОШЛА с 3-4 игроков» (rules.numPlayers > 2 && живых осталось двое) — в
-                                 // одиночном прогоне 36×4 на 200 партий (Math.random, без фиксации seed) это
-                                 // якобы улучшало результат: 34,0 % «дурака» у smart с флагами против 41,7 %
-                                 // без них. Повторная проверка с парными seed'ами (одна и та же партия
-                                 // играется с флагами и без — так шум одной раздачи не портит сравнение) и
-                                 // бо́льшей выборкой разницу НЕ подтвердила ни на одной конфигурации:
-                                 //   24×2  (N=300, флаги и так выключены гейтом): 21,4 % / 21,4 %
-                                 //   36×3  (N=300): 39,6 % / 39,7 %
-                                 //   36×4  (N=300): 38,1 % / 39,2 %;  (N=600): 38,7 % / 38,9 %
-                                 //   52×3  (N=300): 42,9 % / 43,1 %
-                                 //   24×4  (N=300): 52,1 % / 51,7 %
-                                 // Разница везде в пределах шума (±3 п.п. при N≈300). Исходные 34,0 / 41,7 %
-                                 // были статистической случайностью одного непарного прогона на 200 партий.
-                                 // Вывод: включать флаги по числу игроков за столом смысла не имеет — держим
-                                 // оба флага выключенными во всех конфигурациях, пока модель не доработана.
+const SMART_PROFILES = {
+  duel: {
+    holdTrumpsWhileTalon: true,    // беречь козыри при подкидывании, пока идёт прикуп (+1.3 п.п. без него)
+    holdHighCardsWhileTalon: false,// ВЫКЛЮЧЕН: придерживание Q+ стоило 12.6 п.п.
+    avoidBurningBigTrump: true,    // лучше взять, чем спалить козырного K/A ради мелочи
+    finishOffWeakOpponent: true,   // добивать соперника картой, которую он не бьёт
+    takeWhenTableUnbeatable: true, // брать сразу, если весь стол не отбить
+    exactEndgame: true,            // точный счёт, когда прикуп пуст
+    dumpPairs: false,              // выключен по результатам перекалибровки (−5.1 п.п. на 2x24 с ним)
+    exactEndgameSolver: true,      // ПОЛНЫЙ перебор концовки дуэли
+    attackByPressure: false,
+    probabilisticTake: false,
+  },
+  small: {
+    holdTrumpsWhileTalon: true,
+    holdHighCardsWhileTalon: false,
+    avoidBurningBigTrump: false,   // на 4 игроках без него лучше (roadmap 1.4)
+    finishOffWeakOpponent: true,
+    takeWhenTableUnbeatable: true,
+    exactEndgame: true,
+    dumpPairs: false,
+    exactEndgameSolver: true,
+    attackByPressure: false,
+    probabilisticTake: false,
+  },
+  large: {
+    holdTrumpsWhileTalon: true,
+    holdHighCardsWhileTalon: false,
+    avoidBurningBigTrump: false,
+    finishOffWeakOpponent: true,
+    takeWhenTableUnbeatable: true,
+    exactEndgame: true,
+    dumpPairs: false,
+    exactEndgameSolver: true,
+    attackByPressure: false,
+    probabilisticTake: false,
+  },
 };
+
+/** Обратная совместимость для скриптов и тестов, ссылающихся на SMART_PROFILE. */
+const SMART_PROFILE = SMART_PROFILES.duel;
+
+function pickProfileName(rules) {
+  const numPlayers = rules && typeof rules.numPlayers === 'number' ? rules.numPlayers : 2;
+  if (numPlayers <= 2) return 'duel';
+  if (numPlayers <= 4) return 'small';
+  return 'large';
+}
+
+function pickProfile(rules) {
+  const name = pickProfileName(rules);
+  return SMART_PROFILES[name] || SMART_PROFILES.duel;
+}
 
 // Вес цены отдаваемой карты в оценке атаки: 1 п.п. давления стоит примерно 1 % шкалы cardPower.
 // Значение не «на глаз»: cost нормирован на козырного туза (MAX_CARD_POWER), поэтому 0.35 означает
@@ -3583,6 +3588,7 @@ const PHASE_LABEL = { debut: 'начало партии', middle: 'середи�
  */
 class SmartBot {
   constructor(options = {}) {
+    this._optionsProfile = options.profile || null;
     this.profile = { ...SMART_PROFILE, ...(options.profile || {}) };
     this.explain = options.explain === true;
     this.meId = options.meId || null;
@@ -3623,6 +3629,10 @@ class SmartBot {
     if (src && src === this._rulesSrc) return;
     this.rules = rulesOfState(state);
     this._rulesSrc = src;
+    // Автоматическая подстройка профиля по правилам партии (этап 5, issue #50),
+    // если явно переданный options.profile не переопределяет его.
+    const autoProfile = pickProfile(this.rules);
+    this.profile = { ...autoProfile, ...(this._optionsProfile || {}) };
   }
 
   // ------------------------------------------------------------------
