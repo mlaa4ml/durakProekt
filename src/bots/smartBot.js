@@ -195,6 +195,10 @@ export class SmartBot {
     if (src && src === this._rulesSrc) return;
     this.rules = rulesOfState(state);
     this._rulesSrc = src;
+    // Автоматическая подстройка профиля по правилам партии (этап 5, issue #50),
+    // если явно переданный options.profile не переопределяет его.
+    const autoProfile = pickProfile(this.rules);
+    this.profile = { ...autoProfile, ...(this._optionsProfile || {}) };
   }
 
   // ------------------------------------------------------------------
