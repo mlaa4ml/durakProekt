@@ -1,7 +1,7 @@
 {
   "version": 1,
   "tool": "scripts/evalBots.js",
-  "date": "2026-09-23",
+  "date": null,
   "levelA": "smart",
   "levelB": "simple",
   "seed": 12345,
@@ -210,6 +210,5 @@
       "draws": 3,
       "avgSteps": 215.97
     }
-  ],
-  "note": "Линия после этапа 5 (issue #50): профили по варианту игры duel/small/large. Прогон в codespace на 2 vCPU, поэтому 120 партий на конфигурацию (CI95 ≈ ±9 п.п.), а не 5000 как в прошлой линии. Сырые A/B-таблицы: bench/stage5-ab.md."
+  ]
 }
