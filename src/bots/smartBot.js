@@ -155,6 +155,7 @@ const PHASE_LABEL = { debut: 'начало партии', middle: 'середи�
  */
 export class SmartBot {
   constructor(options = {}) {
+    this._optionsProfile = options.profile || null;
     this.profile = { ...SMART_PROFILE, ...(options.profile || {}) };
     this.explain = options.explain === true;
     this.meId = options.meId || null;
