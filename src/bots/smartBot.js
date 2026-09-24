@@ -477,7 +477,7 @@ export class SmartBot {
     for (const c of hand) rankCount.set(c.rank, (rankCount.get(c.rank) || 0) + 1);
 
     // 1. Добивание: у соперника мало карт и есть та, которую он не отобьёт.
-    if (this.profile.finishOffWeakOpponent && defenderCards > 0 && defenderCards <= 2) {
+    if (this.profile.finishOffWeakOpponent && !takingNow && defenderCards > 0 && defenderCards <= 2) {
       const killers = attacks.filter(
         (a) =>
           this._opponentSurelyCannotBeat(defenderId, a.card, trumpSuit) ||
