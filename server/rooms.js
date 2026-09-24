@@ -243,6 +243,7 @@ export class Room extends EventEmitter {
     // этого достаточно, чтобы отсечь читерский или рассинхронизированный клиент.
     this.game.applyAction(playerId, action);
     this.broadcastState();
+    this._maybeSaveLog();
     this._maybeAutoPlay();
     if (!wasFinished && this.game.phase === 'finished') this.emit('changed');
   }
