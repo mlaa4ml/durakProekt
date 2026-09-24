@@ -276,8 +276,33 @@ export class Room extends EventEmitter {
       const action = simpleBotDecide(this.game.getState(seat.playerId), seat.playerId, legal);
       if (action) this.game.applyAction(seat.playerId, action);
       this.broadcastState();
+      this._maybeSaveLog();
       this._maybeAutoPlay();
     }, BOT_MOVE_DELAY_MS);
+  }
+
+  /**
+   * Партия закончилась — один раз сохраняем её полный лог на диск (issue #61):
+   * раньше лог жил только в памяти и терялся вместе с комнатой, поэтому к жалобам
+   * на ходы бота нечего было приложить. Запись асинхронная и ошибок наружу не даёт.
+   */
+  _maybeSaveLog() {
+    if (!this.game || this.logSaved) return;
+    if (this.game.phase !== 'finished') return;
+    this.logSaved = true;
+    const meta = {
+      roomId: this.roomId,
+      label: this.label,
+      startedAt: this.startedAt,
+      seatKinds: this.seats.map((s) => (s.botControlled ? 'bot' : 'human')),
+    };
+    Promise.resolve(saveMatchLog(this.game, meta))
+      .then((file) => {
+        if (!file) return;
+        this.logPath = file;
+        console.log(`Лог партии комнаты ${this.roomId} сохранён: ${file}`);
+      })
+      .catch(() => { /* saveMatchLog и так не бросает; здесь — страховка */ });
   }
 
   _log(msg) {
