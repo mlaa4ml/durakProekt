@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { DurakGame } from '../src/game.js';
 import { simpleBotDecide } from '../src/bots/simpleBot.js';
+import { saveMatchLog } from './matchLog.js';
 
 // Через сколько мс после разрыва связи игрока в УЖЕ ИДУЩЕЙ партии начинает
 // подменять бот. Настраивается через переменную окружения — удобно для тестов.
