@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { DurakGame } from '../src/game.js';
 import { simpleBotDecide } from '../src/bots/simpleBot.js';
+import { saveMatchLog } from './matchLog.js';
 
 // Через сколько мс после разрыва связи игрока в УЖЕ ИДУЩЕЙ партии начинает
 // подменять бот. Настраивается через переменную окружения — удобно для тестов.
@@ -63,6 +64,11 @@ export class Room extends EventEmitter {
     // Момент, с которого комната полностью опустела (0 подключённых сокетов),
     // либо null, если сейчас кто-то подключён. Используется RoomManager для очистки.
     this.emptySince = Date.now(); // только что создана, пока в ней никого
+    // Лог партии (issue #61): когда партия закончилась, её полный лог один раз
+    // сохраняется на диск, чтобы он не терялся вместе с процессом/комнатой.
+    this.startedAt = null;
+    this.logSaved = false;
+    this.logPath = null;
   }
 
   get isFull() {
@@ -237,6 +243,7 @@ export class Room extends EventEmitter {
     // этого достаточно, чтобы отсечь читерский или рассинхронизированный клиент.
     this.game.applyAction(playerId, action);
     this.broadcastState();
+    this._maybeSaveLog();
     this._maybeAutoPlay();
     if (!wasFinished && this.game.phase === 'finished') this.emit('changed');
   }
@@ -244,6 +251,9 @@ export class Room extends EventEmitter {
   _startGame() {
     const playerDefs = this.seats.map((s) => ({ id: s.playerId, name: s.name }));
     this.game = new DurakGame(playerDefs, { ...this.ruleOverrides, numPlayers: this.numPlayers });
+    this.startedAt = Date.now();
+    this.logSaved = false;
+    this.logPath = null;
     this.broadcastState();
     this._maybeAutoPlay();
   }
@@ -266,8 +276,33 @@ export class Room extends EventEmitter {
       const action = simpleBotDecide(this.game.getState(seat.playerId), seat.playerId, legal);
       if (action) this.game.applyAction(seat.playerId, action);
       this.broadcastState();
+      this._maybeSaveLog();
       this._maybeAutoPlay();
     }, BOT_MOVE_DELAY_MS);
+  }
+
+  /**
+   * Партия закончилась — один раз сохраняем её полный лог на диск (issue #61):
+   * раньше лог жил только в памяти и терялся вместе с комнатой, поэтому к жалобам
+   * на ходы бота нечего было приложить. Запись асинхронная и ошибок наружу не даёт.
+   */
+  _maybeSaveLog() {
+    if (!this.game || this.logSaved) return;
+    if (this.game.phase !== 'finished') return;
+    this.logSaved = true;
+    const meta = {
+      roomId: this.roomId,
+      label: this.label,
+      startedAt: this.startedAt,
+      seatKinds: this.seats.map((s) => (s.botControlled ? 'bot' : 'human')),
+    };
+    Promise.resolve(saveMatchLog(this.game, meta))
+      .then((file) => {
+        if (!file) return;
+        this.logPath = file;
+        console.log(`Лог партии комнаты ${this.roomId} сохранён: ${file}`);
+      })
+      .catch(() => { /* saveMatchLog и так не бросает; здесь — страховка */ });
   }
 
   _log(msg) {
