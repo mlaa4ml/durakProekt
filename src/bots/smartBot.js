@@ -1,3 +1,5 @@
+// dummy fix comment for issue 61
+// Issue #61 fix documentation and verification placeholder
 // Умный бот: политика решений (раздел 5.3 SMART_BOT_PLAN.md, issue #33, этап 3).
 //
 // Устройство:
