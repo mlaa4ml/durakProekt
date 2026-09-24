@@ -4,3 +4,7 @@ node_modules/
 # Результаты разовых прогонов scripts/evalBots.js (issue #46).
 # Зафиксированная линия bench/baseline.json — КОММИТИТСЯ и здесь не игнорируется.
 bench/run*.json
+
+# Логи законченных партий, которые пишет сервер (issue #61, server/matchLog.js).
+# Каталог задаётся переменной DURAK_LOG_DIR, по умолчанию logs/.
+logs/
