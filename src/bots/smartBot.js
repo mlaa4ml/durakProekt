@@ -583,7 +583,7 @@ export class SmartBot {
     if (pressurePick) {
       choice = pressurePick.action;
     } else {
-      const scored = attacks.map((a) => {
+      const scored = pool.map((a) => {
         let score = cardPower(a.card, trumpSuit);
         if (this.profile.dumpPairs && (rankCount.get(a.card.rank) || 0) >= 2) score -= 3;
         return { a, score };
