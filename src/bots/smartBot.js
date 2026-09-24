@@ -562,7 +562,7 @@ export class SmartBot {
     if (this.profile.attackByPressure && this.tracker && !takingNow && defenderCards > 0
         && alivePlayersCount(state) === 2) {
       try {
-        const ranked = bestAttackByPressure(attacks, this.tracker, state, {
+        const ranked = bestAttackByPressure(pool, this.tracker, state, {
           costWeight: PRESSURE_COST_WEIGHT,
           oppId: defenderId,
           trumpSuit,
