@@ -496,6 +496,60 @@ export class SmartBot {
       }
     }
 
+    // 1б. Соперник уже объявил «беру» (issue #61). Подкидывание сейчас — чистая нагрузка:
+    //     каждая карта уедет ему в руку, отбивать он уже не будет. Значит, козырь в этой
+    //     ситуации подкидывать НЕЛЬЗЯ: он не «давит» (бить-то никто не будет), а просто
+    //     переезжает в руку соперника и там становится его оружием, тогда как у меня на
+    //     руке остаётся мелочь, от которой я и хотел избавиться. Пока есть хоть один
+    //     некозырной подкид, козырные кандидаты из рассмотрения выбрасываются.
+    let pool = attacks;
+    if (this.profile.keepTrumpWhenOpponentTakes && takingNow) {
+      const nonTrump = attacks.filter((a) => a.card.suit !== trumpSuit);
+      if (nonTrump.length > 0) pool = nonTrump;
+    }
+
+    // 1в. Рука соперника восстановлена памятью ТОЧНО (issue #61). Раньше это знание
+    //     использовалось только при добивании (правило 1, защитник с 1–2 картами), а в
+    //     остальных случаях бот ходил «просто самой дешёвой» — и раз за разом давал
+    //     сопернику отбиться картой, про которую сам знал. Теперь знание работает всегда:
+    //       * есть карта, которую он заведомо не побьёт -> ходим ей (самой дешёвой из таких);
+    //       * такой карты нет -> ходим той, отбой которой обойдётся ему дороже всего
+    //         (с поправкой на цену собственной карты, тот же вес, что и у давления).
+    if (this.profile.useKnownHandAttack && !takingNow && defenderCards > 0) {
+      const known = this._opponentKnownHand(defenderId);
+      if (known && known.length) {
+        const unbeatable = pool.filter((a) => !known.some((c) => beats(c, a.card, trumpSuit)));
+        if (unbeatable.length > 0) {
+          unbeatable.sort((a, b) => cardPower(a.card, trumpSuit) - cardPower(b.card, trumpSuit));
+          return {
+            action: unbeatable[0],
+            reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(unbeatable[0].card)} — я знаю руку соперника, этой картой ему не отбиться.`,
+          };
+        }
+        // Отбиться он может на всё. Тогда выбираем карту, за которую он заплатит дороже:
+        // пусть тратит козырь или старшую, а не сбрасывает мелочь по очереди.
+        const ranked = pool.map((a) => {
+          const beaters = known.filter((c) => beats(c, a.card, trumpSuit));
+          const cheapestBeat = Math.min(...beaters.map((c) => cardPower(c, trumpSuit)));
+          const my = cardPower(a.card, trumpSuit);
+          return { a, my, gain: cheapestBeat - PRESSURE_COST_WEIGHT * my };
+        });
+        ranked.sort((x, y) => y.gain - x.gain || x.my - y.my);
+        const top = ranked[0];
+        if (top && top.gain > 0) {
+          const bestCard = top.a.card;
+          const isT = bestCard.suit === trumpSuit;
+          // Козырь ради «дорогого отбоя» не отдаём, пока идёт прикуп: он нужнее мне самому.
+          if (!(isT && !endgame && this.profile.holdTrumpsWhileTalon) || !pass) {
+            return {
+              action: top.a,
+              reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(bestCard)} — я знаю руку соперника: отбиться он сможет только дорогой картой.`,
+            };
+          }
+        }
+      }
+    }
+
     // 2. Сортировка кандидатов.
     //    Базовая (как раньше): дешевле — лучше; парные ранги идут вперёд (разгрузка).
     //    С флагом `attackByPressure` — по шансу, что соперник НЕ отобьётся, с поправкой
