@@ -713,6 +713,27 @@ export class SmartBot {
       return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — иначе пришлось бы тратить козырь.` };
     }
 
+    // 3б. Перевод «в первый момент» (issue #61). Раньше перевод рассматривался только как
+    //     спасение — когда весь стол не отбить, отбиваться нечем или пришлось бы жечь козырь.
+    //     Из-за этого бот упорно отбивался там, где дешёвый перевод был явно выгоднее: пока на
+    //     столе нет ни одной побитой карты, перевод НЕКОЗЫРНОЙ картой не дороже защиты снимает
+    //     с меня роль защитника целиком — весь стол едет дальше, а я ещё и разгружаю руку.
+    //     Сравниваем в одной шкале: сколько «стоят» карты, уходящие на перевод, и сколько —
+    //     карты, которые пришлось бы отдать на полный отбой.
+    if (this.profile.preferTransferWhenCheap && cheapTransfer && table.length > 0
+        && undefended.length === table.length) {
+      const transferCost = cheapTransfer.cards.reduce((s, c) => s + cardPower(c, trumpSuit), 0);
+      const defendCost = plan.canDefendAll
+        ? plan.assignment.reduce((s, x) => s + cardPower(x.card, trumpSuit), 0)
+        : Infinity;
+      if (transferCost <= defendCost) {
+        return {
+          action: cheapTransfer,
+          reason: `Перевожу ${list(cheapTransfer.cards)} — отбиваться дороже, а так стол целиком уходит дальше и защищаться буду не я.`,
+        };
+      }
+    }
+
     // 3.5. Вероятностный выбор «брать или отбиваться» (этап 4, issue #49).
     //      Никаких порогов «на глаз»: сравниваем ДВЕ ожидаемые цены в одной и той же шкале
     //      ценности карт (`cardPower`).
