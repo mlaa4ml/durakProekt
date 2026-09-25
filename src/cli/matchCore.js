@@ -142,6 +142,7 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
     stuck: safety >= maxSteps,
     trace,
     log: game.log,
-    finishedOrder: game.finishedOrder,
+        finishedOrder: game.finishedOrder,
+    ...(recorder ? { diagnostic: recorder.exportArtifact({ protectedDiagnostic: true }) } : {}),
   };
 }
