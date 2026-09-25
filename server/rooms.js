@@ -242,7 +242,7 @@ export class Room extends EventEmitter {
     const wasFinished = this.game.phase === 'finished';
     // game.applyAction сам бросит понятную ошибку, если действие недопустимо —
     // этого достаточно, чтобы отсечь читерский или рассинхронизированный клиент.
-    this.game.applyAction(playerId, action);
+    this.recorder.applyAction(playerId, action, { actor: { kind: 'human' } });
     this.broadcastState();
     this._maybeSaveLog();
     this._maybeAutoPlay();
