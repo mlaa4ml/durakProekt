@@ -252,6 +252,12 @@ export class Room extends EventEmitter {
   _startGame() {
     const playerDefs = this.seats.map((s) => ({ id: s.playerId, name: s.name }));
     this.game = new DurakGame(playerDefs, { ...this.ruleOverrides, numPlayers: this.numPlayers });
+    this.recorder = new GameRecorder(this.game, {
+      participants: this.seats.map((s) => ({
+        playerId: s.playerId, kind: s.botControlled ? 'bot' : 'human',
+        level: s.botControlled ? 'simple' : null, profile: null,
+      })),
+    });
     this.startedAt = Date.now();
     this.logSaved = false;
     this.logPath = null;
