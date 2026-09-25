@@ -78,9 +78,11 @@ export async function saveMatchLog(game, meta = {}, dir = DEFAULT_LOG_DIR) {
   if (logsDisabled()) return null;
   try {
     const payload = buildMatchLog(game, meta);
-    await mkdir(dir, { recursive: true });
+    await mkdir(dir, { recursive: true, mode: 0o700 });
     const file = path.join(dir, logFileName(meta.roomId, new Date()));
-    await writeFile(file, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+    await writeFile(file, `${JSON.stringify(payload, null, 2)}\n`, {
+      encoding: 'utf8', mode: 0o600, flag: 'wx',
+    });
     return file;
   } catch (err) {
     console.warn(`Не удалось сохранить лог партии: ${err && err.message ? err.message : err}`);
