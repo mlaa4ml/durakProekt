@@ -303,7 +303,8 @@ export class Room extends EventEmitter {
       roomId: this.roomId,
       label: this.label,
       startedAt: this.startedAt,
-      seatKinds: this.seats.map((s) => (s.botControlled ? 'bot' : 'human')),
+            seatKinds: this.seats.map((s) => (s.botControlled ? 'bot' : 'human')),
+      diagnostic: this.recorder.exportArtifact(),
     };
     Promise.resolve(saveMatchLog(this.game, meta))
       .then((file) => {
