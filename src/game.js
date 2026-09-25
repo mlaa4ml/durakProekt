@@ -63,7 +63,7 @@ export class DurakGame {
       finishRank: null, // место, на котором вышел (1 = первый освободился)
     }));
 
-    this._deal();
+    this._deal(initialDeck);
 
     this.table = []; // [{attack, defense|null}]
     this.discardCount = 0;
