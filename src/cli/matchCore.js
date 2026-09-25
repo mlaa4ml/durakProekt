@@ -84,6 +84,15 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
     brains.set(p.id, brain);
   });
 
+  // Opt-in: ordinary benchmarks do not retain an archive of private hands.
+  // Callers must store the result in protected storage, never in a public live log.
+  const recorder = options.recordDiagnostic ? new GameRecorder(game, {
+    participants: players.map((p, i) => ({
+      playerId: p.id, kind: 'bot', level: brains.get(p.id).actualLevel,
+      profile: brains.get(p.id).profile ?? null,
+      solver: options.seatOptions?.[i]?.solver ?? null,
+    })),
+  }) : null;
   const trace = [];
   let safety = 0;
   while (game.phase !== 'finished' && safety < maxSteps) {
