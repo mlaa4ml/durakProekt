@@ -18,5 +18,11 @@ describe('Issue 64 Position & Reconstruction Tests', () => {
   it('should reproduce exact issue 64 endgame position and check move options', () => {
     const game = new DurakGame([{ id: 'bot4', name: 'Бот 4' }, { id: 'bot2', name: 'Бот 2' }], { deckSize: 36 });
     assert.ok(game, 'Endgame simulation initialized');
+    
+    // Test position reconstruction and alternative opening/throw-in actions
+    const state = game.getState();
+    assert.strictEqual(state.talonCount, 0, 'Talon should be empty in endgame');
+    const legalActions = game.getLegalActions('bot4');
+    assert.ok(legalActions.length > 0, 'Attacker should have legal actions');
   });
 });
