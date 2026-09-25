@@ -45,7 +45,8 @@ function pluralMoves(n) {
  * Никакой сети/UI здесь нет — чистая логика + лог событий.
  */
 export class DurakGame {
-  constructor(playerDefs, ruleOverrides = {}, rng = Math.random) {
+    // initialDeck is privileged diagnostic input, never part of getState().
+  constructor(playerDefs, ruleOverrides = {}, rng = Math.random, initialDeck = null) {
     this.rules = resolveRules({ ...ruleOverrides, numPlayers: playerDefs.length });
     // Публичная копия правил для getState(): правила за партию не меняются, поэтому строим её
     // один раз и замораживаем — её нельзя испортить снаружи, а боту дёшево проверить «правила те же».
@@ -62,7 +63,7 @@ export class DurakGame {
       finishRank: null, // место, на котором вышел (1 = первый освободился)
     }));
 
-    this._deal();
+    this._deal(initialDeck);
 
     this.table = []; // [{attack, defense|null}]
     this.discardCount = 0;
@@ -98,8 +99,20 @@ export class DurakGame {
     return this.silent ? null : this.getState();
   }
 
-  _deal() {
-    let deck = shuffle(createDeck(this.rules.deckSize), this.rng);
+  _deal(initialDeck = null) {
+    const standardDeck = createDeck(this.rules.deckSize);
+    if (initialDeck !== null) {
+      const key = (c) => c && `${c.suit}:${c.rank}`;
+      const expected = new Set(standardDeck.map(key));
+      if (!Array.isArray(initialDeck) || initialDeck.length !== standardDeck.length ||
+          new Set(initialDeck.map(key)).size !== expected.size ||
+          initialDeck.some((c) => !expected.has(key(c)))) {
+        throw new Error('Некорректная начальная колода для replay');
+      }
+    }
+    let deck = initialDeck === null
+      ? shuffle(standardDeck, this.rng)
+      : initialDeck.map((c) => ({ suit: c.suit, rank: c.rank }));
     // Козырь — нижняя карта колоды (по классике кладётся под низ, но нам важна лишь её масть)
     this.trumpCard = deck[deck.length - 1];
     this.trumpSuit = this.trumpCard.suit;

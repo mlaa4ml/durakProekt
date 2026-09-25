@@ -9,6 +9,7 @@ import { EventEmitter } from 'node:events';
 import { DurakGame } from '../src/game.js';
 import { simpleBotDecide } from '../src/bots/simpleBot.js';
 import { saveMatchLog } from './matchLog.js';
+import { GameRecorder } from '../src/diagnostics/replay.js';
 
 // Через сколько мс после разрыва связи игрока в УЖЕ ИДУЩЕЙ партии начинает
 // подменять бот. Настраивается через переменную окружения — удобно для тестов.
@@ -241,7 +242,7 @@ export class Room extends EventEmitter {
     const wasFinished = this.game.phase === 'finished';
     // game.applyAction сам бросит понятную ошибку, если действие недопустимо —
     // этого достаточно, чтобы отсечь читерский или рассинхронизированный клиент.
-    this.game.applyAction(playerId, action);
+    this.recorder.applyAction(playerId, action, { actor: { kind: 'human' } });
     this.broadcastState();
     this._maybeSaveLog();
     this._maybeAutoPlay();
@@ -251,6 +252,12 @@ export class Room extends EventEmitter {
   _startGame() {
     const playerDefs = this.seats.map((s) => ({ id: s.playerId, name: s.name }));
     this.game = new DurakGame(playerDefs, { ...this.ruleOverrides, numPlayers: this.numPlayers });
+    this.recorder = new GameRecorder(this.game, {
+      participants: this.seats.map((s) => ({
+        playerId: s.playerId, kind: s.botControlled ? 'bot' : 'human',
+        level: s.botControlled ? 'simple' : null, profile: null,
+      })),
+    });
     this.startedAt = Date.now();
     this.logSaved = false;
     this.logPath = null;
@@ -274,7 +281,9 @@ export class Room extends EventEmitter {
       // Боту отдаём то же маскированное состояние, что и движок (issue #27):
       // чужие руки скрыты, но видны стол, фаза, discardCount и размеры рук.
       const action = simpleBotDecide(this.game.getState(seat.playerId), seat.playerId, legal);
-      if (action) this.game.applyAction(seat.playerId, action);
+            if (action) this.recorder.applyAction(seat.playerId, action, {
+        actor: { kind: 'bot', level: 'simple', profile: null },
+      });
       this.broadcastState();
       this._maybeSaveLog();
       this._maybeAutoPlay();
@@ -294,7 +303,8 @@ export class Room extends EventEmitter {
       roomId: this.roomId,
       label: this.label,
       startedAt: this.startedAt,
-      seatKinds: this.seats.map((s) => (s.botControlled ? 'bot' : 'human')),
+            seatKinds: this.seats.map((s) => (s.botControlled ? 'bot' : 'human')),
+      diagnostic: this.recorder.exportArtifact(),
     };
     Promise.resolve(saveMatchLog(this.game, meta))
       .then((file) => {

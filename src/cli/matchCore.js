@@ -18,6 +18,7 @@
 import { DurakGame } from '../game.js';
 import { cardToString } from '../deck.js';
 import { createBotBrain, botLevelLabel } from '../bots/index.js';
+import { GameRecorder } from '../diagnostics/replay.js';
 
 export const MAX_STEPS = 5000;
 
@@ -83,6 +84,15 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
     brains.set(p.id, brain);
   });
 
+  // Opt-in: ordinary benchmarks do not retain an archive of private hands.
+  // Callers must store the result in protected storage, never in a public live log.
+  const recorder = options.recordDiagnostic ? new GameRecorder(game, {
+    participants: players.map((p, i) => ({
+      playerId: p.id, kind: 'bot', level: brains.get(p.id).actualLevel,
+      profile: brains.get(p.id).profile ?? null,
+      solver: options.seatOptions?.[i]?.solver ?? null,
+    })),
+  }) : null;
   const trace = [];
   let safety = 0;
   while (game.phase !== 'finished' && safety < maxSteps) {
@@ -107,7 +117,15 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
           analysis: decision.analysis || null,
         });
       }
-      game.applyAction(p.id, action);
+            if (recorder) {
+        recorder.applyAction(p.id, action, {
+          actor: { kind: 'bot', level: brain.actualLevel, profile: brain.profile ?? null },
+          reason: decision.reason ?? null,
+          decisionTrace: decision.decisionTrace ?? null,
+        });
+      } else {
+        game.applyAction(p.id, action);
+      }
       acted = true;
       break; // по одному действию за раз, чтобы состояние переоценивалось корректно
     }
@@ -124,6 +142,7 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
     stuck: safety >= maxSteps,
     trace,
     log: game.log,
-    finishedOrder: game.finishedOrder,
+        finishedOrder: game.finishedOrder,
+    ...(recorder ? { diagnostic: recorder.exportArtifact({ protectedDiagnostic: true }) } : {}),
   };
 }
