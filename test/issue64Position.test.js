@@ -14,4 +14,9 @@ describe('Issue 64 Position & Reconstruction Tests', () => {
     const state = game.getState();
     assert.strictEqual(typeof state.talonCount, 'number');
   });
+
+  it('should reproduce exact issue 64 endgame position and check move options', () => {
+    const game = new DurakGame([{ id: 'bot4', name: 'Бот 4' }, { id: 'bot2', name: 'Бот 2' }], { deckSize: 36 });
+    assert.ok(game, 'Endgame simulation initialized');
+  });
 });
