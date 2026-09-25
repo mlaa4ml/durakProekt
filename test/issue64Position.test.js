@@ -3,15 +3,15 @@ import assert from 'node:assert';
 import { DurakGame } from '../src/game.js';
 
 describe('Issue 64 Position & Reconstruction Tests', () => {
-  it('should verify basic match creation and turn structure', () => {
-    const match = createMatch({ playersCount: 2, deckSize: 36 });
-    assert.ok(match, 'Match should be created');
-    assert.strictEqual(match.getState().players.length, 2);
+  it('should verify basic DurakGame creation and turn structure', () => {
+    const game = new DurakGame({ players: 2, deckSize: 36 });
+    assert.ok(game, 'Game should be created');
+    assert.strictEqual(game.getState().players.length, 2);
   });
 
   it('should support endgame position simulation structure', () => {
-    const match = createMatch({ playersCount: 2, deckSize: 36 });
-    const state = match.getState();
+    const game = new DurakGame({ players: 2, deckSize: 36 });
+    const state = game.getState();
     assert.strictEqual(typeof state.deck.length, 'number');
   });
 });
