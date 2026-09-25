@@ -281,7 +281,9 @@ export class Room extends EventEmitter {
       // Боту отдаём то же маскированное состояние, что и движок (issue #27):
       // чужие руки скрыты, но видны стол, фаза, discardCount и размеры рук.
       const action = simpleBotDecide(this.game.getState(seat.playerId), seat.playerId, legal);
-      if (action) this.game.applyAction(seat.playerId, action);
+            if (action) this.recorder.applyAction(seat.playerId, action, {
+        actor: { kind: 'bot', level: 'simple', profile: null },
+      });
       this.broadcastState();
       this._maybeSaveLog();
       this._maybeAutoPlay();
