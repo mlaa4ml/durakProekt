@@ -64,7 +64,9 @@ export function buildMatchLog(game, meta = {}) {
     })),
     durak: game.durak ? { id: game.durak.id, name: game.durak.name } : null,
     phase: game.phase ?? null,
-    log: Array.isArray(game.log) ? [...game.log] : [],
+        log: Array.isArray(game.log) ? [...game.log] : [],
+    // Only supplied by the server recorder after completion; never broadcast.
+    diagnostic: meta.diagnostic ?? null,
   };
 }
 
