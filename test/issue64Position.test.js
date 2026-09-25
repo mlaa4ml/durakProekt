@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { createMatch } from '../src/engine/match.js';
+import { createMatch } from '../src/engine/index.js';
 
 describe('Issue 64 Position & Reconstruction Tests', () => {
   it('should verify basic match creation and turn structure', () => {
