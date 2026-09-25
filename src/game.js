@@ -45,7 +45,8 @@ function pluralMoves(n) {
  * Никакой сети/UI здесь нет — чистая логика + лог событий.
  */
 export class DurakGame {
-  constructor(playerDefs, ruleOverrides = {}, rng = Math.random) {
+    // initialDeck is privileged diagnostic input, never part of getState().
+  constructor(playerDefs, ruleOverrides = {}, rng = Math.random, initialDeck = null) {
     this.rules = resolveRules({ ...ruleOverrides, numPlayers: playerDefs.length });
     // Публичная копия правил для getState(): правила за партию не меняются, поэтому строим её
     // один раз и замораживаем — её нельзя испортить снаружи, а боту дёшево проверить «правила те же».
