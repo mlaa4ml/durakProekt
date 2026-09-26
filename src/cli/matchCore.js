@@ -79,7 +79,10 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
 
   const brains = new Map();
   players.forEach((p, i) => {
-    const brain = createBotBrain(levels[i], { explain: collectTrace, ...(options.seatOptions && options.seatOptions[i]) });
+        const brain = createBotBrain(levels[i], {
+      explain: collectTrace, trace: collectTrace || !!options.recordDiagnostic,
+      ...(options.seatOptions && options.seatOptions[i]),
+    });
     brain.reset(game.getState(p.id), p.id);
     brains.set(p.id, brain);
   });
