@@ -874,7 +874,7 @@ function runFullGame(numPlayers, deckSize, throwInPolicy, botOptions={}){
       const action=decision.action;
       if(!action) continue;
       if(explain) logBotExplanation(game, p.name, decision);
-      game.applyAction(p.id, action);
+      applyObservedAction(game, brains, p.id, action);
       acted=true; break;
     }
     if(!acted) break;
@@ -1052,7 +1052,7 @@ function scheduleBotStep(){
       // Объяснение пишем ДО хода: причина стоит рядом с самим ходом, а не после
       // каскада событий, который движок разворачивает в applyAction (бито, добор, новый раунд).
       if(botExplainEnabled()) logBotExplanation(igame, turnPlayer.name, decision);
-      igame.applyAction(turnPlayer.id, action);
+      applyObservedAction(igame, botBrains, turnPlayer.id, action);
     }
     interactiveBusy=false;
     scheduleBotStep();
@@ -1072,7 +1072,7 @@ function doHumanAction(action){
   // transfer по полному набору карт) — используем ту же проверку, что и applyAction.
   const match=legal.find(a=>igame._actionsEqual(a,action));
   if(!match) return;
-  igame.applyAction(HUMAN_ID, match);
+  applyObservedAction(igame, botBrains, HUMAN_ID, match);
   scheduleBotStep();
 }
 

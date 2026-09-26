@@ -264,12 +264,13 @@ export class SmartBot {
     return this;
   }
 
-  observe(state, meId = null) {
+  observe(state, meId = null, event = null) {
     if (meId) this.meId = meId;
     if (!state) return;
     this._syncRules(state);
     try {
       if (!this.tracker) this.tracker = CardTracker.fromState(state, this.meId);
+      if (event) this.tracker.observeTransition(state, event);
       else this.tracker.observe(state);
     } catch {
       // Память — вспомогательный слой. Если она почему-то не смогла разобрать состояние,

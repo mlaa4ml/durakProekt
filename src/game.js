@@ -466,6 +466,24 @@ export class DurakGame {
   // ЛЮБОЕ действие любого игрока — атаку, перевод, отбой, взятие, пас — одинаково, и его
   // не может случайно обойти будущий новый тип действия.
   _dispatch(idx, match) {
+    // Only public facts are retained, never the result of getState() or drawn hands.
+    // Silent solver copies do not allocate event batches.
+    this.actionNumber = (this.actionNumber || 0) + 1;
+    if (!this.silent) {
+      const card = (c) => ({ rank: c.rank, suit: c.suit });
+      this.publicTransition = null;
+      this._pendingTransition = {
+        actionNumber: this.actionNumber,
+        actor: this.players[idx].id,
+        action: {
+          type: match.type,
+          ...(match.card ? { card: card(match.card) } : {}),
+          ...(match.cards ? { cards: match.cards.map(card) } : {}),
+        },
+        closures: [],
+        trumpDraws: [],
+      };
+    }
     const before = { discard: this.discardCount, talon: this.talon.length, out: this.finishedOrder.length };
     switch (match.type) {
       case 'attack': this._doAttack(idx, match.card); break;
@@ -476,6 +494,10 @@ export class DurakGame {
       default: throw new Error('Неизвестное действие: ' + match.type);
     }
     this._trackStall(before);
+    if (!this.silent) {
+      this.publicTransition = this._pendingTransition;
+      this._pendingTransition = null;
+    }
     return this._result();
   }
 
@@ -551,6 +573,13 @@ export class DurakGame {
     g._publicRules = this._publicRules;
     g.rng = this.rng;
     g.silent = this.silent;
+    if (this.actionNumber !== undefined) g.actionNumber = this.actionNumber;
+    if (this.publicTransition !== undefined) {
+      g.publicTransition = this.publicTransition ? structuredClone(this.publicTransition) : null;
+    }
+    if (this._pendingTransition !== undefined) {
+      g._pendingTransition = this._pendingTransition ? structuredClone(this._pendingTransition) : null;
+    }
     g.log = this.silent ? [] : this.log.slice();
     g.players = this.players.map((p) => ({ ...p, hand: p.hand.slice() }));
     g.trumpCard = this.trumpCard;
@@ -777,6 +806,14 @@ export class DurakGame {
 
   _resolveTableClosed() {
     const tookCards = this.tookCards === true;
+    if (this._pendingTransition && this.table.length) {
+      this._pendingTransition.closures.push({
+        destination: tookCards ? 'hand' : 'discard',
+        defender: this.players[this.defenderIndex].id,
+        cards: this.table.flatMap((t) => [t.attack, t.defense].filter(Boolean))
+          .map((c) => ({ rank: c.rank, suit: c.suit })),
+      });
+    }
     this.tookCards = false;
     this.postTakeMode = false;
 
@@ -854,6 +891,12 @@ export class DurakGame {
         const card = this.talon.shift();
         player.hand.push(card);
         drawn.push(card);
+        if (this._pendingTransition && this.talon.length === 0) {
+          this._pendingTransition.trumpDraws.push({
+            playerId: player.id,
+            card: { rank: card.rank, suit: card.suit },
+          });
+        }
       }
       if (drawn.length > 0) {
         this._log(() => `${player.name} добирает из колоды: ${drawn.map(cardToString).join(', ')} (в колоде осталось ${this.talon.length})`);

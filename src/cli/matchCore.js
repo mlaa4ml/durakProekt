@@ -17,7 +17,7 @@
 
 import { DurakGame } from '../game.js';
 import { cardToString } from '../deck.js';
-import { createBotBrain, botLevelLabel } from '../bots/index.js';
+import { createBotBrain, botLevelLabel, applyObservedAction } from '../bots/index.js';
 import { GameRecorder } from '../diagnostics/replay.js';
 
 export const MAX_STEPS = 5000;
@@ -117,15 +117,13 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
           analysis: decision.analysis || null,
         });
       }
-            if (recorder) {
+      applyObservedAction(game, brains, p.id, action, recorder ? () => {
         recorder.applyAction(p.id, action, {
           actor: { kind: 'bot', level: brain.actualLevel, profile: brain.profile ?? null },
           reason: decision.reason ?? null,
           decisionTrace: decision.decisionTrace ?? null,
         });
-      } else {
-        game.applyAction(p.id, action);
-      }
+      } : null);
       acted = true;
       break; // по одному действию за раз, чтобы состояние переоценивалось корректно
     }

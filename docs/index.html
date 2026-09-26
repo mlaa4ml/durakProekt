@@ -1396,6 +1396,24 @@ class DurakGame {
   // ЛЮБОЕ действие любого игрока — атаку, перевод, отбой, взятие, пас — одинаково, и его
   // не может случайно обойти будущий новый тип действия.
   _dispatch(idx, match) {
+    // Only public facts are retained, never the result of getState() or drawn hands.
+    // Silent solver copies do not allocate event batches.
+    this.actionNumber = (this.actionNumber || 0) + 1;
+    if (!this.silent) {
+      const card = (c) => ({ rank: c.rank, suit: c.suit });
+      this.publicTransition = null;
+      this._pendingTransition = {
+        actionNumber: this.actionNumber,
+        actor: this.players[idx].id,
+        action: {
+          type: match.type,
+          ...(match.card ? { card: card(match.card) } : {}),
+          ...(match.cards ? { cards: match.cards.map(card) } : {}),
+        },
+        closures: [],
+        trumpDraws: [],
+      };
+    }
     const before = { discard: this.discardCount, talon: this.talon.length, out: this.finishedOrder.length };
     switch (match.type) {
       case 'attack': this._doAttack(idx, match.card); break;
@@ -1406,6 +1424,10 @@ class DurakGame {
       default: throw new Error('Неизвестное действие: ' + match.type);
     }
     this._trackStall(before);
+    if (!this.silent) {
+      this.publicTransition = this._pendingTransition;
+      this._pendingTransition = null;
+    }
     return this._result();
   }
 
@@ -1481,6 +1503,13 @@ class DurakGame {
     g._publicRules = this._publicRules;
     g.rng = this.rng;
     g.silent = this.silent;
+    if (this.actionNumber !== undefined) g.actionNumber = this.actionNumber;
+    if (this.publicTransition !== undefined) {
+      g.publicTransition = this.publicTransition ? structuredClone(this.publicTransition) : null;
+    }
+    if (this._pendingTransition !== undefined) {
+      g._pendingTransition = this._pendingTransition ? structuredClone(this._pendingTransition) : null;
+    }
     g.log = this.silent ? [] : this.log.slice();
     g.players = this.players.map((p) => ({ ...p, hand: p.hand.slice() }));
     g.trumpCard = this.trumpCard;
@@ -1707,6 +1736,14 @@ class DurakGame {
 
   _resolveTableClosed() {
     const tookCards = this.tookCards === true;
+    if (this._pendingTransition && this.table.length) {
+      this._pendingTransition.closures.push({
+        destination: tookCards ? 'hand' : 'discard',
+        defender: this.players[this.defenderIndex].id,
+        cards: this.table.flatMap((t) => [t.attack, t.defense].filter(Boolean))
+          .map((c) => ({ rank: c.rank, suit: c.suit })),
+      });
+    }
     this.tookCards = false;
     this.postTakeMode = false;
 
@@ -1784,6 +1821,12 @@ class DurakGame {
         const card = this.talon.shift();
         player.hand.push(card);
         drawn.push(card);
+        if (this._pendingTransition && this.talon.length === 0) {
+          this._pendingTransition.trumpDraws.push({
+            playerId: player.id,
+            card: { rank: card.rank, suit: card.suit },
+          });
+        }
       }
       if (drawn.length > 0) {
         this._log(() => `${player.name} добирает из колоды: ${drawn.map(cardToString).join(', ')} (в колоде осталось ${this.talon.length})`);
@@ -2032,6 +2075,8 @@ class CardTracker {
     this.conflicts = 0;
     this.observations = 0;
     this.prev = null;
+    this.prevMyHand = null;
+    this._lastActionNumber = 0;
     if (state) this.observe(state);
     return this;
   }
@@ -2039,6 +2084,55 @@ class CardTracker {
   // ------------------------------------------------------------------
   //  Наблюдение
   // ------------------------------------------------------------------
+
+    /**
+   * Ordered public transition + masked endpoint. Unlike snapshot differencing this
+   * sees the final played card even if applyAction removed the table synchronously.
+   * Missing batches invalidate all movable facts; immutable known discard survives.
+   */
+  observeTransition(state, event) {
+    if (!event || !Number.isInteger(event.actionNumber)) return this.observe(state);
+    const last = this._lastActionNumber ?? 0;
+    if (event.actionNumber <= last) return this;
+    const contiguous = event.actionNumber === last + 1;
+    for (const p of state.players) this._ensurePlayer(p.id);
+    if (!contiguous) {
+      for (const set of this.takenBy.values()) set.clear();
+      for (const id of this.playerIds) this._forgetAssumptions(id);
+    }
+    const played = event.action.cards || (event.action.card ? [event.action.card] : []);
+    for (const c of played) {
+      const k = cardKey(c);
+      for (const set of this.takenBy.values()) set.delete(k);
+      this.seenPlayed.get(event.actor)?.add(k);
+    }
+    for (const closure of event.closures) {
+      for (const c of closure.cards) {
+        const k = cardKey(c);
+        for (const set of this.takenBy.values()) set.delete(k);
+        if (closure.destination === 'discard') this.discard.add(k);
+        else if (closure.defender !== this.meId) getSet(this.takenBy, closure.defender).add(k);
+      }
+    }
+    for (const draw of event.trumpDraws) {
+      if (draw.playerId !== this.meId) getSet(this.takenBy, draw.playerId).add(cardKey(draw.card));
+    }
+    // Draws can invalidate heuristic assumptions, but cannot erase public facts.
+    if (this.talonCount !== state.talonCount) {
+      for (const id of this.playerIds) this._forgetAssumptions(id);
+    }
+    this.myHand = this._myHandFrom(state) || new Set();
+    const cur = this._snapshot(state);
+    this.onTable = new Set(cur.tableKeys);
+    for (const k of [...this.myHand, ...this.onTable]) {
+      this.discard.delete(k);
+      for (const set of this.takenBy.values()) set.delete(k);
+    }
+    this.unseenDiscardCount = Math.max(0, cur.discardCount - this.discard.size);
+    this._lastActionNumber = event.actionNumber;
+    this._finishObserve(cur);
+    return this;
+  }
 
   _snapshot(state) {
     const pairs = (state.table || []).map((t) => ({
@@ -3710,12 +3804,13 @@ class SmartBot {
     return this;
   }
 
-  observe(state, meId = null) {
+  observe(state, meId = null, event = null) {
     if (meId) this.meId = meId;
     if (!state) return;
     this._syncRules(state);
     try {
       if (!this.tracker) this.tracker = CardTracker.fromState(state, this.meId);
+      if (event) this.tracker.observeTransition(state, event);
       else this.tracker.observe(state);
     } catch {
       // Память — вспомогательный слой. Если она почему-то не смогла разобрать состояние,
@@ -4400,7 +4495,7 @@ function createSmartBrain(options) {
     profile: bot.profile,
     solverStats: bot.solverStats,
     reset(state = null, meId = null) { bot.reset(state, meId); },
-    observe(state, meId = null) { bot.observe(state, meId); },
+    observe(state, meId = null, event = null) { bot.observe(state, meId, event); },
     decide(state, playerId, legalActions) { return bot.decide(state, playerId, legalActions); },
   };
 }
@@ -4416,6 +4511,26 @@ function createSmartBrain(options) {
  * decide(state, playerId, legalActions) -> { action, reason?, analysis? }
  * где `state` — ОБЯЗАТЕЛЬНО маскированное состояние `game.getState(playerId)`.
  */
+/**
+ * Apply one local action and deliver its public transition to every bot that was
+ * alive before it (including players who finish during this action). The optional
+ * executor allows CLI diagnostic recording without applying the action twice.
+ * Never deliver applyAction's return value: it contains unmasked hands.
+ */
+function applyObservedAction(game, brains, playerId, action, execute = null) {
+  const recipients = game.players.filter((p) => !p.out && brains.has(p.id)).map((p) => p.id);
+  if (execute) execute();
+  else game.applyAction(playerId, action);
+  const event = game.publicTransition;
+  for (const id of recipients) {
+    // Independent copies prevent one observer from mutating another's observation.
+    brains.get(id).observe(
+      structuredClone(game.getState(id)), id,
+      event ? structuredClone(event) : null,
+    );
+  }
+}
+
 function createBotBrain(level, options = {}) {
   const requested = normalizeBotLevel(level);
   switch (requested) {
@@ -4493,7 +4608,7 @@ function runFullGame(numPlayers, deckSize, throwInPolicy, botOptions={}){
       const action=decision.action;
       if(!action) continue;
       if(explain) logBotExplanation(game, p.name, decision);
-      game.applyAction(p.id, action);
+      applyObservedAction(game, brains, p.id, action);
       acted=true; break;
     }
     if(!acted) break;
@@ -4671,7 +4786,7 @@ function scheduleBotStep(){
       // Объяснение пишем ДО хода: причина стоит рядом с самим ходом, а не после
       // каскада событий, который движок разворачивает в applyAction (бито, добор, новый раунд).
       if(botExplainEnabled()) logBotExplanation(igame, turnPlayer.name, decision);
-      igame.applyAction(turnPlayer.id, action);
+      applyObservedAction(igame, botBrains, turnPlayer.id, action);
     }
     interactiveBusy=false;
     scheduleBotStep();
@@ -4691,7 +4806,7 @@ function doHumanAction(action){
   // transfer по полному набору карт) — используем ту же проверку, что и applyAction.
   const match=legal.find(a=>igame._actionsEqual(a,action));
   if(!match) return;
-  igame.applyAction(HUMAN_ID, match);
+  applyObservedAction(igame, botBrains, HUMAN_ID, match);
   scheduleBotStep();
 }
 
