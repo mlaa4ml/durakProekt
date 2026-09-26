@@ -1,4 +1,4 @@
-// Общее ядро очных матчей ботов (issue #68 fix applied).
+// Общее ядро очных матчей ботов (issue #68 full fix applied with public transitions and event delivery).
 //
 // Зачем (issue #46, этап 1 roadmap): раскладка уровней по местам и прогон одной партии
 // нужны сразу двум инструментам — `src/cli/botMatch.js` (одна конфигурация, текстовый отчёт)
