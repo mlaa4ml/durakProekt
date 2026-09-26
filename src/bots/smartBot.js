@@ -452,28 +452,44 @@ export class SmartBot {
    * соперника) или результат не сошёлся с движком по списку легальных ходов.
    */
   _tryExactSolver(state, playerId, legalActions) {
-    if (!this.profile.exactEndgameSolver || !this.tracker) return null;
-    if (!canSolve(state, this.tracker, playerId)) return null;
+    const trace = this._decisionTrace?.solver;
+    const reject = (status) => { if (trace) trace.status = status; return null; };
+    const applicable = canSolve(state, this.tracker, playerId);
+    if (trace) trace.applicable = applicable;
+    if (!this.profile.exactEndgameSolver) return reject('disabled');
+    if (!applicable) {
+      return reject(this._decisionTrace?.handKnowledge === 'unknown' ? 'unknown-hand' : 'not-applicable');
+    }
 
     const stats = this.solverStats;
-    const res = solveFromState(state, this.tracker, playerId, this.solverOptions);
-    if (!res) return null;
+    const res = this._solveExact(state, playerId);
+    if (!res) return reject('unusable');
+    if (trace) Object.assign(trace, {
+      solved: res.solved === true, timedOut: res.timedOut === true,
+      value: res.value ?? null, nodes: res.nodes ?? 0, ms: res.ms ?? 0,
+    });
     stats.calls++;
     stats.nodes += res.nodes;
     stats.ms += res.ms;
-    if (res.timedOut) { stats.timedOut++; return null; }
-    if (!res.solved || !res.action) { stats.unusable++; return null; }
+    if (res.timedOut) { stats.timedOut++; return reject('budget'); }
+    if (res.mismatch) { stats.unusable++; return reject('legal-mismatch'); }
+    if (!res.solved || !res.action) { stats.unusable++; return reject('unusable'); }
 
     // Страховка от расхождения с движком: копия позиции обязана дать те же легальные ходы.
-    const sameSet = res.legal.length === legalActions.length
+    const sameSet = Array.isArray(res.legal) && res.legal.length === legalActions.length
       && res.legal.every((r) => legalActions.some((a) => sameEndgameAction(a, r)));
     const chosen = legalActions.find((a) => sameEndgameAction(a, res.action));
-    if (!sameSet || !chosen) { stats.unusable++; return null; }
+    if (!sameSet || !chosen) { stats.unusable++; return reject('legal-mismatch'); }
 
-    if (res.value < 0) { stats.losses++; return null; }
+    if (res.value < 0) { stats.losses++; return reject('proven-loss'); }
     if (res.value > 0) stats.wins++; else stats.draws++;
     stats.used++;
-    return { action: chosen, reason: this._solverReason(chosen, res.value) };
+    if (trace) trace.status = 'used';
+    return { action: chosen, rule: 'exact-solver', reason: this._solverReason(chosen, res.value) };
+  }
+
+  _solveExact(state, playerId) {
+    return solveFromState(state, this.tracker, playerId, this.solverOptions);
   }
 
   _solverReason(action, value) {
