@@ -109,6 +109,26 @@ function createSmartBrain(options) {
  * decide(state, playerId, legalActions) -> { action, reason?, analysis? }
  * где `state` — ОБЯЗАТЕЛЬНО маскированное состояние `game.getState(playerId)`.
  */
+/**
+ * Apply one local action and deliver its public transition to every bot that was
+ * alive before it (including players who finish during this action). The optional
+ * executor allows CLI diagnostic recording without applying the action twice.
+ * Never deliver applyAction's return value: it contains unmasked hands.
+ */
+export function applyObservedAction(game, brains, playerId, action, execute = null) {
+  const recipients = game.players.filter((p) => !p.out && brains.has(p.id)).map((p) => p.id);
+  if (execute) execute();
+  else game.applyAction(playerId, action);
+  const event = game.publicTransition;
+  for (const id of recipients) {
+    // Independent copies prevent one observer from mutating another's observation.
+    brains.get(id).observe(
+      structuredClone(game.getState(id)), id,
+      event ? structuredClone(event) : null,
+    );
+  }
+}
+
 export function createBotBrain(level, options = {}) {
   const requested = normalizeBotLevel(level);
   switch (requested) {
