@@ -965,7 +965,7 @@ function logBotExplanation(game, botName, decision){
 // можно включить и посреди партии, не пересоздавая мозг и не теряя его память.
 function makeBotBrain(game, playerId){
   const level=activeBotSettings ? activeBotSettings.level : currentBotLevel();
-  const brain=createBotBrain(level, { explain:true });
+  const brain=createBotBrain(level, { explain:true, trace:true });
   // reset получает то же маскированное состояние, что и decide: чужих рук в нём нет.
   brain.reset(game.getState(playerId), playerId);
   return brain;
