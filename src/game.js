@@ -884,6 +884,12 @@ export class DurakGame {
         const card = this.talon.shift();
         player.hand.push(card);
         drawn.push(card);
+        if (this._pendingTransition && this.talon.length === 0) {
+          this._pendingTransition.trumpDraws.push({
+            playerId: player.id,
+            card: { rank: card.rank, suit: card.suit },
+          });
+        }
       }
       if (drawn.length > 0) {
         this._log(() => `${player.name} добирает из колоды: ${drawn.map(cardToString).join(', ')} (в колоде осталось ${this.talon.length})`);
