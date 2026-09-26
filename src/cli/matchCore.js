@@ -111,6 +111,7 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
       const decision = brain.decide(state, p.id, legal) || {};
       const action = decision.action;
       if (!action) continue;
+      if (decision.decisionTrace) decision.decisionTrace.actionId = safety;
       if (collectTrace) {
         trace.push({
           player: p.name,
@@ -118,6 +119,7 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
           action: actionToString(action),
           reason: decision.reason || null,
           analysis: decision.analysis || null,
+          decisionTrace: decision.decisionTrace ?? null,
         });
       }
       applyObservedAction(game, brains, p.id, action, recorder ? () => {
