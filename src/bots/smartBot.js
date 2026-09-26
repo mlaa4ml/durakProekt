@@ -741,19 +741,19 @@ export class SmartBot {
     //    не разбазаривая карты на заведомо проигранную защиту.
     if (this.profile.takeWhenTableUnbeatable && take && !plan.canDefendAll && undefended.length >= 2) {
       if (cheapTransfer) {
-        return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — весь стол мне не отбить, пусть отбивается следующий.` };
+        return { rule: 'transfer-unbeatable-table', action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — весь стол мне не отбить, пусть отбивается следующий.` };
       }
-      return { action: take, reason: 'Беру карты: весь стол мне всё равно не отбить, нет смысла тратить карты впустую.' };
+      return { rule: 'take-unbeatable-table', action: take, reason: 'Беру карты: весь стол мне всё равно не отбить, нет смысла тратить карты впустую.' };
     }
 
     if (defends.length === 0) {
       if (cheapTransfer) {
-        return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться нечем, зато ход уходит дальше.` };
+        return { rule: 'transfer-no-defense', action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться нечем, зато ход уходит дальше.` };
       }
       if (transfer) {
-        return { action: transfer, reason: `Перевожу ${list(transfer.cards)} — отбиться нечем.` };
+        return { rule: 'transfer-no-defense', action: transfer, reason: `Перевожу ${list(transfer.cards)} — отбиться нечем.` };
       }
-      return { action: take, reason: 'Беру карты: отбиться нечем.' };
+      return { rule: 'take-no-defense', action: take, reason: 'Беру карты: отбиться нечем.' };
     }
 
     // 2. Бьём минимальной достаточной картой; козырь — только если некозырной нет.
