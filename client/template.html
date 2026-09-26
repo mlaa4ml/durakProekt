@@ -874,7 +874,7 @@ function runFullGame(numPlayers, deckSize, throwInPolicy, botOptions={}){
       const action=decision.action;
       if(!action) continue;
       if(explain) logBotExplanation(game, p.name, decision);
-      game.applyAction(p.id, action);
+      applyObservedAction(game, brains, p.id, action);
       acted=true; break;
     }
     if(!acted) break;
