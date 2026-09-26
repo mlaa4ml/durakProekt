@@ -17,7 +17,7 @@
 
 import { DurakGame } from '../game.js';
 import { cardToString } from '../deck.js';
-import { createBotBrain, botLevelLabel } from '../bots/index.js';
+import { createBotBrain, botLevelLabel, applyObservedAction } from '../bots/index.js';
 import { GameRecorder } from '../diagnostics/replay.js';
 
 export const MAX_STEPS = 5000;
