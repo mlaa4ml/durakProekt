@@ -135,6 +135,55 @@ export class CardTracker {
   //  Наблюдение
   // ------------------------------------------------------------------
 
+    /**
+   * Ordered public transition + masked endpoint. Unlike snapshot differencing this
+   * sees the final played card even if applyAction removed the table synchronously.
+   * Missing batches invalidate all movable facts; immutable known discard survives.
+   */
+  observeTransition(state, event) {
+    if (!event || !Number.isInteger(event.actionNumber)) return this.observe(state);
+    const last = this._lastActionNumber ?? 0;
+    if (event.actionNumber <= last) return this;
+    const contiguous = event.actionNumber === last + 1;
+    for (const p of state.players) this._ensurePlayer(p.id);
+    if (!contiguous) {
+      for (const set of this.takenBy.values()) set.clear();
+      for (const id of this.playerIds) this._forgetAssumptions(id);
+    }
+    const played = event.action.cards || (event.action.card ? [event.action.card] : []);
+    for (const c of played) {
+      const k = cardKey(c);
+      for (const set of this.takenBy.values()) set.delete(k);
+      this.seenPlayed.get(event.actor)?.add(k);
+    }
+    for (const closure of event.closures) {
+      for (const c of closure.cards) {
+        const k = cardKey(c);
+        for (const set of this.takenBy.values()) set.delete(k);
+        if (closure.destination === 'discard') this.discard.add(k);
+        else if (closure.defender !== this.meId) getSet(this.takenBy, closure.defender).add(k);
+      }
+    }
+    for (const draw of event.trumpDraws) {
+      if (draw.playerId !== this.meId) getSet(this.takenBy, draw.playerId).add(cardKey(draw.card));
+    }
+    // Draws can invalidate heuristic assumptions, but cannot erase public facts.
+    if (this.talonCount !== state.talonCount) {
+      for (const id of this.playerIds) this._forgetAssumptions(id);
+    }
+    this.myHand = this._myHandFrom(state) || new Set();
+    const cur = this._snapshot(state);
+    this.onTable = new Set(cur.tableKeys);
+    for (const k of [...this.myHand, ...this.onTable]) {
+      this.discard.delete(k);
+      for (const set of this.takenBy.values()) set.delete(k);
+    }
+    this.unseenDiscardCount = Math.max(0, cur.discardCount - this.discard.size);
+    this._lastActionNumber = event.actionNumber;
+    this._finishObserve(cur);
+    return this;
+  }
+
   _snapshot(state) {
     const pairs = (state.table || []).map((t) => ({
       attackKey: t.attack ? cardKey(t.attack) : null,
