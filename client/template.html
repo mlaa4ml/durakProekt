@@ -1072,7 +1072,7 @@ function doHumanAction(action){
   // transfer по полному набору карт) — используем ту же проверку, что и applyAction.
   const match=legal.find(a=>igame._actionsEqual(a,action));
   if(!match) return;
-  igame.applyAction(HUMAN_ID, match);
+  applyObservedAction(igame, botBrains, HUMAN_ID, match);
   scheduleBotStep();
 }
 
