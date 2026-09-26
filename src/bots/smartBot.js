@@ -243,7 +243,10 @@ export class SmartBot {
     this.profileName = this.profileOverride ? 'custom' : 'duel';
     this.profile = { ...SMART_PROFILE, ...(this.profileOverride || {}) };
     this._profileFixed = this.profileOverride !== null; // профиль на эту партию уже определён
-    this.explain = options.explain === true;
+        this.explain = options.explain === true;
+    // Trace is opt-in independently of prose; neither switch participates in policy.
+    this.trace = options.trace === true;
+    this._decisionTrace = null;
     this.meId = options.meId || null;
     this.tracker = null;
     this.rules = { ...DEFAULT_RULES }; // правила партии; обновляются из state.rules при каждом наблюдении
