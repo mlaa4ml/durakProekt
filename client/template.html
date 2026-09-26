@@ -949,6 +949,9 @@ function formatBotExplanation(botName, decision){
   let text=`🤖 ${botName}: ${lowerFirst(reason)}`;
   const analysis=decision.analysis && typeof decision.analysis==='string' ? decision.analysis.trim() : '';
   if(analysis) text+=`\n   └ расклад: ${analysis}`;
+  // Local diagnostics only: trace contains metadata, never hands/search positions.
+  const trace=decision.decisionTrace;
+  if(trace) text+=`\n   └ диагностика: ${JSON.stringify(trace)}`;
   return text;
 }
 
