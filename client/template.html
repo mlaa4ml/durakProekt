@@ -853,7 +853,7 @@ function runFullGame(numPlayers, deckSize, throwInPolicy, botOptions={}){
   // В режиме просмотра все игроки — боты одного уровня: по «мозгу» на каждого.
   const brains=new Map();
   for(const p of game.players){
-    const brain=createBotBrain(level, { explain });
+    const brain=createBotBrain(level, { explain, trace:explain });
     brain.reset(game.getState(p.id), p.id);
     brains.set(p.id, brain);
   }
