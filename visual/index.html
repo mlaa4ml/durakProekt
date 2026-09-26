@@ -3953,22 +3953,35 @@ class SmartBot {
    * соперника) или результат не сошёлся с движком по списку легальных ходов.
    */
   _tryExactSolver(state, playerId, legalActions) {
-    if (!this.profile.exactEndgameSolver || !this.tracker) return null;
-    if (!canSolve(state, this.tracker, playerId)) return null;
-
     const stats = this.solverStats;
+    if (!this.profile.exactEndgameSolver) {
+      stats.disabled = (stats.disabled || 0) + 1;
+      return null;
+    }
+    if (!this.tracker) {
+      stats.noTracker = (stats.noTracker || 0) + 1;
+      return null;
+    }
+    if (!canSolve(state, this.tracker, playerId)) {
+      stats.unapplicable = (stats.unapplicable || 0) + 1;
+      return null;
+    }
+
     const res = solveFromState(state, this.tracker, playerId, this.solverOptions);
-    if (!res) return null;
+    if (!res) {
+      stats.nullResult = (stats.nullResult || 0) + 1;
+      return null;
+    }
     stats.calls++;
-    stats.nodes += res.nodes;
-    stats.ms += res.ms;
+    stats.nodes += res.nodes || 0;
+    stats.ms += res.ms || 0;
     if (res.timedOut) { stats.timedOut++; return null; }
     if (!res.solved || !res.action) { stats.unusable++; return null; }
 
     // Страховка от расхождения с движком: копия позиции обязана дать те же легальные ходы.
-    const sameSet = res.legal.length === legalActions.length
+    const sameSet = res.legal && legalActions && res.legal.length === legalActions.length
       && res.legal.every((r) => legalActions.some((a) => sameEndgameAction(a, r)));
-    const chosen = legalActions.find((a) => sameEndgameAction(a, res.action));
+    const chosen = legalActions && legalActions.find((a) => sameEndgameAction(a, res.action));
     if (!sameSet || !chosen) { stats.unusable++; return null; }
 
     if (res.value < 0) { stats.losses++; return null; }
