@@ -754,16 +754,10 @@ export class SmartBot {
 
     // 3. Перевод дешевле защиты козырем — переводим.
     if (usesTrump && cheapTransfer) {
-      return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — иначе пришлось бы тратить козырь.` };
+      return { rule: 'transfer-save-trump', action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — иначе пришлось бы тратить козырь.` };
     }
 
-    // 3б. Перевод «в первый момент» (issue #61). Раньше перевод рассматривался только как
-    //     спасение — когда весь стол не отбить, отбиваться нечем или пришлось бы жечь козырь.
-    //     Из-за этого бот упорно отбивался там, где дешёвый перевод был явно выгоднее: пока на
-    //     столе нет ни одной побитой карты, перевод НЕКОЗЫРНОЙ картой не дороже защиты снимает
-    //     с меня роль защитника целиком — весь стол едет дальше, а я ещё и разгружаю руку.
-    //     Сравниваем в одной шкале: сколько «стоят» карты, уходящие на перевод, и сколько —
-    //     карты, которые пришлось бы отдать на полный отбой.
+    // 3б. Некозырной перевод не дороже полной защиты (issue #61).
     if (this.profile.preferTransferWhenCheap && cheapTransfer && table.length > 0
         && undefended.length === table.length) {
       const transferCost = cheapTransfer.cards.reduce((s, c) => s + cardPower(c, trumpSuit), 0);
@@ -772,20 +766,14 @@ export class SmartBot {
         : Infinity;
       if (transferCost <= defendCost) {
         return {
+          rule: 'transfer-cheap',
           action: cheapTransfer,
-          reason: `Перевожу ${list(cheapTransfer.cards)} — отбиваться дороже, а так стол целиком уходит дальше и защищаться буду не я.`,
+          reason: `Перевожу ${list(cheapTransfer.cards)} — отбиваться не дешевле, а так стол целиком уходит дальше и защищаться буду не я.`,
         };
       }
     }
 
-    // 3.5. Вероятностный выбор «брать или отбиваться» (этап 4, issue #49).
-    //      Никаких порогов «на глаз»: сравниваем ДВЕ ожидаемые цены в одной и той же шкале
-    //      ценности карт (`cardPower`).
-    //        цена взятия  = всё, что лежит на столе, плюс то, что ещё подкинут;
-    //        цена защиты  = карты, которые уйдут с руки на отбой, плюс риск,
-    //                       что отбиться всё равно не выйдет и стол придётся забрать.
-    //      Работает, только пока идёт прикуп: при пустой колоде решает точный счёт
-    //      (`exactEndgame` / `exactEndgameSolver`), там взятие оценивается иначе.
+    // 3.5. Сравнение ожидаемых цен взятия и защиты (issue #49), только при живом прикупе.
     if (this.profile.probabilisticTake && take && !endgame && this.tracker
         && alivePlayersCount(state) === 2) {
       try {
@@ -797,23 +785,19 @@ export class SmartBot {
         );
         const tableCards = table.reduce((s, t) => s + 1 + (t.defense ? 1 : 0), 0);
         const avgCard = tableCards ? tableCost / tableCards : 0;
-        // Цена взятия: вся ценность, которая переедет со стола мне в руку (плюс то, что подкинут).
         const costTake = tableCost + extra * avgCard;
-        // Цена защиты — НЕ вся потраченная карта: успешная защита уносит в бито и мою карту,
-        // и атаку соперника, то есть руку она разгружает. Реально теряю только «переплату»:
-        // насколько отдаваемая карта дороже той, которую она убирает со стола
-        // (бить семёрку козырным королём — переплата почти в целый козырь, своей восьмёркой — в единицу).
+        // Цена успешной защиты — переплата за отбой; при неудаче забираем и свои карты.
         const overpay = plan.canDefendAll
           ? plan.assignment.reduce(
             (s, x) => s + Math.max(0, cardPower(x.card, trumpSuit) - cardPower(x.attack, trumpSuit)),
             0,
           )
           : Infinity;
-        // Не отбился — всё равно забираю стол, да ещё и потратив карты на отбой.
         const costDefend = overpay + (1 - pSurv) * (costTake + overpay);
         if (costTake < costDefend) {
           if (cheapTransfer) {
             return {
+              rule: 'transfer-probabilistic',
               action: cheapTransfer,
               reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться до конца я вряд ли успею, а так стол уйдёт дальше.`,
             };
@@ -822,27 +806,27 @@ export class SmartBot {
           const why = voids.length
             ? 'подкидывать ему есть чем, а я на этом потеряю больше, чем заберу'
             : 'мне ещё подкинут, и защита обойдётся дороже, чем взятые карты';
-          return { action: take, reason: `Беру карты: ${why}.` };
+          return { rule: 'take-probabilistic', action: take, reason: `Беру карты: ${why}.` };
         }
       } catch {
         // Оценки — вспомогательный слой: если что-то пошло не так, решают обычные правила.
       }
     }
 
-    // 5. Эндшпиль: колода пуста, считаем по-простому и точно.
+    // 5. Дешёвая эвристика эндшпиля, НЕ полный поиск партии.
     if (this.profile.exactEndgame && endgame) {
       const known = this._opponentKnownHand(attackerId);
-      // Отбился — рука стала меньше; взял — больше. Когда карт мало, это решает партию.
       if (plan.canDefendAll) {
         return {
+          rule: 'defend-endgame-table',
           action: best,
           reason: known
-            ? `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, а я знаю, что осталось у соперника, и отбиваюсь весь стол.`
-            : `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, брать карты сейчас нельзя.`,
+            ? `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, рука соперника известна, текущий стол можно отбить.`
+            : `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, предпочитаю отбиваться, а не увеличивать руку.`,
         };
       }
       if (take) {
-        return { action: take, reason: 'Беру карты: колода пуста, а отбить весь стол уже не получится.' };
+        return { rule: 'take-endgame-table', action: take, reason: 'Беру карты: колода пуста, а отбить весь стол уже не получится.' };
       }
     }
 
@@ -859,13 +843,13 @@ export class SmartBot {
       table.length <= 2
     ) {
       return {
+        rule: 'take-save-big-trump',
         action: take,
         reason: `Беру карты: отбиться можно было бы только крупным козырем, а он дороже, чем ${cardToString(target)}.`,
       };
     }
 
-    // Если бью некозырной, но при этом отдаю единственную старшую в масти,
-    // а атака мелкая и колода ещё есть — дешевле забрать.
+    // Сохраняем единственную старшую в масти при живом прикупе.
     if (
       this.profile.holdHighCardsWhileTalon &&
       take &&
@@ -878,6 +862,7 @@ export class SmartBot {
       const control = suitControl(hand, best.card.suit, this.tracker);
       if (control.controlled && control.myBest && control.myBest.rank === best.card.rank) {
         return {
+          rule: 'take-save-suit-control',
           action: take,
           reason: `Беру карты: единственная старшая карта масти ${best.card.suit} пригодится мне позже больше, чем сейчас.`,
         };
@@ -885,6 +870,7 @@ export class SmartBot {
     }
 
     return {
+      rule: 'defend-cheapest',
       action: best,
       reason: usesTrump
         ? `Бью ${cardToString(target)} козырем ${cardToString(best.card)} — некозырной подходящей карты нет.`
