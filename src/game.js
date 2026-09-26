@@ -466,6 +466,24 @@ export class DurakGame {
   // ЛЮБОЕ действие любого игрока — атаку, перевод, отбой, взятие, пас — одинаково, и его
   // не может случайно обойти будущий новый тип действия.
   _dispatch(idx, match) {
+    // Only public facts are retained, never the result of getState() or drawn hands.
+    // Silent solver copies do not allocate event batches.
+    this.actionNumber = (this.actionNumber || 0) + 1;
+    if (!this.silent) {
+      const card = (c) => ({ rank: c.rank, suit: c.suit });
+      this.publicTransition = null;
+      this._pendingTransition = {
+        actionNumber: this.actionNumber,
+        actor: this.players[idx].id,
+        action: {
+          type: match.type,
+          ...(match.card ? { card: card(match.card) } : {}),
+          ...(match.cards ? { cards: match.cards.map(card) } : {}),
+        },
+        closures: [],
+        trumpDraws: [],
+      };
+    }
     const before = { discard: this.discardCount, talon: this.talon.length, out: this.finishedOrder.length };
     switch (match.type) {
       case 'attack': this._doAttack(idx, match.card); break;
