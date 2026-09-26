@@ -365,29 +365,65 @@ export class SmartBot {
   // ------------------------------------------------------------------
 
   decide(state, playerId, legalActions) {
+    this._decisionTrace = null;
     if (!legalActions || legalActions.length === 0) return { action: null };
     if (playerId) this.meId = playerId;
     this._syncRules(state); // decide() можно вызвать и без observe()
-
+    const oppId = playerId === state.defender ? state.attacker : state.defender;
+    const known = this._opponentKnownHand(oppId);
+    // Only metadata: no hands, inferred cards, snapshots or exception messages.
+    const trace = this._decisionTrace = {
+      version: 1, actionId: null, selectedRule: null, emergencyFallback: false,
+      handKnowledge: known !== null ? 'exact' : 'unknown',
+      profile: { name: this.profileName, version: 1, flags: { ...this.profile } },
+      solver: {
+        enabled: !!this.profile.exactEndgameSolver, applicable: false,
+        status: 'not-attempted', solved: false, timedOut: false,
+        value: null, nodes: 0, ms: 0,
+      },
+    };
     let picked;
     try {
       picked = this._choose(state, playerId, legalActions);
     } catch {
       picked = null;
+      trace.solver.status = 'exception';
     }
     // Страховка: что бы ни случилось внутри эвристик, наружу уходит действие ИЗ СПИСКА легальных.
     if (!picked || !legalActions.includes(picked.action)) {
-      picked = { action: legalActions[0], reason: 'Играю первым доступным ходом.' };
+      trace.emergencyFallback = true;
+      picked = { action: legalActions[0], rule: 'emergency-first-legal', reason: 'Аварийный выбор: играю первым доступным ходом.' };
     }
-    if (!this.explain) return { action: picked.action };
+    trace.selectedRule = picked.rule;
+    const result = { action: picked.action };
+    if (this.trace) result.decisionTrace = trace;
+    if (this.explain) {
+      result.reason = this._decisionReason(picked, trace);
+      try {
+        result.analysis = this._analysisText(state, myHandOf(state, playerId), state.trumpSuit, oppId);
+      } catch {
+        result.analysis = null;
+      }
+    }
+    return result;
+  }
 
-    const hand = myHandOf(state, playerId);
-    const oppId = playerId === state.defender ? state.attacker : state.defender;
-    return {
-      action: picked.action,
-      reason: picked.reason,
-      analysis: this._analysisText(state, hand, state.trumpSuit, oppId),
+  _decisionReason(picked, trace) {
+    if (trace.selectedRule === 'exact-solver') {
+      return this._solverReason(picked.action, trace.solver.value);
+    }
+    const labels = {
+      disabled: 'Точный решатель выключен.',
+      'unknown-hand': 'Точная рука соперника неизвестна.',
+      'not-applicable': 'Точный решатель неприменим к этой позиции.',
+      budget: 'Бюджет поиска исчерпан; полного решения нет.',
+      'legal-mismatch': 'Результат поиска отклонён: легальные действия не совпали.',
+      unusable: 'Результат поиска непригоден; полного решения нет.',
+      'proven-loss': 'Полный поиск доказал проигрыш при точной игре соперника.',
+      exception: 'Ошибка выбора хода.',
+      'not-attempted': 'Поиск не запускался.',
     };
+    return `${labels[trace.solver.status] || ''} ${trace.emergencyFallback ? '' : 'Эвристика: '}${picked.reason}`.trim();
   }
 
   _choose(state, playerId, legalActions) {
