@@ -81,6 +81,12 @@ test('trace: every solver rejection, success, emergency; explanations do not cha
       assert.doesNotMatch(JSON.stringify(trace), /"hand":|"cards":|"snapshot":|"suit":/);
     }
     bot._solveExact = original;
+    // Unit gate check: knowledge alone is insufficient with cards in the talon.
+    const inapplicable = bot.decide({ ...state, talonCount: 1 }, id, legal);
+    assert.equal(inapplicable.decisionTrace.handKnowledge, 'exact');
+    assert.equal(inapplicable.decisionTrace.solver.status, 'not-applicable');
+    assert.equal(inapplicable.decisionTrace.solver.applicable, false);
+    assert.match(inapplicable.reason, /неприменим/);
     bot.profile.exactEndgameSolver = false;
     assert.equal(bot.decide(state, id, legal).decisionTrace.solver.status, 'disabled');
     bot.profile.exactEndgameSolver = true;
