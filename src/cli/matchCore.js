@@ -117,15 +117,13 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
           analysis: decision.analysis || null,
         });
       }
-            if (recorder) {
+      applyObservedAction(game, brains, p.id, action, recorder ? () => {
         recorder.applyAction(p.id, action, {
           actor: { kind: 'bot', level: brain.actualLevel, profile: brain.profile ?? null },
           reason: decision.reason ?? null,
           decisionTrace: decision.decisionTrace ?? null,
         });
-      } else {
-        game.applyAction(p.id, action);
-      }
+      } : null);
       acted = true;
       break; // по одному действию за раз, чтобы состояние переоценивалось корректно
     }
