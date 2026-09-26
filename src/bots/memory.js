@@ -127,6 +127,8 @@ export class CardTracker {
     this.conflicts = 0;
     this.observations = 0;
     this.prev = null;
+    this.prevMyHand = null;
+    this._lastActionNumber = 0;
     if (state) this.observe(state);
     return this;
   }
