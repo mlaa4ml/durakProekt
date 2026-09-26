@@ -519,7 +519,7 @@ export class SmartBot {
     const pass = legalActions.find((a) => a.type === 'pass');
 
     if (attacks.length === 0) {
-      return { action: pass || legalActions[0], reason: 'Подкинуть нечего — пропускаю ход.' };
+      return { rule: 'pass-no-attack', action: pass || legalActions[0], reason: 'Подкинуть нечего — пропускаю ход.' };
     }
 
     const mustAttack = !pass;
@@ -544,6 +544,7 @@ export class SmartBot {
         killers.sort((a, b) => cardPower(a.card, trumpSuit) - cardPower(b.card, trumpSuit));
         const known = this._opponentKnownHand(defenderId);
         return {
+          rule: 'finish-weak-opponent',
           action: killers[0],
           reason: known
             ? `Хожу ${cardToString(killers[0].card)} — соперник этой картой не отобьётся, а карт у него всего ${defenderCards}.`
@@ -552,25 +553,14 @@ export class SmartBot {
       }
     }
 
-    // 1б. Соперник уже объявил «беру» (issue #61). Подкидывание сейчас — чистая нагрузка:
-    //     каждая карта уедет ему в руку, отбивать он уже не будет. Значит, козырь в этой
-    //     ситуации подкидывать НЕЛЬЗЯ: он не «давит» (бить-то никто не будет), а просто
-    //     переезжает в руку соперника и там становится его оружием, тогда как у меня на
-    //     руке остаётся мелочь, от которой я и хотел избавиться. Пока есть хоть один
-    //     некозырной подкид, козырные кандидаты из рассмотрения выбрасываются.
+    // 1б. Не дарим козырь сопернику, который уже берёт (issue #61).
     let pool = attacks;
     if (this.profile.keepTrumpWhenOpponentTakes && takingNow) {
       const nonTrump = attacks.filter((a) => a.card.suit !== trumpSuit);
       if (nonTrump.length > 0) pool = nonTrump;
     }
 
-    // 1в. Рука соперника восстановлена памятью ТОЧНО (issue #61). Раньше это знание
-    //     использовалось только при добивании (правило 1, защитник с 1–2 картами), а в
-    //     остальных случаях бот ходил «просто самой дешёвой» — и раз за разом давал
-    //     сопернику отбиться картой, про которую сам знал. Теперь знание работает всегда:
-    //       * есть карта, которую он заведомо не побьёт -> ходим ей (самой дешёвой из таких);
-    //       * такой карты нет -> ходим той, отбой которой обойдётся ему дороже всего
-    //         (с поправкой на цену собственной карты, тот же вес, что и у давления).
+    // 1в. Точная известная рука: неотбиваемая карта или дорогой отбой (issue #61).
     if (this.profile.useKnownHandAttack && !takingNow && defenderCards > 0) {
       const known = this._opponentKnownHand(defenderId);
       if (known && known.length) {
@@ -578,12 +568,11 @@ export class SmartBot {
         if (unbeatable.length > 0) {
           unbeatable.sort((a, b) => cardPower(a.card, trumpSuit) - cardPower(b.card, trumpSuit));
           return {
+            rule: 'known-hand-unbeatable',
             action: unbeatable[0],
             reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(unbeatable[0].card)} — я знаю руку соперника, этой картой ему не отбиться.`,
           };
         }
-        // Отбиться он может на всё. Тогда выбираем карту, за которую он заплатит дороже:
-        // пусть тратит козырь или старшую, а не сбрасывает мелочь по очереди.
         const ranked = pool.map((a) => {
           const beaters = known.filter((c) => beats(c, a.card, trumpSuit));
           const cheapestBeat = Math.min(...beaters.map((c) => cardPower(c, trumpSuit)));
@@ -595,9 +584,10 @@ export class SmartBot {
         if (top && top.gain > 0) {
           const bestCard = top.a.card;
           const isT = bestCard.suit === trumpSuit;
-          // Козырь ради «дорогого отбоя» не отдаём, пока идёт прикуп: он нужнее мне самому.
+          // Козырь ради «дорогого отбоя» не отдаём, пока идёт прикуп.
           if (!(isT && !endgame && this.profile.holdTrumpsWhileTalon) || !pass) {
             return {
+              rule: 'known-hand-expensive-defense',
               action: top.a,
               reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(bestCard)} — я знаю руку соперника: отбиться он сможет только дорогой картой.`,
             };
@@ -606,15 +596,9 @@ export class SmartBot {
       }
     }
 
-    // 2. Сортировка кандидатов.
-    //    Базовая (как раньше): дешевле — лучше; парные ранги идут вперёд (разгрузка).
-    //    С флагом `attackByPressure` — по шансу, что соперник НЕ отобьётся, с поправкой
-    //    на цену отдаваемой карты (этап 4, issue #49; оценки — src/bots/estimate.js).
+    // 2. Цена карты с бонусом пары либо вероятностное давление (только в дуэли).
     let choice;
     let pressurePick = null;
-    //    Правило работает только в дуэли: при 3+ игроках карту может побить не только
-    //    защитник (перевод/следующий круг), и оценка давления систематически завышена —
-    //    на фаззинге 36×4 и 52×3 это приводило к нескончаемым партиям.
     if (this.profile.attackByPressure && this.tracker && !takingNow && defenderCards > 0
         && alivePlayersCount(state) === 2) {
       try {
@@ -623,8 +607,6 @@ export class SmartBot {
           oppId: defenderId,
           trumpSuit,
         }).map((r) => {
-          // Разгрузка парами остаётся отдельным правилом и здесь тоже учитывается:
-          // пара по шкале давления стоит столько же, сколько 3 единицы cardPower раньше.
           const bonus = this.profile.dumpPairs && (rankCount.get(r.card.rank) || 0) >= 2
             ? (PRESSURE_COST_WEIGHT * 3) / MAX_CARD_POWER
             : 0;
@@ -650,9 +632,12 @@ export class SmartBot {
     const card = choice.card;
     const isTrump = card.suit === trumpSuit;
     const isHigh = card.rank >= HIGH_RANK;
+    const rankingRule = pressurePick ? 'pressure' : this.profile.dumpPairs ? 'cost-with-pairs' : 'cheapest';
+    if (this._decisionTrace) {
+      this._decisionTrace.attackRanking = rankingRule;
+      this._decisionTrace.keptTrumpsWhenTaking = pool !== attacks;
+    }
 
-    // 2б. Если выбор сделан по давлению и шанс, что соперник отобьётся, реально мал —
-    //     объясняем это словами, не раскрывая того, чего бот не знает.
     if (pressurePick && pressurePick.pBeat <= 0.25 && defenderCards > 0) {
       const voids = voidSuitsOf(this.tracker, defenderId);
       const why = voids.includes(card.suit)
@@ -661,55 +646,58 @@ export class SmartBot {
           ? 'побить такую карту ему, судя по всему, уже нечем'
           : 'шансов отбиться у него тут почти нет');
       return {
+        rule: 'attack-pressure',
         action: choice,
         reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(card)} — ${why}.`,
       };
     }
 
     if (mustAttack) {
-      return { action: choice, reason: `Захожу ${cardToString(card)} — это самая дешёвая карта, с которой не жалко начать.` };
+      const why = pressurePick ? 'выбираю по оценке давления с учётом цены карты'
+        : this.profile.dumpPairs ? 'выбираю по цене карты с учётом разгрузки пар'
+        : 'это самая дешёвая карта, с которой не жалко начать';
+      return { rule: `attack-${rankingRule}`, action: choice, reason: `Захожу ${cardToString(card)} — ${why}.` };
     }
 
-    // 3–5. Придерживание. Козырь бережём, пока это имеет смысл; крупную карту —
-    // только пока идёт прикуп. В эндшпиле и при «соперник уже забирает» придерживание слабеет.
+    // 3–5. Придерживание козыря/крупной карты при живом прикупе.
     let shouldHold = false;
     if (isTrump) {
-      // Козырь: придерживаем, пока идёт прикуп. Когда колода пуста, козырь — лучшая
-      // нагрузка для соперника, и держать его «на всякий случай» уже поздно.
       shouldHold = this.profile.holdTrumpsWhileTalon
         ? !endgame && !this._nobodyCanBeat(card, hand, trumpSuit)
         : false;
     } else if (isHigh && this.profile.holdHighCardsWhileTalon) {
-      // Крупную некозырную придерживаем, пока есть прикуп и соперник не забирает стол.
       shouldHold = !endgame && !takingNow;
     }
 
-    // 4. Если защитнику уже нечем отбиваться (он берёт или у него кончились карты) —
-    //    грузим стол по максимуму: каждая подкинутая карта уходит ему, а у меня руки чище.
     if (takingNow && !isTrump) shouldHold = false;
     if (defenderCards === 0) shouldHold = false;
 
     if (!shouldHold) {
       if (takingNow) {
-        return { action: choice, reason: `Подкидываю ${cardToString(card)} — соперник всё равно забирает стол, пусть берёт больше.` };
+        return { rule: 'throw-when-taking', action: choice, reason: `Подкидываю ${cardToString(card)} — соперник всё равно забирает стол, пусть берёт больше.` };
       }
       if (endgame) {
-        return { action: choice, reason: `Подкидываю ${cardToString(card)} — колода пуста, сейчас главное избавляться от карт.` };
+        return { rule: 'throw-endgame', action: choice, reason: `Подкидываю ${cardToString(card)} — колода пуста, сейчас главное избавляться от карт.` };
       }
       return {
+        rule: `throw-${rankingRule}`,
         action: choice,
-        reason: isHigh
-          ? `Подкидываю ${cardToString(card)} — держать крупную карту про запас невыгодно, лучше разгрузить руку сейчас.`
-          : `Подкидываю ${cardToString(card)} — недорогая карта, её не жалко.`,
+        reason: pressurePick
+          ? `Подкидываю ${cardToString(card)} — выбираю по оценке давления с учётом цены карты.`
+          : this.profile.dumpPairs
+            ? `Подкидываю ${cardToString(card)} — выбираю по цене карты с учётом разгрузки пар.`
+            : isHigh
+              ? `Подкидываю ${cardToString(card)} — держать крупную карту про запас невыгодно, лучше разгрузить руку сейчас.`
+              : `Подкидываю ${cardToString(card)} — недорогая карта, её не жалко.`,
       };
     }
 
-    // 6. Пас: подкидывание сейчас только навредит (отдали бы козырь или крупную карту).
     return {
+      rule: isTrump ? 'hold-trump' : 'hold-high-card',
       action: pass,
       reason: isTrump
-        ? 'Пропускаю: подкинуть могу только козырем, а его лучше приберечь.'
-        : 'Пропускаю: остались только крупные карты, пока их отдавать рано.',
+        ? 'Пропускаю: выбранный подкид — козырь, а его лучше приберечь.'
+        : 'Пропускаю: выбранный подкид — крупная карта, пока её отдавать рано.',
     };
   }
 
