@@ -3,6 +3,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DurakGame } from '../src/game.js';
+import { SmartBot } from '../src/bots/smartBot.js';
+
+test('#64: joining at the pictured position reports unknown hand, not search timeout', () => {
+  const game = position({ deckSize: 24, numPlayers: 2, allowPerevod: false });
+  const state = game.getState('bot4');
+  const legal = game.getLegalActions('bot4');
+  const bot = new SmartBot({ explain: true, trace: true, solver: { maxNodes: 0 } });
+  bot.reset(state, 'bot4');
+  const decision = bot.decide(state, 'bot4', legal);
+  assert.equal(state.players.find((p) => p.id === 'bot2').hand, undefined);
+  assert.equal(decision.decisionTrace.handKnowledge, 'unknown');
+  assert.equal(decision.decisionTrace.solver.status, 'unknown-hand');
+  assert.equal(decision.decisionTrace.solver.timedOut, false);
+  assert.equal(decision.decisionTrace.solver.nodes, 0);
+  assert.ok(decision.decisionTrace.selectedRule);
+  assert.notEqual(decision.decisionTrace.selectedRule, 'exact-solver');
+  assert.match(decision.reason, /рука соперника неизвестна.*Эвристика:/);
+  assert.ok(legal.includes(decision.action));
+});
 
 const ranks = { J: 11, Q: 12, K: 13, A: 14 };
 const card = (s) => ({

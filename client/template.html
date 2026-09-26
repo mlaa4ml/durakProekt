@@ -853,7 +853,7 @@ function runFullGame(numPlayers, deckSize, throwInPolicy, botOptions={}){
   // В режиме просмотра все игроки — боты одного уровня: по «мозгу» на каждого.
   const brains=new Map();
   for(const p of game.players){
-    const brain=createBotBrain(level, { explain });
+    const brain=createBotBrain(level, { explain, trace:explain });
     brain.reset(game.getState(p.id), p.id);
     brains.set(p.id, brain);
   }
@@ -949,6 +949,9 @@ function formatBotExplanation(botName, decision){
   let text=`🤖 ${botName}: ${lowerFirst(reason)}`;
   const analysis=decision.analysis && typeof decision.analysis==='string' ? decision.analysis.trim() : '';
   if(analysis) text+=`\n   └ расклад: ${analysis}`;
+  // Local diagnostics only: trace contains metadata, never hands/search positions.
+  const trace=decision.decisionTrace;
+  if(trace) text+=`\n   └ диагностика: ${JSON.stringify(trace)}`;
   return text;
 }
 
@@ -956,6 +959,9 @@ function formatBotExplanation(botName, decision){
 // строка попадает и в game.log (его рисуют renderFullLog / renderInteractiveLog), и в
 // snapshots — индексы лога и шагов просмотра остаются согласованы.
 function logBotExplanation(game, botName, decision){
+  // Same accepted-action sequence as the engine's public observations; human
+  // actions count too. Explanations are logged immediately before this action.
+  if(decision.decisionTrace) decision.decisionTrace.actionId=(game.publicTransition?.actionNumber || 0)+1;
   const text=formatBotExplanation(botName, decision);
   if(text) game._log(text);
 }
@@ -965,7 +971,7 @@ function logBotExplanation(game, botName, decision){
 // можно включить и посреди партии, не пересоздавая мозг и не теряя его память.
 function makeBotBrain(game, playerId){
   const level=activeBotSettings ? activeBotSettings.level : currentBotLevel();
-  const brain=createBotBrain(level, { explain:true });
+  const brain=createBotBrain(level, { explain:true, trace:true });
   // reset получает то же маскированное состояние, что и decide: чужих рук в нём нет.
   brain.reset(game.getState(playerId), playerId);
   return brain;

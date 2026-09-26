@@ -77,6 +77,8 @@ export class GameRecorder {
         decisionTrace: decision.decisionTrace ?? null,
       },
     });
+        // The archive owns IDs (including human moves); never trust a caller's counter.
+    if (entry.decision?.decisionTrace) entry.decision.decisionTrace.actionId = entry.id;
     // Compare the full action, including defend.against.
     if (!entry.legalActions.some((a) => equal(a, entry.action))) fail(`illegal action ${entry.id}`);
     this.#pending = entry;

@@ -243,7 +243,10 @@ export class SmartBot {
     this.profileName = this.profileOverride ? 'custom' : 'duel';
     this.profile = { ...SMART_PROFILE, ...(this.profileOverride || {}) };
     this._profileFixed = this.profileOverride !== null; // профиль на эту партию уже определён
-    this.explain = options.explain === true;
+        this.explain = options.explain === true;
+    // Trace is opt-in independently of prose; neither switch participates in policy.
+    this.trace = options.trace === true;
+    this._decisionTrace = null;
     this.meId = options.meId || null;
     this.tracker = null;
     this.rules = { ...DEFAULT_RULES }; // правила партии; обновляются из state.rules при каждом наблюдении
@@ -362,29 +365,65 @@ export class SmartBot {
   // ------------------------------------------------------------------
 
   decide(state, playerId, legalActions) {
+    this._decisionTrace = null;
     if (!legalActions || legalActions.length === 0) return { action: null };
     if (playerId) this.meId = playerId;
     this._syncRules(state); // decide() можно вызвать и без observe()
-
+    const oppId = playerId === state.defender ? state.attacker : state.defender;
+    const known = this._opponentKnownHand(oppId);
+    // Only metadata: no hands, inferred cards, snapshots or exception messages.
+    const trace = this._decisionTrace = {
+      version: 1, actionId: null, selectedRule: null, emergencyFallback: false,
+      handKnowledge: known !== null ? 'exact' : 'unknown',
+      profile: { name: this.profileName, version: 1, flags: { ...this.profile } },
+      solver: {
+        enabled: !!this.profile.exactEndgameSolver, applicable: false,
+        status: 'not-attempted', solved: false, timedOut: false,
+        value: null, nodes: 0, ms: 0,
+      },
+    };
     let picked;
     try {
       picked = this._choose(state, playerId, legalActions);
     } catch {
       picked = null;
+      trace.solver.status = 'exception';
     }
     // Страховка: что бы ни случилось внутри эвристик, наружу уходит действие ИЗ СПИСКА легальных.
     if (!picked || !legalActions.includes(picked.action)) {
-      picked = { action: legalActions[0], reason: 'Играю первым доступным ходом.' };
+      trace.emergencyFallback = true;
+      picked = { action: legalActions[0], rule: 'emergency-first-legal', reason: 'Аварийный выбор: играю первым доступным ходом.' };
     }
-    if (!this.explain) return { action: picked.action };
+    trace.selectedRule = picked.rule;
+    const result = { action: picked.action };
+    if (this.trace) result.decisionTrace = trace;
+    if (this.explain) {
+      result.reason = this._decisionReason(picked, trace);
+      try {
+        result.analysis = this._analysisText(state, myHandOf(state, playerId), state.trumpSuit, oppId);
+      } catch {
+        result.analysis = null;
+      }
+    }
+    return result;
+  }
 
-    const hand = myHandOf(state, playerId);
-    const oppId = playerId === state.defender ? state.attacker : state.defender;
-    return {
-      action: picked.action,
-      reason: picked.reason,
-      analysis: this._analysisText(state, hand, state.trumpSuit, oppId),
+  _decisionReason(picked, trace) {
+    if (trace.selectedRule === 'exact-solver') {
+      return this._solverReason(picked.action, trace.solver.value);
+    }
+    const labels = {
+      disabled: 'Точный решатель выключен.',
+      'unknown-hand': 'Точная рука соперника неизвестна.',
+      'not-applicable': 'Точный решатель неприменим к этой позиции.',
+      budget: 'Бюджет поиска исчерпан; полного решения нет.',
+      'legal-mismatch': 'Результат поиска отклонён: легальные действия не совпали.',
+      unusable: 'Результат поиска непригоден; полного решения нет.',
+      'proven-loss': 'Полный поиск доказал проигрыш при точной игре соперника.',
+      exception: 'Ошибка выбора хода.',
+      'not-attempted': 'Поиск не запускался.',
     };
+    return `${labels[trace.solver.status] || ''} ${trace.emergencyFallback ? '' : 'Эвристика: '}${picked.reason}`.trim();
   }
 
   _choose(state, playerId, legalActions) {
@@ -413,28 +452,44 @@ export class SmartBot {
    * соперника) или результат не сошёлся с движком по списку легальных ходов.
    */
   _tryExactSolver(state, playerId, legalActions) {
-    if (!this.profile.exactEndgameSolver || !this.tracker) return null;
-    if (!canSolve(state, this.tracker, playerId)) return null;
+    const trace = this._decisionTrace?.solver;
+    const reject = (status) => { if (trace) trace.status = status; return null; };
+    const applicable = canSolve(state, this.tracker, playerId);
+    if (trace) trace.applicable = applicable;
+    if (!this.profile.exactEndgameSolver) return reject('disabled');
+    if (!applicable) {
+      return reject(this._decisionTrace?.handKnowledge === 'unknown' ? 'unknown-hand' : 'not-applicable');
+    }
 
     const stats = this.solverStats;
-    const res = solveFromState(state, this.tracker, playerId, this.solverOptions);
-    if (!res) return null;
+    const res = this._solveExact(state, playerId);
+    if (!res) return reject('unusable');
+    if (trace) Object.assign(trace, {
+      solved: res.solved === true, timedOut: res.timedOut === true,
+      value: res.value ?? null, nodes: res.nodes ?? 0, ms: res.ms ?? 0,
+    });
     stats.calls++;
     stats.nodes += res.nodes;
     stats.ms += res.ms;
-    if (res.timedOut) { stats.timedOut++; return null; }
-    if (!res.solved || !res.action) { stats.unusable++; return null; }
+    if (res.timedOut) { stats.timedOut++; return reject('budget'); }
+    if (res.mismatch) { stats.unusable++; return reject('legal-mismatch'); }
+    if (!res.solved || !res.action) { stats.unusable++; return reject('unusable'); }
 
     // Страховка от расхождения с движком: копия позиции обязана дать те же легальные ходы.
-    const sameSet = res.legal.length === legalActions.length
+    const sameSet = Array.isArray(res.legal) && res.legal.length === legalActions.length
       && res.legal.every((r) => legalActions.some((a) => sameEndgameAction(a, r)));
     const chosen = legalActions.find((a) => sameEndgameAction(a, res.action));
-    if (!sameSet || !chosen) { stats.unusable++; return null; }
+    if (!sameSet || !chosen) { stats.unusable++; return reject('legal-mismatch'); }
 
-    if (res.value < 0) { stats.losses++; return null; }
+    if (res.value < 0) { stats.losses++; return reject('proven-loss'); }
     if (res.value > 0) stats.wins++; else stats.draws++;
     stats.used++;
-    return { action: chosen, reason: this._solverReason(chosen, res.value) };
+    if (trace) trace.status = 'used';
+    return { action: chosen, rule: 'exact-solver', reason: this._solverReason(chosen, res.value) };
+  }
+
+  _solveExact(state, playerId) {
+    return solveFromState(state, this.tracker, playerId, this.solverOptions);
   }
 
   _solverReason(action, value) {
@@ -464,7 +519,7 @@ export class SmartBot {
     const pass = legalActions.find((a) => a.type === 'pass');
 
     if (attacks.length === 0) {
-      return { action: pass || legalActions[0], reason: 'Подкинуть нечего — пропускаю ход.' };
+      return { rule: 'pass-no-attack', action: pass || legalActions[0], reason: 'Подкинуть нечего — пропускаю ход.' };
     }
 
     const mustAttack = !pass;
@@ -489,6 +544,7 @@ export class SmartBot {
         killers.sort((a, b) => cardPower(a.card, trumpSuit) - cardPower(b.card, trumpSuit));
         const known = this._opponentKnownHand(defenderId);
         return {
+          rule: 'finish-weak-opponent',
           action: killers[0],
           reason: known
             ? `Хожу ${cardToString(killers[0].card)} — соперник этой картой не отобьётся, а карт у него всего ${defenderCards}.`
@@ -497,25 +553,14 @@ export class SmartBot {
       }
     }
 
-    // 1б. Соперник уже объявил «беру» (issue #61). Подкидывание сейчас — чистая нагрузка:
-    //     каждая карта уедет ему в руку, отбивать он уже не будет. Значит, козырь в этой
-    //     ситуации подкидывать НЕЛЬЗЯ: он не «давит» (бить-то никто не будет), а просто
-    //     переезжает в руку соперника и там становится его оружием, тогда как у меня на
-    //     руке остаётся мелочь, от которой я и хотел избавиться. Пока есть хоть один
-    //     некозырной подкид, козырные кандидаты из рассмотрения выбрасываются.
+    // 1б. Не дарим козырь сопернику, который уже берёт (issue #61).
     let pool = attacks;
     if (this.profile.keepTrumpWhenOpponentTakes && takingNow) {
       const nonTrump = attacks.filter((a) => a.card.suit !== trumpSuit);
       if (nonTrump.length > 0) pool = nonTrump;
     }
 
-    // 1в. Рука соперника восстановлена памятью ТОЧНО (issue #61). Раньше это знание
-    //     использовалось только при добивании (правило 1, защитник с 1–2 картами), а в
-    //     остальных случаях бот ходил «просто самой дешёвой» — и раз за разом давал
-    //     сопернику отбиться картой, про которую сам знал. Теперь знание работает всегда:
-    //       * есть карта, которую он заведомо не побьёт -> ходим ей (самой дешёвой из таких);
-    //       * такой карты нет -> ходим той, отбой которой обойдётся ему дороже всего
-    //         (с поправкой на цену собственной карты, тот же вес, что и у давления).
+    // 1в. Точная известная рука: неотбиваемая карта или дорогой отбой (issue #61).
     if (this.profile.useKnownHandAttack && !takingNow && defenderCards > 0) {
       const known = this._opponentKnownHand(defenderId);
       if (known && known.length) {
@@ -523,12 +568,11 @@ export class SmartBot {
         if (unbeatable.length > 0) {
           unbeatable.sort((a, b) => cardPower(a.card, trumpSuit) - cardPower(b.card, trumpSuit));
           return {
+            rule: 'known-hand-unbeatable',
             action: unbeatable[0],
             reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(unbeatable[0].card)} — я знаю руку соперника, этой картой ему не отбиться.`,
           };
         }
-        // Отбиться он может на всё. Тогда выбираем карту, за которую он заплатит дороже:
-        // пусть тратит козырь или старшую, а не сбрасывает мелочь по очереди.
         const ranked = pool.map((a) => {
           const beaters = known.filter((c) => beats(c, a.card, trumpSuit));
           const cheapestBeat = Math.min(...beaters.map((c) => cardPower(c, trumpSuit)));
@@ -540,9 +584,10 @@ export class SmartBot {
         if (top && top.gain > 0) {
           const bestCard = top.a.card;
           const isT = bestCard.suit === trumpSuit;
-          // Козырь ради «дорогого отбоя» не отдаём, пока идёт прикуп: он нужнее мне самому.
+          // Козырь ради «дорогого отбоя» не отдаём, пока идёт прикуп.
           if (!(isT && !endgame && this.profile.holdTrumpsWhileTalon) || !pass) {
             return {
+              rule: 'known-hand-expensive-defense',
               action: top.a,
               reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(bestCard)} — я знаю руку соперника: отбиться он сможет только дорогой картой.`,
             };
@@ -551,15 +596,9 @@ export class SmartBot {
       }
     }
 
-    // 2. Сортировка кандидатов.
-    //    Базовая (как раньше): дешевле — лучше; парные ранги идут вперёд (разгрузка).
-    //    С флагом `attackByPressure` — по шансу, что соперник НЕ отобьётся, с поправкой
-    //    на цену отдаваемой карты (этап 4, issue #49; оценки — src/bots/estimate.js).
+    // 2. Цена карты с бонусом пары либо вероятностное давление (только в дуэли).
     let choice;
     let pressurePick = null;
-    //    Правило работает только в дуэли: при 3+ игроках карту может побить не только
-    //    защитник (перевод/следующий круг), и оценка давления систематически завышена —
-    //    на фаззинге 36×4 и 52×3 это приводило к нескончаемым партиям.
     if (this.profile.attackByPressure && this.tracker && !takingNow && defenderCards > 0
         && alivePlayersCount(state) === 2) {
       try {
@@ -568,8 +607,6 @@ export class SmartBot {
           oppId: defenderId,
           trumpSuit,
         }).map((r) => {
-          // Разгрузка парами остаётся отдельным правилом и здесь тоже учитывается:
-          // пара по шкале давления стоит столько же, сколько 3 единицы cardPower раньше.
           const bonus = this.profile.dumpPairs && (rankCount.get(r.card.rank) || 0) >= 2
             ? (PRESSURE_COST_WEIGHT * 3) / MAX_CARD_POWER
             : 0;
@@ -595,9 +632,12 @@ export class SmartBot {
     const card = choice.card;
     const isTrump = card.suit === trumpSuit;
     const isHigh = card.rank >= HIGH_RANK;
+    const rankingRule = pressurePick ? 'pressure' : this.profile.dumpPairs ? 'cost-with-pairs' : 'cheapest';
+    if (this._decisionTrace) {
+      this._decisionTrace.attackRanking = rankingRule;
+      this._decisionTrace.keptTrumpsWhenTaking = pool !== attacks;
+    }
 
-    // 2б. Если выбор сделан по давлению и шанс, что соперник отобьётся, реально мал —
-    //     объясняем это словами, не раскрывая того, чего бот не знает.
     if (pressurePick && pressurePick.pBeat <= 0.25 && defenderCards > 0) {
       const voids = voidSuitsOf(this.tracker, defenderId);
       const why = voids.includes(card.suit)
@@ -606,55 +646,58 @@ export class SmartBot {
           ? 'побить такую карту ему, судя по всему, уже нечем'
           : 'шансов отбиться у него тут почти нет');
       return {
+        rule: 'attack-pressure',
         action: choice,
         reason: `${mustAttack ? 'Захожу' : 'Подкидываю'} ${cardToString(card)} — ${why}.`,
       };
     }
 
     if (mustAttack) {
-      return { action: choice, reason: `Захожу ${cardToString(card)} — это самая дешёвая карта, с которой не жалко начать.` };
+      const why = pressurePick ? 'выбираю по оценке давления с учётом цены карты'
+        : this.profile.dumpPairs ? 'выбираю по цене карты с учётом разгрузки пар'
+        : 'это самая дешёвая карта, с которой не жалко начать';
+      return { rule: `attack-${rankingRule}`, action: choice, reason: `Захожу ${cardToString(card)} — ${why}.` };
     }
 
-    // 3–5. Придерживание. Козырь бережём, пока это имеет смысл; крупную карту —
-    // только пока идёт прикуп. В эндшпиле и при «соперник уже забирает» придерживание слабеет.
+    // 3–5. Придерживание козыря/крупной карты при живом прикупе.
     let shouldHold = false;
     if (isTrump) {
-      // Козырь: придерживаем, пока идёт прикуп. Когда колода пуста, козырь — лучшая
-      // нагрузка для соперника, и держать его «на всякий случай» уже поздно.
       shouldHold = this.profile.holdTrumpsWhileTalon
         ? !endgame && !this._nobodyCanBeat(card, hand, trumpSuit)
         : false;
     } else if (isHigh && this.profile.holdHighCardsWhileTalon) {
-      // Крупную некозырную придерживаем, пока есть прикуп и соперник не забирает стол.
       shouldHold = !endgame && !takingNow;
     }
 
-    // 4. Если защитнику уже нечем отбиваться (он берёт или у него кончились карты) —
-    //    грузим стол по максимуму: каждая подкинутая карта уходит ему, а у меня руки чище.
     if (takingNow && !isTrump) shouldHold = false;
     if (defenderCards === 0) shouldHold = false;
 
     if (!shouldHold) {
       if (takingNow) {
-        return { action: choice, reason: `Подкидываю ${cardToString(card)} — соперник всё равно забирает стол, пусть берёт больше.` };
+        return { rule: 'throw-when-taking', action: choice, reason: `Подкидываю ${cardToString(card)} — соперник всё равно забирает стол, пусть берёт больше.` };
       }
       if (endgame) {
-        return { action: choice, reason: `Подкидываю ${cardToString(card)} — колода пуста, сейчас главное избавляться от карт.` };
+        return { rule: 'throw-endgame', action: choice, reason: `Подкидываю ${cardToString(card)} — колода пуста, сейчас главное избавляться от карт.` };
       }
       return {
+        rule: `throw-${rankingRule}`,
         action: choice,
-        reason: isHigh
-          ? `Подкидываю ${cardToString(card)} — держать крупную карту про запас невыгодно, лучше разгрузить руку сейчас.`
-          : `Подкидываю ${cardToString(card)} — недорогая карта, её не жалко.`,
+        reason: pressurePick
+          ? `Подкидываю ${cardToString(card)} — выбираю по оценке давления с учётом цены карты.`
+          : this.profile.dumpPairs
+            ? `Подкидываю ${cardToString(card)} — выбираю по цене карты с учётом разгрузки пар.`
+            : isHigh
+              ? `Подкидываю ${cardToString(card)} — держать крупную карту про запас невыгодно, лучше разгрузить руку сейчас.`
+              : `Подкидываю ${cardToString(card)} — недорогая карта, её не жалко.`,
       };
     }
 
-    // 6. Пас: подкидывание сейчас только навредит (отдали бы козырь или крупную карту).
     return {
+      rule: isTrump ? 'hold-trump' : 'hold-high-card',
       action: pass,
       reason: isTrump
-        ? 'Пропускаю: подкинуть могу только козырем, а его лучше приберечь.'
-        : 'Пропускаю: остались только крупные карты, пока их отдавать рано.',
+        ? 'Пропускаю: выбранный подкид — козырь, а его лучше приберечь.'
+        : 'Пропускаю: выбранный подкид — крупная карта, пока её отдавать рано.',
     };
   }
 
@@ -686,19 +729,19 @@ export class SmartBot {
     //    не разбазаривая карты на заведомо проигранную защиту.
     if (this.profile.takeWhenTableUnbeatable && take && !plan.canDefendAll && undefended.length >= 2) {
       if (cheapTransfer) {
-        return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — весь стол мне не отбить, пусть отбивается следующий.` };
+        return { rule: 'transfer-unbeatable-table', action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — весь стол мне не отбить, пусть отбивается следующий.` };
       }
-      return { action: take, reason: 'Беру карты: весь стол мне всё равно не отбить, нет смысла тратить карты впустую.' };
+      return { rule: 'take-unbeatable-table', action: take, reason: 'Беру карты: весь стол мне всё равно не отбить, нет смысла тратить карты впустую.' };
     }
 
     if (defends.length === 0) {
       if (cheapTransfer) {
-        return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться нечем, зато ход уходит дальше.` };
+        return { rule: 'transfer-no-defense', action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться нечем, зато ход уходит дальше.` };
       }
       if (transfer) {
-        return { action: transfer, reason: `Перевожу ${list(transfer.cards)} — отбиться нечем.` };
+        return { rule: 'transfer-no-defense', action: transfer, reason: `Перевожу ${list(transfer.cards)} — отбиться нечем.` };
       }
-      return { action: take, reason: 'Беру карты: отбиться нечем.' };
+      return { rule: 'take-no-defense', action: take, reason: 'Беру карты: отбиться нечем.' };
     }
 
     // 2. Бьём минимальной достаточной картой; козырь — только если некозырной нет.
@@ -711,16 +754,10 @@ export class SmartBot {
 
     // 3. Перевод дешевле защиты козырем — переводим.
     if (usesTrump && cheapTransfer) {
-      return { action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — иначе пришлось бы тратить козырь.` };
+      return { rule: 'transfer-save-trump', action: cheapTransfer, reason: `Перевожу ${list(cheapTransfer.cards)} — иначе пришлось бы тратить козырь.` };
     }
 
-    // 3б. Перевод «в первый момент» (issue #61). Раньше перевод рассматривался только как
-    //     спасение — когда весь стол не отбить, отбиваться нечем или пришлось бы жечь козырь.
-    //     Из-за этого бот упорно отбивался там, где дешёвый перевод был явно выгоднее: пока на
-    //     столе нет ни одной побитой карты, перевод НЕКОЗЫРНОЙ картой не дороже защиты снимает
-    //     с меня роль защитника целиком — весь стол едет дальше, а я ещё и разгружаю руку.
-    //     Сравниваем в одной шкале: сколько «стоят» карты, уходящие на перевод, и сколько —
-    //     карты, которые пришлось бы отдать на полный отбой.
+    // 3б. Некозырной перевод не дороже полной защиты (issue #61).
     if (this.profile.preferTransferWhenCheap && cheapTransfer && table.length > 0
         && undefended.length === table.length) {
       const transferCost = cheapTransfer.cards.reduce((s, c) => s + cardPower(c, trumpSuit), 0);
@@ -729,20 +766,14 @@ export class SmartBot {
         : Infinity;
       if (transferCost <= defendCost) {
         return {
+          rule: 'transfer-cheap',
           action: cheapTransfer,
-          reason: `Перевожу ${list(cheapTransfer.cards)} — отбиваться дороже, а так стол целиком уходит дальше и защищаться буду не я.`,
+          reason: `Перевожу ${list(cheapTransfer.cards)} — отбиваться не дешевле, а так стол целиком уходит дальше и защищаться буду не я.`,
         };
       }
     }
 
-    // 3.5. Вероятностный выбор «брать или отбиваться» (этап 4, issue #49).
-    //      Никаких порогов «на глаз»: сравниваем ДВЕ ожидаемые цены в одной и той же шкале
-    //      ценности карт (`cardPower`).
-    //        цена взятия  = всё, что лежит на столе, плюс то, что ещё подкинут;
-    //        цена защиты  = карты, которые уйдут с руки на отбой, плюс риск,
-    //                       что отбиться всё равно не выйдет и стол придётся забрать.
-    //      Работает, только пока идёт прикуп: при пустой колоде решает точный счёт
-    //      (`exactEndgame` / `exactEndgameSolver`), там взятие оценивается иначе.
+    // 3.5. Сравнение ожидаемых цен взятия и защиты (issue #49), только при живом прикупе.
     if (this.profile.probabilisticTake && take && !endgame && this.tracker
         && alivePlayersCount(state) === 2) {
       try {
@@ -754,23 +785,19 @@ export class SmartBot {
         );
         const tableCards = table.reduce((s, t) => s + 1 + (t.defense ? 1 : 0), 0);
         const avgCard = tableCards ? tableCost / tableCards : 0;
-        // Цена взятия: вся ценность, которая переедет со стола мне в руку (плюс то, что подкинут).
         const costTake = tableCost + extra * avgCard;
-        // Цена защиты — НЕ вся потраченная карта: успешная защита уносит в бито и мою карту,
-        // и атаку соперника, то есть руку она разгружает. Реально теряю только «переплату»:
-        // насколько отдаваемая карта дороже той, которую она убирает со стола
-        // (бить семёрку козырным королём — переплата почти в целый козырь, своей восьмёркой — в единицу).
+        // Цена успешной защиты — переплата за отбой; при неудаче забираем и свои карты.
         const overpay = plan.canDefendAll
           ? plan.assignment.reduce(
             (s, x) => s + Math.max(0, cardPower(x.card, trumpSuit) - cardPower(x.attack, trumpSuit)),
             0,
           )
           : Infinity;
-        // Не отбился — всё равно забираю стол, да ещё и потратив карты на отбой.
         const costDefend = overpay + (1 - pSurv) * (costTake + overpay);
         if (costTake < costDefend) {
           if (cheapTransfer) {
             return {
+              rule: 'transfer-probabilistic',
               action: cheapTransfer,
               reason: `Перевожу ${list(cheapTransfer.cards)} — отбиться до конца я вряд ли успею, а так стол уйдёт дальше.`,
             };
@@ -779,27 +806,27 @@ export class SmartBot {
           const why = voids.length
             ? 'подкидывать ему есть чем, а я на этом потеряю больше, чем заберу'
             : 'мне ещё подкинут, и защита обойдётся дороже, чем взятые карты';
-          return { action: take, reason: `Беру карты: ${why}.` };
+          return { rule: 'take-probabilistic', action: take, reason: `Беру карты: ${why}.` };
         }
       } catch {
         // Оценки — вспомогательный слой: если что-то пошло не так, решают обычные правила.
       }
     }
 
-    // 5. Эндшпиль: колода пуста, считаем по-простому и точно.
+    // 5. Дешёвая эвристика эндшпиля, НЕ полный поиск партии.
     if (this.profile.exactEndgame && endgame) {
       const known = this._opponentKnownHand(attackerId);
-      // Отбился — рука стала меньше; взял — больше. Когда карт мало, это решает партию.
       if (plan.canDefendAll) {
         return {
+          rule: 'defend-endgame-table',
           action: best,
           reason: known
-            ? `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, а я знаю, что осталось у соперника, и отбиваюсь весь стол.`
-            : `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, брать карты сейчас нельзя.`,
+            ? `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, рука соперника известна, текущий стол можно отбить.`
+            : `Бью ${cardToString(target)} картой ${cardToString(best.card)} — колода пуста, предпочитаю отбиваться, а не увеличивать руку.`,
         };
       }
       if (take) {
-        return { action: take, reason: 'Беру карты: колода пуста, а отбить весь стол уже не получится.' };
+        return { rule: 'take-endgame-table', action: take, reason: 'Беру карты: колода пуста, а отбить весь стол уже не получится.' };
       }
     }
 
@@ -816,13 +843,13 @@ export class SmartBot {
       table.length <= 2
     ) {
       return {
+        rule: 'take-save-big-trump',
         action: take,
         reason: `Беру карты: отбиться можно было бы только крупным козырем, а он дороже, чем ${cardToString(target)}.`,
       };
     }
 
-    // Если бью некозырной, но при этом отдаю единственную старшую в масти,
-    // а атака мелкая и колода ещё есть — дешевле забрать.
+    // Сохраняем единственную старшую в масти при живом прикупе.
     if (
       this.profile.holdHighCardsWhileTalon &&
       take &&
@@ -835,6 +862,7 @@ export class SmartBot {
       const control = suitControl(hand, best.card.suit, this.tracker);
       if (control.controlled && control.myBest && control.myBest.rank === best.card.rank) {
         return {
+          rule: 'take-save-suit-control',
           action: take,
           reason: `Беру карты: единственная старшая карта масти ${best.card.suit} пригодится мне позже больше, чем сейчас.`,
         };
@@ -842,6 +870,7 @@ export class SmartBot {
     }
 
     return {
+      rule: 'defend-cheapest',
       action: best,
       reason: usesTrump
         ? `Бью ${cardToString(target)} козырем ${cardToString(best.card)} — некозырной подходящей карты нет.`

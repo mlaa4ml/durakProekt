@@ -84,7 +84,7 @@ function createSimpleBrain(requestedLevel, options) {
 // поэтому вызывающему коду (CLI, клиент, сервер) знать об уровне ничего не нужно.
 function createSmartBrain(options) {
   const explain = options.explain === true;
-  const bot = new SmartBot({ explain, profile: options.profile, solver: options.solver });
+  const bot = new SmartBot({ explain, trace: options.trace, profile: options.profile, solver: options.solver });
   return {
     level: 'smart',
     actualLevel: 'smart',
