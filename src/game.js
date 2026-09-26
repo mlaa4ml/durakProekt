@@ -494,6 +494,10 @@ export class DurakGame {
       default: throw new Error('Неизвестное действие: ' + match.type);
     }
     this._trackStall(before);
+    if (!this.silent) {
+      this.publicTransition = this._pendingTransition;
+      this._pendingTransition = null;
+    }
     return this._result();
   }
 
