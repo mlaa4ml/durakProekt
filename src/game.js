@@ -799,6 +799,14 @@ export class DurakGame {
 
   _resolveTableClosed() {
     const tookCards = this.tookCards === true;
+    if (this._pendingTransition && this.table.length) {
+      this._pendingTransition.closures.push({
+        destination: tookCards ? 'hand' : 'discard',
+        defender: this.players[this.defenderIndex].id,
+        cards: this.table.flatMap((t) => [t.attack, t.defense].filter(Boolean))
+          .map((c) => ({ rank: c.rank, suit: c.suit })),
+      });
+    }
     this.tookCards = false;
     this.postTakeMode = false;
 
