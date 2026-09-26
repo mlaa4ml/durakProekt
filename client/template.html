@@ -959,6 +959,9 @@ function formatBotExplanation(botName, decision){
 // строка попадает и в game.log (его рисуют renderFullLog / renderInteractiveLog), и в
 // snapshots — индексы лога и шагов просмотра остаются согласованы.
 function logBotExplanation(game, botName, decision){
+  // Same accepted-action sequence as the engine's public observations; human
+  // actions count too. Explanations are logged immediately before this action.
+  if(decision.decisionTrace) decision.decisionTrace.actionId=(game.publicTransition?.actionNumber || 0)+1;
   const text=formatBotExplanation(botName, decision);
   if(text) game._log(text);
 }
