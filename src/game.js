@@ -573,6 +573,13 @@ export class DurakGame {
     g._publicRules = this._publicRules;
     g.rng = this.rng;
     g.silent = this.silent;
+    if (this.actionNumber !== undefined) g.actionNumber = this.actionNumber;
+    if (this.publicTransition !== undefined) {
+      g.publicTransition = this.publicTransition ? structuredClone(this.publicTransition) : null;
+    }
+    if (this._pendingTransition !== undefined) {
+      g._pendingTransition = this._pendingTransition ? structuredClone(this._pendingTransition) : null;
+    }
     g.log = this.silent ? [] : this.log.slice();
     g.players = this.players.map((p) => ({ ...p, hand: p.hand.slice() }));
     g.trumpCard = this.trumpCard;
