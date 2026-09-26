@@ -93,7 +93,7 @@ function createSmartBrain(options) {
     profile: bot.profile,
     solverStats: bot.solverStats,
     reset(state = null, meId = null) { bot.reset(state, meId); },
-    observe(state, meId = null) { bot.observe(state, meId); },
+    observe(state, meId = null, event = null) { bot.observe(state, meId, event); },
     decide(state, playerId, legalActions) { return bot.decide(state, playerId, legalActions); },
   };
 }
