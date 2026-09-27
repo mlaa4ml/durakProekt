@@ -845,41 +845,87 @@ class RecordingGame extends DurakGame {
 // По умолчанию — простой бот без объяснений, то есть ровно то, что было раньше.
 // Партия просмотра проигрывается целиком в момент создания, поэтому и уровень, и
 // объяснения фиксируются на её старте.
-function runFullGame(numPlayers, deckSize, throwInPolicy, botOptions={}){
+// A generation owns all workers, timers and in-flight answers of a local game.
+let localGeneration=0;
+const localWorkers=new Set();
+function cancelLocalBots(){
+  localGeneration++;
+  stopBotTimer();
+  for(const brain of localWorkers) brain.dispose();
+  localWorkers.clear();
+  interactiveBusy=false;
+}
+window.addEventListener('pagehide', cancelLocalBots);
+
+function localBrain(game, playerId, level, options){
+  let brain;
+  try {
+    brain=createLocalBotBrain(level, options);
+    if(brain.dispose) localWorkers.add(brain);
+    brain.reset(game.getState(playerId), playerId);
+  } catch {
+    if(brain?.dispose){ brain.dispose(); localWorkers.delete(brain); }
+    // Explicit, visible failure fallback; never run SmartBot on the UI thread.
+    game._log('⚠ Worker недоступен: используется простой бот.');
+    brain=createBotBrain('simple', options);
+    brain.reset(game.getState(playerId), playerId);
+  }
+  return brain;
+}
+
+function releaseBrains(brains){
+  for(const brain of brains.values()){
+    if(brain.dispose){ brain.dispose(); localWorkers.delete(brain); }
+  }
+}
+
+async function localDecision(game, brains, playerId, legal, generation){
+  const brain=brains.get(playerId);
+  const state=game.getState(playerId);
+  try {
+    brain.observe(state, playerId);
+    const decision=await brain.decide(state, playerId, legal) || {};
+    if(generation!==localGeneration) return null;
+    // Structured cloning loses object identity: validate against current legal actions.
+    const action=legal.find(a=>game._actionsEqual(a, decision.action));
+    if(!action) throw new Error('Invalid worker action');
+    return {...decision, action};
+  } catch {
+    if(generation!==localGeneration) return null;
+    if(brain.dispose){ brain.dispose(); localWorkers.delete(brain); }
+    const fallback=createBotBrain('simple');
+    fallback.reset(state, playerId);
+    brains.set(playerId, fallback);
+    game._log('⚠ Ошибка Worker: до конца партии используется простой бот.');
+    return fallback.decide(state, playerId, legal);
+  }
+}
+
+async function runFullGame(numPlayers, deckSize, throwInPolicy, botOptions={}, generation=localGeneration){
   const level=normalizeBotLevel(botOptions.level);
   const explain=botOptions.explain===true;
   const players=Array.from({length:numPlayers},(_,i)=>({id:`p${i+1}`, name:`Игрок ${i+1}`}));
   const game=new RecordingGame(players, {numPlayers, deckSize, throwInPolicy});
-  // В режиме просмотра все игроки — боты одного уровня: по «мозгу» на каждого.
   const brains=new Map();
-  for(const p of game.players){
-    const brain=createBotBrain(level, { explain, trace:explain });
-    brain.reset(game.getState(p.id), p.id);
-    brains.set(p.id, brain);
-  }
-  let safety=0;
-  while(game.phase!=='finished' && safety<8000){
-    safety++;
-    let acted=false;
+  try {
     for(const p of game.players){
-      if(p.out) continue;
-      const legal=game.getLegalActions(p.id);
-      if(legal.length===0) continue;
-      // Боту отдаём то же маскированное состояние, что и движок: чужие руки скрыты
-      // (issue #27), зато видны стол, фаза, отбой, атакующий/защитник и размеры рук.
-      const state=game.getState(p.id);
-      const brain=brains.get(p.id);
-      brain.observe(state, p.id);
-      const decision=brain.decide(state, p.id, legal) || {};
-      const action=decision.action;
-      if(!action) continue;
-      if(explain) logBotExplanation(game, p.name, decision);
-      applyObservedAction(game, brains, p.id, action);
-      acted=true; break;
+      brains.set(p.id, localBrain(game, p.id, level, {explain, trace:explain}));
     }
-    if(!acted) break;
-  }
-  return game;
+    let safety=0;
+    while(game.phase!=='finished' && safety++<8000){
+      if(generation!==localGeneration) return null;
+      const id=game.currentActorId();
+      const legal=game.getLegalActions(id);
+      if(!legal.length) break;
+      const decision=await localDecision(game, brains, id, legal, generation);
+      if(!decision || generation!==localGeneration) return null;
+      if(explain) logBotExplanation(game, game.players.find(p=>p.id===id).name, decision);
+      applyObservedAction(game, brains, id, decision.action);
+      // Also yield in simple/fallback games; Promise microtasks alone don't paint.
+      if(safety%20===0) await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    return game;
+  } finally { releaseBrains(brains); }
 }
 
 /* ============ Интерактивный режим: игрок против ботов ============ */
