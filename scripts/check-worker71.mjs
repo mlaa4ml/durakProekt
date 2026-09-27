@@ -19,7 +19,7 @@ window.check71 = {
     const literal = factory.match(/new Blob\\(\\[(.*)\\], \\{type:/)[1];
     const bundle = JSON.parse(literal);
     const code = bundle + '\\nself.onmessage=()=>self.postMessage(solveEndgame('
-      + JSON.stringify(position) + ', {maxNodes:400000,maxMs:2000}));';
+      + JSON.stringify(position) + ', {maxNodes:4000000,maxMs:2000}));';
     const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
     const worker=new Worker(url); URL.revokeObjectURL(url); return worker;
   }
