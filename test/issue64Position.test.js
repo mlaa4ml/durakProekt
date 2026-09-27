@@ -4,6 +4,99 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DurakGame } from '../src/game.js';
 import { SmartBot } from '../src/bots/smartBot.js';
+import { applyObservedAction } from '../src/bots/index.js';
+
+// Synthetic public prehistory, not a claim about the missing log of #64:
+// the opponent picks up exactly the four pictured cards from a real table.
+// No hidden hand is passed to the bot or assigned to its tracker.
+function observedPosition(rules, options = {}) {
+  const target = position(rules);
+  const game = DurakGame.fromPosition({
+    rules, trumpSuit: '♠',
+    players: [
+      { id: 'bot4', hand: target.players[0].hand },
+      { id: 'bot2', hand: [] },
+    ],
+    attacker: 'bot4', defender: 'bot2', phase: 'need-attack',
+    table: [
+      { attack: card('Q♣'), defense: card('J♠') },
+      { attack: card('K♥'), defense: card('Q♠') },
+    ],
+    tookCards: true, attackCountThisRound: 2, defenderHandAtStart: 2,
+    discardCount: rules.deckSize - 16,
+  });
+  const bot = new SmartBot({
+    trace: true, explain: true,
+    profile: { safeRoundAttack: true },
+    solver: { maxNodes: 0 },
+    roundSearch: { maxMs: 200 },
+    ...options,
+  });
+  bot.reset(game.getState('bot4'), 'bot4');
+  const bots = new Map([['bot4', bot]]);
+  const apply = (type, token) => {
+    const actor = game.currentActorId();
+    const action = game.getLegalActions(actor).find(
+      (a) => a.type === type && (!token || sameCard(a.card, card(token))),
+    );
+    assert.ok(action, `${actor}: ${type} ${token || ''}`);
+    applyObservedAction(game, bots, actor, action);
+  };
+  apply('pass');
+  assert.equal(bot.tracker.isOpponentHandCertain('bot2'), true);
+  assert.deepEqual(new Set(bot._opponentKnownHand('bot2').map(JSON.stringify)),
+    new Set(target.players[1].hand.map(JSON.stringify)));
+  return { game, bot, apply };
+}
+
+for (const allowPerevod of [false, true]) {
+  test(`#70: public pickup proves local A♠ and J♣ outcomes, transfer=${allowPerevod}`, () => {
+    const { game, bot, apply } = observedPosition({ deckSize: 24, numPlayers: 2, allowPerevod });
+    const choose = () => {
+      const legal = game.getLegalActions('bot4');
+      const decision = bot.decide(game.getState('bot4'), 'bot4', legal);
+      assert.ok(legal.includes(decision.action));
+      assert.equal(decision.decisionTrace.solver.status, 'budget');
+      assert.equal(decision.decisionTrace.selectedRule, 'safe-round-attack');
+      assert.ok(decision.decisionTrace.roundSearch.nodes <= 6000);
+      assert.match(decision.reason, /не доказательство победы/);
+      return decision;
+    };
+    const first = choose();
+    assert.ok(sameCard(first.action.card, card('A♠')));
+    for (const [attack, defense] of [['9♣', 'Q♣'], ['Q♦', 'J♠'], ['J♦', 'Q♠']]) {
+      apply('attack', attack);
+      assert.equal(game.phase, 'defender-to-act');
+      apply('defend', defense);
+      assert.equal(game.phase, 'need-attack');
+    }
+    const last = choose();
+    assert.ok(sameCard(last.action.card, card('J♣')));
+    apply('attack', 'J♣');
+    assert.deepEqual(game.getLegalActions('bot2').map((a) => a.type), ['take']);
+    apply('take');
+    assert.equal(game.maxAttacksNow, undefined); // limit is a public derived value
+    assert.equal(game.getState('bot4').maxAttacksNow, 0);
+    assert.deepEqual(game.getLegalActions('bot4').map((a) => a.type), ['pass']);
+    const pass = bot.decide(game.getState('bot4'), 'bot4', game.getLegalActions('bot4'));
+    assert.equal(pass.action.type, 'pass');
+  });
+}
+
+test('#70: exhausted local budget keeps the old fallback; flag defaults off', () => {
+  const rules = { deckSize: 24, numPlayers: 2, allowPerevod: true };
+  const enabled = observedPosition(rules, { roundSearch: { maxNodes: 0 } });
+  const disabled = observedPosition(rules, { profile: { safeRoundAttack: false } });
+  const defaultBot = observedPosition(rules, { profile: {} });
+  const decide = ({ game, bot }) => bot.decide(game.getState('bot4'), 'bot4', game.getLegalActions('bot4'));
+  const a = decide(enabled), b = decide(disabled), c = decide(defaultBot);
+  assert.deepEqual(a.action, b.action);
+  assert.deepEqual(b.action, c.action);
+  assert.equal(a.decisionTrace.roundSearch.status, 'incomplete');
+  assert.equal(a.decisionTrace.roundSearch.nodes, 0);
+  assert.equal(a.decisionTrace.selectedRule, b.decisionTrace.selectedRule);
+  assert.equal(b.decisionTrace.roundSearch, undefined);
+});
 
 test('#64: joining at the pictured position reports unknown hand, not search timeout', () => {
   const game = position({ deckSize: 24, numPlayers: 2, allowPerevod: false });
