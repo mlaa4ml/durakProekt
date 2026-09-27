@@ -255,7 +255,8 @@ export class SmartBot {
     this._rulesSrc = null;             // объект state.rules, из которого получен this.rules
     // Бюджет решателя концовки (`exactEndgameSolver`) и счётчики его работы — чтобы стоимость
     // можно было измерить снаружи: сколько раз звали, сколько решил, сколько упёрлось в бюджет.
-    this.solverOptions = { ...DEFAULT_SOLVER_OPTIONS, ...(options.solver || {}) };
+        this.solverOptions = { ...DEFAULT_SOLVER_OPTIONS, ...(options.solver || {}) };
+    this.roundOptions = { ...DEFAULT_ROUND_OPTIONS, ...(options.roundSearch || {}) };
     this.solverStats = { calls: 0, used: 0, wins: 0, draws: 0, losses: 0, timedOut: 0, unusable: 0, nodes: 0, ms: 0 };
   }
 
