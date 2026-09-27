@@ -82,10 +82,9 @@ function moveWeight(a, trumpSuit) {
 }
 
 function orderMoves(actions, trumpSuit) {
-  return actions
-    .map((a) => ({ a, w: moveWeight(a, trumpSuit) }))
-    .sort((x, y) => x.w - y.w)
-    .map((x) => x.a);
+  // Stable sort keeps the previous tie policy without two temporary arrays
+  // and one wrapper allocation per action (visible in the #71 CPU profile).
+  return actions.slice().sort((a, b) => moveWeight(a, trumpSuit) - moveWeight(b, trumpSuit));
 }
 
 /**
