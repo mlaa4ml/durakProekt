@@ -64,7 +64,18 @@ for (const allowPerevod of [false, true]) {
       return decision;
     };
     const first = choose();
-    assert.ok(sameCard(first.action.card, card('A♠')));
+        // Other attacks can also force a take later in this round. The certificate
+    // for A♠ must be present, but the policy need not spend the highest trump.
+    const ace = first.decisionTrace.roundSearch.candidates.find(
+      (c) => sameCard(c.action.card, card('A♠')),
+    );
+    assert.equal(ace.complete, true);
+    assert.equal(ace.forcedTake, true);
+    const selected = first.decisionTrace.roundSearch.candidates.find(
+      (c) => sameCard(c.action.card, first.action.card),
+    );
+    assert.equal(selected.complete, true);
+    assert.equal(selected.forcedTake, true);
     for (const [attack, defense] of [['9♣', 'Q♣'], ['Q♦', 'J♠'], ['J♦', 'Q♠']]) {
       apply('attack', attack);
       assert.equal(game.phase, 'defender-to-act');
