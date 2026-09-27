@@ -1921,6 +1921,8 @@ function renderFullLog(){
 }
 
 function render(){
+  if(!game || !game.snapshots.length) return;
+  setReplayEnabled(true);
   const snap = game.snapshots[cursor].state;
   const desc = game.snapshots[cursor].description;
   const showAll = document.getElementById('showAll').checked;
