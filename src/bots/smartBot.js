@@ -368,6 +368,24 @@ export class SmartBot {
   // ------------------------------------------------------------------
 
   decide(state, playerId, legalActions) {
+    // The cache belongs to this synchronous decision only, including explanations.
+    // Never retain inferred hands across observe/reset or after a failed decision.
+    this._decisionCache = new Map();
+    try {
+      return this._decide(state, playerId, legalActions);
+    } finally {
+      this._decisionCache = null;
+    }
+  }
+
+  _memoDecision(key, compute) {
+    const cache = this._decisionCache;
+    if (!cache) return compute();
+    if (!cache.has(key)) cache.set(key, compute());
+    return cache.get(key);
+  }
+
+  _decide(state, playerId, legalActions) {
     this._decisionTrace = null;
     if (!legalActions || legalActions.length === 0) return { action: null };
     if (playerId) this.meId = playerId;
