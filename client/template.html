@@ -1072,37 +1072,34 @@ function currentTurnIndex(game){
 
 function scheduleBotStep(){
   stopBotTimer();
-  if(!igame || igame.phase==='finished') { renderInteractive(); return; }
+  if(!igame || igame.phase==='finished') {
+    interactiveBusy=false;
+    releaseBrains(botBrains);
+    renderInteractive(); return;
+  }
   const turnIdx=currentTurnIndex(igame);
-  if(turnIdx===-1){ renderInteractive(); return; } // раунд разрешается сам движком синхронно, но на всякий случай
+  if(turnIdx===-1){ renderInteractive(); return; }
   const turnPlayer=igame.players[turnIdx];
   if(turnIdx===0 || turnPlayer.out){
-    // ход игрока-человека (или некому ходить) — ждём клика
+    interactiveBusy=false;
     renderInteractive();
     return;
   }
-  // ход бота — небольшая задержка для читаемости, затем применяем действие
   interactiveBusy=true;
   renderInteractive();
-  botTimer=setTimeout(()=>{
-    if(!igame || igame.phase==='finished') { interactiveBusy=false; renderInteractive(); return; }
-    const legal=igame.getLegalActions(turnPlayer.id);
+  const generation=localGeneration;
+  const currentGame=igame;
+  const brains=botBrains;
+  botTimer=setTimeout(async ()=>{
+    botTimer=null;
+    if(generation!==localGeneration || currentGame!==igame) return;
+    const legal=currentGame.getLegalActions(turnPlayer.id);
     if(legal.length===0){ interactiveBusy=false; scheduleBotStep(); return; }
-    // Боту отдаём ТОЛЬКО маскированное состояние движка: рука человека и других
-    // ботов в нём скрыта (issue #27/#38), доступны стол/фаза/отбой/handCount.
-    // Один и тот же объект состояния идёт и в observe (память умного бота),
-    // и в decide — никаких самодельных «всевидящих» объектов здесь больше нет.
-    const state=igame.getState(turnPlayer.id);
-    const brain=brainFor(igame, turnPlayer.id);
-    brain.observe(state, turnPlayer.id);
-    const decision=brain.decide(state, turnPlayer.id, legal) || {};
-    const action=decision.action;
-    if(action){
-      // Объяснение пишем ДО хода: причина стоит рядом с самим ходом, а не после
-      // каскада событий, который движок разворачивает в applyAction (бито, добор, новый раунд).
-      if(botExplainEnabled()) logBotExplanation(igame, turnPlayer.name, decision);
-      applyObservedAction(igame, botBrains, turnPlayer.id, action);
-    }
+    brainFor(currentGame, turnPlayer.id);
+    const decision=await localDecision(currentGame, brains, turnPlayer.id, legal, generation);
+    if(!decision || generation!==localGeneration || currentGame!==igame) return;
+    if(botExplainEnabled()) logBotExplanation(currentGame, turnPlayer.name, decision);
+    applyObservedAction(currentGame, brains, turnPlayer.id, decision.action);
     interactiveBusy=false;
     scheduleBotStep();
   }, 550);
