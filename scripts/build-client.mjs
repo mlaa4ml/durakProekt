@@ -29,7 +29,7 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const TEMPLATE = 'client/template.html';
 export const MARKER = '/* @@BUNDLE@@ */';
 /** Что клиенту нужно из src/. Остальное подтягивается по импортам. */
-export const ENTRIES = ['src/game.js', 'src/bots/index.js'];
+export const ENTRIES = ['src/game.js', 'src/bots/index.js', 'src/bots/workerBrain.js'];
 export const OUTPUTS = ['visual/index.html', 'docs/index.html'];
 
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
