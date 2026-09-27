@@ -19,6 +19,7 @@
 // можно было измерить A/B-прогоном `src/cli/botMatch.js`.
 
 import { cardToString } from '../deck.js';
+import { searchRound, DEFAULT_ROUND_OPTIONS } from './roundSearch.js';
 import { DEFAULT_RULES } from '../rules.js';
 import { CardTracker } from './memory.js';
 import { canSolve, solveFromState, sameEndgameAction, DEFAULT_SOLVER_OPTIONS } from './endgame.js';
@@ -57,6 +58,7 @@ export const SMART_PROFILE = {
                                  // раздача играется с флагом и без, seed 777) показала обратное:
                                  // 2×24 — 20,4 % «дурака» БЕЗ флага против 25,5 % с ним (−5,1 п.п.),
                                  // 4×24 −2,2, 4×36 −0,2. Сырые логи: bench/stage5-ab-part1.txt.
+    safeRoundAttack: false,       // #70: bounded local fallback; enable only after paired A/B calibration
   exactEndgameSolver: true,      // ПОЛНЫЙ перебор концовки дуэли, когда рука соперника известна точно
                                  // (src/bots/endgame.js, issue #48). Матрица A/B «с решателем против без»:
                                  // 2×24/36/52 — 36,9 / 38,9 / 40,4 % «дурака» у новой версии (по 900 партий,
@@ -253,7 +255,8 @@ export class SmartBot {
     this._rulesSrc = null;             // объект state.rules, из которого получен this.rules
     // Бюджет решателя концовки (`exactEndgameSolver`) и счётчики его работы — чтобы стоимость
     // можно было измерить снаружи: сколько раз звали, сколько решил, сколько упёрлось в бюджет.
-    this.solverOptions = { ...DEFAULT_SOLVER_OPTIONS, ...(options.solver || {}) };
+        this.solverOptions = { ...DEFAULT_SOLVER_OPTIONS, ...(options.solver || {}) };
+    this.roundOptions = { ...DEFAULT_ROUND_OPTIONS, ...(options.roundSearch || {}) };
     this.solverStats = { calls: 0, used: 0, wins: 0, draws: 0, losses: 0, timedOut: 0, unusable: 0, nodes: 0, ms: 0 };
   }
 
@@ -430,6 +433,26 @@ export class SmartBot {
     // Концовка дуэли с известной рукой соперника — точный счёт вместо эвристик.
     const exact = this._tryExactSolver(state, playerId, legalActions);
     if (exact) return exact;
+
+    // Keep the old policy intact unless the experimental flag is enabled AND
+    // the full solver exhausted its budget. Completed solver results come first.
+    if (this.profile.safeRoundAttack) {
+      const status = this._decisionTrace?.solver.status;
+      const local = status === 'budget'
+        ? searchRound(state, this.tracker, playerId, legalActions, this.roundOptions)
+        : { status: status === 'unknown-hand' ? 'unknown-hand' : 'not-attempted',
+            scope: 'current-round', complete: false, nodes: 0, ms: 0, action: null };
+      if (this._decisionTrace) this._decisionTrace.roundSearch = local;
+      if (local.action) {
+        const certificate = local.candidates.find((c) => sameEndgameAction(c.action, local.action));
+        return {
+          action: local.action, rule: 'safe-round-attack',
+          reason: certificate?.forcedTake
+            ? 'Просмотр текущего раунда доказывает вынужденное взятие; это не доказательство победы в партии.'
+            : 'Выбираю по ограниченному просмотру текущего раунда с учётом перевода и паса; исход партии не доказан.',
+        };
+      }
+    }
 
     const defends = legalActions.filter((a) => a.type === 'defend');
     const transfers = legalActions.filter((a) => a.type === 'transfer');
