@@ -434,6 +434,26 @@ export class SmartBot {
     const exact = this._tryExactSolver(state, playerId, legalActions);
     if (exact) return exact;
 
+    // Keep the old policy intact unless the experimental flag is enabled AND
+    // the full solver exhausted its budget. Completed solver results come first.
+    if (this.profile.safeRoundAttack) {
+      const status = this._decisionTrace?.solver.status;
+      const local = status === 'budget'
+        ? searchRound(state, this.tracker, playerId, legalActions, this.roundOptions)
+        : { status: status === 'unknown-hand' ? 'unknown-hand' : 'not-attempted',
+            scope: 'current-round', complete: false, nodes: 0, ms: 0, action: null };
+      if (this._decisionTrace) this._decisionTrace.roundSearch = local;
+      if (local.action) {
+        const certificate = local.candidates.find((c) => sameEndgameAction(c.action, local.action));
+        return {
+          action: local.action, rule: 'safe-round-attack',
+          reason: certificate?.forcedTake
+            ? 'Просмотр текущего раунда доказывает вынужденное взятие; это не доказательство победы в партии.'
+            : 'Выбираю по ограниченному просмотру текущего раунда с учётом перевода и паса; исход партии не доказан.',
+        };
+      }
+    }
+
     const defends = legalActions.filter((a) => a.type === 'defend');
     const transfers = legalActions.filter((a) => a.type === 'transfer');
     const take = legalActions.find((a) => a.type === 'take');
