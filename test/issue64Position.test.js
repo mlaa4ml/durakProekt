@@ -44,8 +44,9 @@ function observedPosition(rules, options = {}) {
   };
   apply('pass');
   assert.equal(bot.tracker.isOpponentHandCertain('bot2'), true);
-  assert.deepEqual(new Set(bot._opponentKnownHand('bot2').map(JSON.stringify)),
-    new Set(target.players[1].hand.map(JSON.stringify)));
+  const key = (c) => `${c.rank}:${c.suit}`;
+  assert.deepEqual(new Set(bot._opponentKnownHand('bot2').map(key)),
+    new Set(target.players[1].hand.map(key)));
   return { game, bot, apply };
 }
 
