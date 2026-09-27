@@ -58,6 +58,7 @@ export const SMART_PROFILE = {
                                  // раздача играется с флагом и без, seed 777) показала обратное:
                                  // 2×24 — 20,4 % «дурака» БЕЗ флага против 25,5 % с ним (−5,1 п.п.),
                                  // 4×24 −2,2, 4×36 −0,2. Сырые логи: bench/stage5-ab-part1.txt.
+    safeRoundAttack: false,       // #70: bounded local fallback; enable only after paired A/B calibration
   exactEndgameSolver: true,      // ПОЛНЫЙ перебор концовки дуэли, когда рука соперника известна точно
                                  // (src/bots/endgame.js, issue #48). Матрица A/B «с решателем против без»:
                                  // 2×24/36/52 — 36,9 / 38,9 / 40,4 % «дурака» у новой версии (по 900 партий,
