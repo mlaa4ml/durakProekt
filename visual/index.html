@@ -3245,6 +3245,116 @@ function solveFromState(state, tracker, meId, options = {}) {
   }
 }
 
+/* ---------- src/bots/roundSearch.js ---------- */
+// Opt-in local fallback, NOT a solver for the rest of the game.
+// Only reconstruct a duel with an empty talon and a publicly certain hand.
+// A take declaration settles the local defensive outcome; we do not call it
+// a game win and do not search a new round.
+
+const DEFAULT_ROUND_OPTIONS = Object.freeze({
+  maxNodes: 6000, maxMs: 40, maxDepth: 24, maxNodesPerAction: 500,
+});
+const now = () => globalThis.performance?.now?.() ?? Date.now();
+const bound = (value, fallback) => Number.isFinite(value) ? Math.max(0, Math.floor(value)) : fallback;
+
+function searchRound(state, tracker, meId, legalActions, options = {}) {
+  const started = now();
+  const limits = Object.fromEntries(Object.entries(DEFAULT_ROUND_OPTIONS)
+    .map(([key, value]) => [key, bound(options[key], value)]));
+  let nodes = 0;
+  const candidates = [];
+  const result = (status, action = null) => ({
+    status, action, nodes, ms: now() - started, limits, candidates,
+    scope: 'current-round', complete: candidates.length > 0 && candidates.every((c) => c.complete),
+  });
+  if (state.phase !== 'need-attack') return result('not-attacking');
+  if (!canSolve(state, tracker, meId)) return result('uncertain-or-unsupported');
+  try {
+    const opponent = state.players.find((p) => !p.out && p.id !== meId);
+    const hand = tracker.toCards(tracker.opponentKnownCards(opponent.id));
+    const root = DurakGame.fromPosition(positionFromState(state, meId, hand));
+    const legal = root.getLegalActions(meId);
+    if (root.currentActorId() !== meId ||
+        root.getState().maxAttacksNow !== state.maxAttacksNow ||
+        legal.length !== legalActions.length ||
+        !legal.every((a) => legalActions.some((b) => sameEndgameAction(a, b)))) {
+      return result('mismatch');
+    }
+    const strength = (g) => g.players.find((p) => p.id === meId).hand
+      .reduce((sum, c) => sum + cardPower(c, g.trumpSuit), 0);
+    const initialStrength = strength(root);
+    // Material only breaks ties between local outcomes. Prefer keeping costly
+    // cards, including passing after a take, unless playing out ends the game.
+    const evaluate = (g, kind) => {
+      const value = kind === 'win' ? 1000 : kind === 'loss' ? -1000 :
+        kind === 'opponent-takes' ? 100 : kind === 'self-takes' ? -100 : 0;
+      return {
+        score: value + Math.max(-0.99, Math.min(0.99, (strength(g) - initialStrength) / 10000)),
+        forcedTake: kind === 'opponent-takes',
+        defenderMayExit: kind === 'loss' || g.players.find((p) => p.id === opponent.id).out,
+      };
+    };
+    let actionNodes = 0;
+    function visit(g, depth) {
+      if (nodes >= limits.maxNodes || actionNodes >= limits.maxNodesPerAction ||
+          now() - started >= limits.maxMs || depth > limits.maxDepth) return null;
+      nodes++;
+      actionNodes++;
+      if (g.phase === 'finished') {
+        return evaluate(g, g.durak === meId ? 'loss' : g.durak === opponent.id ? 'win' : 'draw');
+      }
+      if (!g.table.length) return evaluate(g, 'closed');
+      // For an already declared take, explore through closure (pass / last
+      // card matter). Otherwise the declaration is the local search boundary.
+      if (g.tookCards && !root.tookCards) {
+        return evaluate(g, g.players[g.defenderIndex].id === meId ? 'self-takes' : 'opponent-takes');
+      }
+      const actor = g.currentActorId();
+      const moves = g.getLegalActions(actor);
+      if (!moves.length) return null;
+      const outcomes = [];
+      for (const move of moves) {
+        const child = g.clone();
+        child.applyLegalAction(actor, move);
+        const outcome = visit(child, depth + 1);
+        if (!outcome) return null; // incomplete branches are never proofs
+        outcomes.push(outcome);
+      }
+      if (actor === meId) return outcomes.reduce((a, b) => b.score > a.score ? b : a);
+      const worst = outcomes.reduce((a, b) => b.score < a.score ? b : a);
+      return {
+        ...worst,
+        forcedTake: outcomes.every((o) => o.forcedTake),
+        defenderMayExit: outcomes.some((o) => o.defenderMayExit),
+      };
+    }
+    // Check cheap local certificates first, without a "highest trump" rule.
+    // A separate per-action cap prevents one large subtree starving all peers.
+    const ordered = legal.map((action) => {
+      const child = root.clone();
+      child.applyLegalAction(meId, action);
+      return { action, child, replies: child.phase === 'finished' ? 0 :
+        child.getLegalActions(child.currentActorId()).length };
+    }).sort((a, b) => a.replies - b.replies);
+    for (const { action, child } of ordered) {
+      actionNodes = 0;
+      const outcome = visit(child, 1);
+      candidates.push({ action, complete: outcome !== null, nodes: actionNodes, ...(outcome || {}) });
+    }
+    const complete = candidates.filter((c) => c.complete);
+    const allComplete = complete.length === legal.length;
+    // Partial search may select ONLY a fully established forced take, never a
+    // speculative score from an unfinished subtree. No global optimality claim.
+    const safe = allComplete ? complete : complete.filter((c) => c.forcedTake && !c.defenderMayExit);
+    if (!safe.length) return result('incomplete');
+    const best = safe.reduce((a, b) => b.score > a.score ? b : a);
+    const action = legalActions.find((a) => sameEndgameAction(a, best.action));
+    return result(allComplete ? 'complete' : 'local-certificate', action);
+  } catch {
+    return result('failed');
+  }
+}
+
 /* ---------- src/bots/estimate.js ---------- */
 // Вероятностные оценки середины партии для умного бота: ЧИСТЫЕ функции.
 //
@@ -3597,6 +3707,7 @@ const SMART_PROFILE = {
                                  // раздача играется с флагом и без, seed 777) показала обратное:
                                  // 2×24 — 20,4 % «дурака» БЕЗ флага против 25,5 % с ним (−5,1 п.п.),
                                  // 4×24 −2,2, 4×36 −0,2. Сырые логи: bench/stage5-ab-part1.txt.
+    safeRoundAttack: false,       // #70: bounded local fallback; enable only after paired A/B calibration
   exactEndgameSolver: true,      // ПОЛНЫЙ перебор концовки дуэли, когда рука соперника известна точно
                                  // (src/bots/endgame.js, issue #48). Матрица A/B «с решателем против без»:
                                  // 2×24/36/52 — 36,9 / 38,9 / 40,4 % «дурака» у новой версии (по 900 партий,
@@ -3793,7 +3904,8 @@ class SmartBot {
     this._rulesSrc = null;             // объект state.rules, из которого получен this.rules
     // Бюджет решателя концовки (`exactEndgameSolver`) и счётчики его работы — чтобы стоимость
     // можно было измерить снаружи: сколько раз звали, сколько решил, сколько упёрлось в бюджет.
-    this.solverOptions = { ...DEFAULT_SOLVER_OPTIONS, ...(options.solver || {}) };
+        this.solverOptions = { ...DEFAULT_SOLVER_OPTIONS, ...(options.solver || {}) };
+    this.roundOptions = { ...DEFAULT_ROUND_OPTIONS, ...(options.roundSearch || {}) };
     this.solverStats = { calls: 0, used: 0, wins: 0, draws: 0, losses: 0, timedOut: 0, unusable: 0, nodes: 0, ms: 0 };
   }
 
@@ -3970,6 +4082,26 @@ class SmartBot {
     // Концовка дуэли с известной рукой соперника — точный счёт вместо эвристик.
     const exact = this._tryExactSolver(state, playerId, legalActions);
     if (exact) return exact;
+
+    // Keep the old policy intact unless the experimental flag is enabled AND
+    // the full solver exhausted its budget. Completed solver results come first.
+    if (this.profile.safeRoundAttack) {
+      const status = this._decisionTrace?.solver.status;
+      const local = status === 'budget'
+        ? searchRound(state, this.tracker, playerId, legalActions, this.roundOptions)
+        : { status: status === 'unknown-hand' ? 'unknown-hand' : 'not-attempted',
+            scope: 'current-round', complete: false, nodes: 0, ms: 0, action: null };
+      if (this._decisionTrace) this._decisionTrace.roundSearch = local;
+      if (local.action) {
+        const certificate = local.candidates.find((c) => sameEndgameAction(c.action, local.action));
+        return {
+          action: local.action, rule: 'safe-round-attack',
+          reason: certificate?.forcedTake
+            ? 'Просмотр текущего раунда доказывает вынужденное взятие; это не доказательство победы в партии.'
+            : 'Выбираю по ограниченному просмотру текущего раунда с учётом перевода и паса; исход партии не доказан.',
+        };
+      }
+    }
 
     const defends = legalActions.filter((a) => a.type === 'defend');
     const transfers = legalActions.filter((a) => a.type === 'transfer');
