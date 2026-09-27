@@ -19,6 +19,7 @@
 // можно было измерить A/B-прогоном `src/cli/botMatch.js`.
 
 import { cardToString } from '../deck.js';
+import { searchRound, DEFAULT_ROUND_OPTIONS } from './roundSearch.js';
 import { DEFAULT_RULES } from '../rules.js';
 import { CardTracker } from './memory.js';
 import { canSolve, solveFromState, sameEndgameAction, DEFAULT_SOLVER_OPTIONS } from './endgame.js';
