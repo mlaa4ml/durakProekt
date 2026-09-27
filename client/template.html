@@ -1043,7 +1043,7 @@ function brainFor(game, playerId){
 }
 
 function startInteractiveGame(){
-  stopBotTimer();
+  cancelLocalBots();
   pendingChoiceCard = null;
   const numPlayers=Number(document.getElementById('numPlayers').value);
   const deckSize=Number(document.getElementById('deckSize').value);
