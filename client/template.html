@@ -1673,7 +1673,7 @@ function setMode(newMode){
   if(mode===newMode) return;
   mode=newMode;
   stop(); // остановить автопроигрывание режима просмотра, если шло
-  stopBotTimer();
+  cancelLocalBots();
   document.getElementById('modeViewBtn').classList.toggle('active', mode==='view');
   document.getElementById('modeInteractiveBtn').classList.toggle('active', mode==='interactive');
   document.getElementById('modeNetworkBtn').classList.toggle('active', mode==='network');
