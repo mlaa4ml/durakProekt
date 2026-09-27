@@ -1886,13 +1886,18 @@ function renderOppHandArea(wrap, count, faceUp, hand, trumpSuit){
 
 let game=null, cursor=0, playTimer=null;
 
-function buildGame(){
+async function buildGame(){
+  cancelLocalBots();
+  const generation=localGeneration;
   const numPlayers=Number(document.getElementById('numPlayers').value);
   const deckSize=Number(document.getElementById('deckSize').value);
   const throwInPolicy=document.getElementById('throwInPolicy').value;
   const botOptions={ level: currentBotLevel(), explain: botExplainEnabled() };
   activeBotSettings={ ...botOptions };
-  game=runFullGame(numPlayers, deckSize, throwInPolicy, botOptions);
+  document.getElementById('eventDesc').textContent='Боты играют… Можно начать новую партию, чтобы отменить.';
+  const completed=await runFullGame(numPlayers, deckSize, throwInPolicy, botOptions, generation);
+  if(!completed || generation!==localGeneration) return;
+  game=completed;
   updateBotSettingsHint();
   cursor=0;
   document.getElementById('scrubber').max=String(game.snapshots.length-1);
