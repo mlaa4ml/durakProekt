@@ -312,13 +312,15 @@ export class SmartBot {
   // ------------------------------------------------------------------
 
   _opponentKnownHand(oppId) {
-    if (!this.tracker || !oppId) return null;
-    try {
-      if (!this.tracker.isOpponentHandCertain(oppId)) return null;
-      return this.tracker.toCards(this.tracker.opponentKnownCards(oppId));
-    } catch {
-      return null;
-    }
+    return this._memoDecision(`known:${oppId}`, () => {
+      if (!this.tracker || !oppId) return null;
+      try {
+        if (!this.tracker.isOpponentHandCertain(oppId)) return null;
+        return this.tracker.toCards(this.tracker.opponentKnownCards(oppId));
+      } catch {
+        return null;
+      }
+    });
   }
 
   /** true — соперник ТОЧНО не побьёт эту карту (рука восстановлена полностью). */
@@ -332,7 +334,10 @@ export class SmartBot {
   _nobodyCanBeat(card, hand, trumpSuit) {
     if (!this.tracker) return false;
     try {
-      return unbeatableCards(hand, trumpSuit, this.tracker).some(
+      // All calls in a decision use the same own hand, trump and tracker.
+      // This also avoids rebuilding outsideCards for every attack candidate.
+      return this._memoDecision('unbeatable', () =>
+        unbeatableCards(hand, trumpSuit, this.tracker)).some(
         (c) => c.rank === card.rank && c.suit === card.suit,
       );
     } catch {
