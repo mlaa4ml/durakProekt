@@ -5914,8 +5914,17 @@ function renderOppHandArea(wrap, count, faceUp, hand, trumpSuit){
 
 let game=null, cursor=0, playTimer=null;
 
+function setReplayEnabled(enabled){
+  for(const id of ['btnFirst','btnLast','btnPrev','btnNext','btnPlay','scrubber']){
+    document.getElementById(id).disabled=!enabled;
+  }
+}
+
 async function buildGame(){
+  stop();
   cancelLocalBots();
+  game=null;
+  setReplayEnabled(false);
   const generation=localGeneration;
   const numPlayers=Number(document.getElementById('numPlayers').value);
   const deckSize=Number(document.getElementById('deckSize').value);
@@ -5940,6 +5949,8 @@ function renderFullLog(){
 }
 
 function render(){
+  if(!game || !game.snapshots.length) return;
+  setReplayEnabled(true);
   const snap = game.snapshots[cursor].state;
   const desc = game.snapshots[cursor].description;
   const showAll = document.getElementById('showAll').checked;
