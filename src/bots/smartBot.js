@@ -45,6 +45,10 @@ import {
 // Значения флагов — НЕ вкусовщина, а результат A/B-прогонов (`scripts/abProfile.js`,
 // 2000 партий smart против simple, колода 24 на 2). Флаг, который не улучшает метрику,
 // по требованию issue #33 выключен; таблица цифр приложена к отчёту в issue.
+// Профиль эвристик. Каждый флаг — отдельное правило раздела 5.3, включается/выключается для A/B.
+// Значения флагов — НЕ вкусовщина, а результат A/B-прогонов (`scripts/abProfile.js`,
+// 2000 партий smart против simple, колода 24 на 2). Флаг, который не улучшает метрику,
+// по требованию issue #33 выключен; таблица цифр приложена к отчёту в issue.
 import { SMART_PROFILE, SMART_PROFILES, pickProfile, pickProfileName } from './smartProfiles.js';
 export { SMART_PROFILE, SMART_PROFILES, pickProfile, pickProfileName };
 
