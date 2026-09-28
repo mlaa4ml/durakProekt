@@ -60,4 +60,16 @@ source = source.replace(label, '');
 fs.writeFileSync('src/bots/explanations.js',
   common + "import { gamePhase, handStrength } from './analysis.js';\n\n" +
   label + '\n\n' + explanations.join('\n\n') + '\n');
-const imports = slice("import { cardToString }", '/** Профиль'); // profiles moved: use explicit end below
+const imports = slice("import { cardToString }", "import { SMART_PROFILE");
+source = source.replace(imports,
+  "import { searchRound, DEFAULT_ROUND_OPTIONS } from './roundSearch.js';\n" +
+  "import { DEFAULT_RULES } from '../rules.js';\n" +
+  "import { CardTracker } from './memory.js';\n" +
+  "import { canSolve, solveFromState, sameEndgameAction, DEFAULT_SOLVER_OPTIONS } from './endgame.js';\n" +
+  "import { beats, unbeatableCards } from './analysis.js';\n" +
+  "import { myHandOf } from './policyContext.js';\n" +
+  "import { decideAttackPolicy } from './attackPolicy.js';\n" +
+  "import { decideDefensePolicy } from './defensePolicy.js';\n" +
+  "import { analysisText, decisionReason, solverReason } from './explanations.js';\n");
+fs.writeFileSync(path, source);
+console.log('Relocated profiles, attack, defense, presentation; integration order unchanged.');
