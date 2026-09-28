@@ -111,7 +111,11 @@ function orderModules() {
 
 // ---------- сборка ----------
 export function buildClient() {
-  const template = read(TEMPLATE);
+    // Responsibility-specific fragments remain in their original lexical/execution
+  // order. Inline them at build time, so file:// needs no fetch or module server.
+  const template = read(TEMPLATE).replace(/\/\* @@CLIENT:([a-z-]+)@@ \*\/\n/g,
+    (_, name) => read(`client/${name}.js`));
+  if (template.includes('@@CLIENT:')) throw new Error('Invalid client include marker');
   if (template.split(MARKER).length !== 2) throw new Error(`В ${TEMPLATE} должно быть ровно одно вхождение «${MARKER}»`);
 
   const { modules, order } = orderModules();
