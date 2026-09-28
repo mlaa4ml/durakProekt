@@ -35,7 +35,7 @@ for (const [players, deckSize, throwInPolicy] of configs) {
     const result = playOneGame(Array(players).fill('smart'), deckSize, players, true, {
       rng: rng(seed), throwInPolicy,
       seatOptions: Array.from({ length: players }, () => ({
-        solver: { maxNodes: 500, maxMs: Infinity },
+        solver: { maxNodes: 500, maxMs: Number.MAX_SAFE_INTEGER },
         roundSearch: { maxNodes: 100, maxMs: Infinity },
       })),
     });
