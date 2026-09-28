@@ -46,6 +46,7 @@ import {
 // 2000 партий smart против simple, колода 24 на 2). Флаг, который не улучшает метрику,
 // по требованию issue #33 выключен; таблица цифр приложена к отчёту в issue.
 import { SMART_PROFILE, SMART_PROFILES, pickProfile, pickProfileName } from './smartProfiles.js';
+export { SMART_PROFILE, SMART_PROFILES, pickProfile, pickProfileName };
 
 // Вес цены отдаваемой карты в оценке атаки: 1 п.п. давления стоит примерно 1 % шкалы cardPower.
 // Значение не «на глаз»: cost нормирован на козырного туза (MAX_CARD_POWER), поэтому 0.35 означает
