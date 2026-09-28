@@ -29,7 +29,7 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const TEMPLATE = 'client/template.html';
 export const MARKER = '/* @@BUNDLE@@ */';
 /** Что клиенту нужно из src/. Остальное подтягивается по импортам. */
-export const ENTRIES = ['src/game.js', 'src/bots/index.js'];
+export const ENTRIES = ['src/game.js', 'src/bots/index.js', 'src/bots/workerBrain.js'];
 export const OUTPUTS = ['visual/index.html', 'docs/index.html'];
 
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -146,7 +146,19 @@ export function buildClient() {
     '',
   ].join('\n');
 
-  let html = template.replace(MARKER, () => bundle);
+    // Blob worker keeps the standalone/file:// build usable: no network imports.
+  // Escape '<' so embedded source can never terminate the surrounding HTML script.
+  const workerSource = JSON.stringify(`${bundle}\ninstallBotWorker(self);`)
+    .replace(/</g, '\\u003c');
+  const workerFactory = `
+function createLocalBotBrain(level, options = {}) {
+  if (normalizeBotLevel(level) !== 'smart') return createBotBrain(level, options);
+  const url = URL.createObjectURL(new Blob([${workerSource}], {type:'text/javascript'}));
+  try { return new WorkerBotBrain(new Worker(url), level, options); }
+  finally { URL.revokeObjectURL(url); }
+}
+`;
+  let html = template.replace(MARKER, () => bundle + workerFactory);
   const banner = '<!-- СГЕНЕРИРОВАННЫЙ ФАЙЛ. Источники: client/template.html и src/**. Собирается командой `npm run build-client`, руками не править. -->\n';
   html = /^<!doctype html>\n/i.test(html) ? html.replace(/^(<!doctype html>\n)/i, (m) => m + banner) : banner + html;
   return { html, modules: order, names: [...owner.keys()] };

@@ -845,41 +845,87 @@ class RecordingGame extends DurakGame {
 // По умолчанию — простой бот без объяснений, то есть ровно то, что было раньше.
 // Партия просмотра проигрывается целиком в момент создания, поэтому и уровень, и
 // объяснения фиксируются на её старте.
-function runFullGame(numPlayers, deckSize, throwInPolicy, botOptions={}){
+// A generation owns all workers, timers and in-flight answers of a local game.
+let localGeneration=0;
+const localWorkers=new Set();
+function cancelLocalBots(){
+  localGeneration++;
+  stopBotTimer();
+  for(const brain of localWorkers) brain.dispose();
+  localWorkers.clear();
+  interactiveBusy=false;
+}
+window.addEventListener('pagehide', cancelLocalBots);
+
+function localBrain(game, playerId, level, options){
+  let brain;
+  try {
+    brain=createLocalBotBrain(level, options);
+    if(brain.dispose) localWorkers.add(brain);
+    brain.reset(game.getState(playerId), playerId);
+  } catch {
+    if(brain?.dispose){ brain.dispose(); localWorkers.delete(brain); }
+    // Explicit, visible failure fallback; never run SmartBot on the UI thread.
+    game._log('⚠ Worker недоступен: используется простой бот.');
+    brain=createBotBrain('simple', options);
+    brain.reset(game.getState(playerId), playerId);
+  }
+  return brain;
+}
+
+function releaseBrains(brains){
+  for(const brain of brains.values()){
+    if(brain.dispose){ brain.dispose(); localWorkers.delete(brain); }
+  }
+}
+
+async function localDecision(game, brains, playerId, legal, generation){
+  const brain=brains.get(playerId);
+  const state=game.getState(playerId);
+  try {
+    brain.observe(state, playerId);
+    const decision=await brain.decide(state, playerId, legal) || {};
+    if(generation!==localGeneration) return null;
+    // Structured cloning loses object identity: validate against current legal actions.
+    const action=legal.find(a=>game._actionsEqual(a, decision.action));
+    if(!action) throw new Error('Invalid worker action');
+    return {...decision, action};
+  } catch {
+    if(generation!==localGeneration) return null;
+    if(brain.dispose){ brain.dispose(); localWorkers.delete(brain); }
+    const fallback=createBotBrain('simple');
+    fallback.reset(state, playerId);
+    brains.set(playerId, fallback);
+    game._log('⚠ Ошибка Worker: до конца партии используется простой бот.');
+    return fallback.decide(state, playerId, legal);
+  }
+}
+
+async function runFullGame(numPlayers, deckSize, throwInPolicy, botOptions={}, generation=localGeneration){
   const level=normalizeBotLevel(botOptions.level);
   const explain=botOptions.explain===true;
   const players=Array.from({length:numPlayers},(_,i)=>({id:`p${i+1}`, name:`Игрок ${i+1}`}));
   const game=new RecordingGame(players, {numPlayers, deckSize, throwInPolicy});
-  // В режиме просмотра все игроки — боты одного уровня: по «мозгу» на каждого.
   const brains=new Map();
-  for(const p of game.players){
-    const brain=createBotBrain(level, { explain, trace:explain });
-    brain.reset(game.getState(p.id), p.id);
-    brains.set(p.id, brain);
-  }
-  let safety=0;
-  while(game.phase!=='finished' && safety<8000){
-    safety++;
-    let acted=false;
+  try {
     for(const p of game.players){
-      if(p.out) continue;
-      const legal=game.getLegalActions(p.id);
-      if(legal.length===0) continue;
-      // Боту отдаём то же маскированное состояние, что и движок: чужие руки скрыты
-      // (issue #27), зато видны стол, фаза, отбой, атакующий/защитник и размеры рук.
-      const state=game.getState(p.id);
-      const brain=brains.get(p.id);
-      brain.observe(state, p.id);
-      const decision=brain.decide(state, p.id, legal) || {};
-      const action=decision.action;
-      if(!action) continue;
-      if(explain) logBotExplanation(game, p.name, decision);
-      applyObservedAction(game, brains, p.id, action);
-      acted=true; break;
+      brains.set(p.id, localBrain(game, p.id, level, {explain, trace:explain}));
     }
-    if(!acted) break;
-  }
-  return game;
+    let safety=0;
+    while(game.phase!=='finished' && safety++<8000){
+      if(generation!==localGeneration) return null;
+      const id=game.currentActorId();
+      const legal=game.getLegalActions(id);
+      if(!legal.length) break;
+      const decision=await localDecision(game, brains, id, legal, generation);
+      if(!decision || generation!==localGeneration) return null;
+      if(explain) logBotExplanation(game, game.players.find(p=>p.id===id).name, decision);
+      applyObservedAction(game, brains, id, decision.action);
+      // Also yield in simple/fallback games; Promise microtasks alone don't paint.
+      if(safety%20===0) await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    return game;
+  } finally { releaseBrains(brains); }
 }
 
 /* ============ Интерактивный режим: игрок против ботов ============ */
@@ -971,10 +1017,7 @@ function logBotExplanation(game, botName, decision){
 // можно включить и посреди партии, не пересоздавая мозг и не теряя его память.
 function makeBotBrain(game, playerId){
   const level=activeBotSettings ? activeBotSettings.level : currentBotLevel();
-  const brain=createBotBrain(level, { explain:true, trace:true });
-  // reset получает то же маскированное состояние, что и decide: чужих рук в нём нет.
-  brain.reset(game.getState(playerId), playerId);
-  return brain;
+return localBrain(game, playerId, level, { explain:true, trace:true });
 }
 
 // Создать мозги ботам на новую партию. Человек (индекс 0) мозга не получает.
@@ -1000,7 +1043,7 @@ function brainFor(game, playerId){
 }
 
 function startInteractiveGame(){
-  stopBotTimer();
+  cancelLocalBots();
   pendingChoiceCard = null;
   const numPlayers=Number(document.getElementById('numPlayers').value);
   const deckSize=Number(document.getElementById('deckSize').value);
@@ -1029,37 +1072,34 @@ function currentTurnIndex(game){
 
 function scheduleBotStep(){
   stopBotTimer();
-  if(!igame || igame.phase==='finished') { renderInteractive(); return; }
+  if(!igame || igame.phase==='finished') {
+    interactiveBusy=false;
+    releaseBrains(botBrains);
+    renderInteractive(); return;
+  }
   const turnIdx=currentTurnIndex(igame);
-  if(turnIdx===-1){ renderInteractive(); return; } // раунд разрешается сам движком синхронно, но на всякий случай
+  if(turnIdx===-1){ renderInteractive(); return; }
   const turnPlayer=igame.players[turnIdx];
   if(turnIdx===0 || turnPlayer.out){
-    // ход игрока-человека (или некому ходить) — ждём клика
+    interactiveBusy=false;
     renderInteractive();
     return;
   }
-  // ход бота — небольшая задержка для читаемости, затем применяем действие
   interactiveBusy=true;
   renderInteractive();
-  botTimer=setTimeout(()=>{
-    if(!igame || igame.phase==='finished') { interactiveBusy=false; renderInteractive(); return; }
-    const legal=igame.getLegalActions(turnPlayer.id);
+  const generation=localGeneration;
+  const currentGame=igame;
+  const brains=botBrains;
+  botTimer=setTimeout(async ()=>{
+    botTimer=null;
+    if(generation!==localGeneration || currentGame!==igame) return;
+    const legal=currentGame.getLegalActions(turnPlayer.id);
     if(legal.length===0){ interactiveBusy=false; scheduleBotStep(); return; }
-    // Боту отдаём ТОЛЬКО маскированное состояние движка: рука человека и других
-    // ботов в нём скрыта (issue #27/#38), доступны стол/фаза/отбой/handCount.
-    // Один и тот же объект состояния идёт и в observe (память умного бота),
-    // и в decide — никаких самодельных «всевидящих» объектов здесь больше нет.
-    const state=igame.getState(turnPlayer.id);
-    const brain=brainFor(igame, turnPlayer.id);
-    brain.observe(state, turnPlayer.id);
-    const decision=brain.decide(state, turnPlayer.id, legal) || {};
-    const action=decision.action;
-    if(action){
-      // Объяснение пишем ДО хода: причина стоит рядом с самим ходом, а не после
-      // каскада событий, который движок разворачивает в applyAction (бито, добор, новый раунд).
-      if(botExplainEnabled()) logBotExplanation(igame, turnPlayer.name, decision);
-      applyObservedAction(igame, botBrains, turnPlayer.id, action);
-    }
+    brainFor(currentGame, turnPlayer.id);
+    const decision=await localDecision(currentGame, brains, turnPlayer.id, legal, generation);
+    if(!decision || generation!==localGeneration || currentGame!==igame) return;
+    if(botExplainEnabled()) logBotExplanation(currentGame, turnPlayer.name, decision);
+    applyObservedAction(currentGame, brains, turnPlayer.id, decision.action);
     interactiveBusy=false;
     scheduleBotStep();
   }, 550);
@@ -1633,7 +1673,7 @@ function setMode(newMode){
   if(mode===newMode) return;
   mode=newMode;
   stop(); // остановить автопроигрывание режима просмотра, если шло
-  stopBotTimer();
+  cancelLocalBots();
   document.getElementById('modeViewBtn').classList.toggle('active', mode==='view');
   document.getElementById('modeInteractiveBtn').classList.toggle('active', mode==='interactive');
   document.getElementById('modeNetworkBtn').classList.toggle('active', mode==='network');
@@ -1846,13 +1886,27 @@ function renderOppHandArea(wrap, count, faceUp, hand, trumpSuit){
 
 let game=null, cursor=0, playTimer=null;
 
-function buildGame(){
+function setReplayEnabled(enabled){
+  for(const id of ['btnFirst','btnLast','btnPrev','btnNext','btnPlay','scrubber']){
+    document.getElementById(id).disabled=!enabled;
+  }
+}
+
+async function buildGame(){
+  stop();
+  cancelLocalBots();
+  game=null;
+  setReplayEnabled(false);
+  const generation=localGeneration;
   const numPlayers=Number(document.getElementById('numPlayers').value);
   const deckSize=Number(document.getElementById('deckSize').value);
   const throwInPolicy=document.getElementById('throwInPolicy').value;
   const botOptions={ level: currentBotLevel(), explain: botExplainEnabled() };
   activeBotSettings={ ...botOptions };
-  game=runFullGame(numPlayers, deckSize, throwInPolicy, botOptions);
+  document.getElementById('eventDesc').textContent='Боты играют… Можно начать новую партию, чтобы отменить.';
+  const completed=await runFullGame(numPlayers, deckSize, throwInPolicy, botOptions, generation);
+  if(!completed || generation!==localGeneration) return;
+  game=completed;
   updateBotSettingsHint();
   cursor=0;
   document.getElementById('scrubber').max=String(game.snapshots.length-1);
@@ -1867,6 +1921,8 @@ function renderFullLog(){
 }
 
 function render(){
+  if(!game || !game.snapshots.length) return;
+  setReplayEnabled(true);
   const snap = game.snapshots[cursor].state;
   const desc = game.snapshots[cursor].description;
   const showAll = document.getElementById('showAll').checked;

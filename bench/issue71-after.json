@@ -1,0 +1,4833 @@
+{
+  "revision": "586e60e102c352b1a175a8ea23aa80879fd1c2a9",
+  "node": "v20.20.2",
+  "v8": "11.3.244.8-node.38",
+  "platform": "linux",
+  "arch": "x64",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "repeats": 12,
+  "budget": {
+    "maxNodes": 400000,
+    "maxMs": 2000
+  },
+  "scenarios": [
+    {
+      "name": "small-win-transfer-false",
+      "position": {
+        "rules": {
+          "numPlayers": 2,
+          "deckSize": 24,
+          "allowPerevod": false
+        },
+        "trumpSuit": "♠",
+        "players": [
+          {
+            "id": "p0",
+            "hand": [
+              {
+                "suit": "♠",
+                "rank": 14
+              }
+            ]
+          },
+          {
+            "id": "p1",
+            "hand": [
+              {
+                "suit": "♥",
+                "rank": 6
+              }
+            ]
+          }
+        ],
+        "attacker": "p0",
+        "defender": "p1",
+        "phase": "need-attack",
+        "allowAnyCardNow": true,
+        "attackCountThisRound": 0,
+        "defenderHandAtStart": 1
+      }
+    },
+    {
+      "name": "small-win-transfer-true",
+      "position": {
+        "rules": {
+          "numPlayers": 2,
+          "deckSize": 24,
+          "allowPerevod": true
+        },
+        "trumpSuit": "♠",
+        "players": [
+          {
+            "id": "p0",
+            "hand": [
+              {
+                "suit": "♠",
+                "rank": 14
+              }
+            ]
+          },
+          {
+            "id": "p1",
+            "hand": [
+              {
+                "suit": "♥",
+                "rank": 6
+              }
+            ]
+          }
+        ],
+        "attacker": "p0",
+        "defender": "p1",
+        "phase": "need-attack",
+        "allowAnyCardNow": true,
+        "attackCountThisRound": 0,
+        "defenderHandAtStart": 1
+      }
+    },
+    {
+      "name": "small-defense-transfer-false",
+      "position": {
+        "rules": {
+          "numPlayers": 2,
+          "deckSize": 24,
+          "allowPerevod": false
+        },
+        "trumpSuit": "♠",
+        "players": [
+          {
+            "id": "p0",
+            "hand": [
+              {
+                "suit": "♥",
+                "rank": 6
+              },
+              {
+                "suit": "♣",
+                "rank": 7
+              }
+            ]
+          },
+          {
+            "id": "p1",
+            "hand": [
+              {
+                "suit": "♥",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 6
+              }
+            ]
+          }
+        ],
+        "attacker": "p0",
+        "defender": "p1",
+        "phase": "need-attack",
+        "allowAnyCardNow": true,
+        "attackCountThisRound": 0,
+        "defenderHandAtStart": 2
+      }
+    },
+    {
+      "name": "small-defense-transfer-true",
+      "position": {
+        "rules": {
+          "numPlayers": 2,
+          "deckSize": 24,
+          "allowPerevod": true
+        },
+        "trumpSuit": "♠",
+        "players": [
+          {
+            "id": "p0",
+            "hand": [
+              {
+                "suit": "♥",
+                "rank": 6
+              },
+              {
+                "suit": "♣",
+                "rank": 7
+              }
+            ]
+          },
+          {
+            "id": "p1",
+            "hand": [
+              {
+                "suit": "♥",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 6
+              }
+            ]
+          }
+        ],
+        "attacker": "p0",
+        "defender": "p1",
+        "phase": "need-attack",
+        "allowAnyCardNow": true,
+        "attackCountThisRound": 0,
+        "defenderHandAtStart": 2
+      }
+    },
+    {
+      "name": "audit64-transfer-false",
+      "position": {
+        "rules": {
+          "numPlayers": 2,
+          "deckSize": 24,
+          "allowPerevod": false
+        },
+        "trumpSuit": "♠",
+        "players": [
+          {
+            "id": "p0",
+            "hand": [
+              {
+                "suit": "♣",
+                "rank": 9
+              },
+              {
+                "suit": "♠",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 14
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              },
+              {
+                "suit": "♥",
+                "rank": 10
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♦",
+                "rank": 11
+              },
+              {
+                "suit": "♦",
+                "rank": 12
+              },
+              {
+                "suit": "♦",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 11
+              },
+              {
+                "suit": "♣",
+                "rank": 13
+              }
+            ]
+          },
+          {
+            "id": "p1",
+            "hand": [
+              {
+                "suit": "♣",
+                "rank": 12
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♥",
+                "rank": 13
+              }
+            ]
+          }
+        ],
+        "attacker": "p0",
+        "defender": "p1",
+        "phase": "need-attack",
+        "allowAnyCardNow": true,
+        "attackCountThisRound": 0,
+        "defenderHandAtStart": 4
+      }
+    },
+    {
+      "name": "audit64-transfer-true",
+      "position": {
+        "rules": {
+          "numPlayers": 2,
+          "deckSize": 24,
+          "allowPerevod": true
+        },
+        "trumpSuit": "♠",
+        "players": [
+          {
+            "id": "p0",
+            "hand": [
+              {
+                "suit": "♣",
+                "rank": 9
+              },
+              {
+                "suit": "♠",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 14
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              },
+              {
+                "suit": "♥",
+                "rank": 10
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♦",
+                "rank": 11
+              },
+              {
+                "suit": "♦",
+                "rank": 12
+              },
+              {
+                "suit": "♦",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 11
+              },
+              {
+                "suit": "♣",
+                "rank": 13
+              }
+            ]
+          },
+          {
+            "id": "p1",
+            "hand": [
+              {
+                "suit": "♣",
+                "rank": 12
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♥",
+                "rank": 13
+              }
+            ]
+          }
+        ],
+        "attacker": "p0",
+        "defender": "p1",
+        "phase": "need-attack",
+        "allowAnyCardNow": true,
+        "attackCountThisRound": 0,
+        "defenderHandAtStart": 4
+      }
+    }
+  ],
+  "summary": [
+    {
+      "scenario": "small-win-transfer-false",
+      "p50": 0.05114599999797065,
+      "p95": 0.23234300000058283,
+      "p99": 0.23234300000058283,
+      "timeoutFraction": 0,
+      "nodesPerSecond": 40353.632331172324
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "p50": 0.023494000000937376,
+      "p95": 0.06180499999999256,
+      "p99": 0.06180499999999256,
+      "timeoutFraction": 0,
+      "nodesPerSecond": 101125.86799924164
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "p50": 0.16753199999948265,
+      "p95": 2.1584920000022976,
+      "p99": 2.1584920000022976,
+      "timeoutFraction": 0,
+      "nodesPerSecond": 112304.32088762108
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "p50": 0.1638249999996333,
+      "p95": 2.808382999999992,
+      "p99": 2.808382999999992,
+      "timeoutFraction": 0,
+      "nodesPerSecond": 71697.58285449533
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "p50": 2000.1416519999984,
+      "p95": 2001.3513749999984,
+      "p99": 2001.3513749999984,
+      "timeoutFraction": 1,
+      "nodesPerSecond": 137535.1521716185
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "p50": 2000.0618530000029,
+      "p95": 2002.1405670000022,
+      "p99": 2002.1405670000022,
+      "timeoutFraction": 1,
+      "nodesPerSecond": 139038.8529667167
+    }
+  ],
+  "rows": [
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 0,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.1275980000000061,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 23511.340303138426
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 0,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.06180499999999256,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 48539.76215517128
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 0,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.4821179999999998,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 91263.96442364735
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 0,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 2.808382999999992,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 15667.378701551792
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 0,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 242464,
+      "ms": 2000.047244,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 121229.13632534172
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 0,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 278208,
+      "ms": 2000.342768,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 139080.1638851927
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 1,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.23234300000058283,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 12911.944840139253
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 1,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.0574270000006436,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 52240.2354287422
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 1,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.3667139999997744,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 119984.51109046034
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 1,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.7208239999999932,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 61041.252788475984
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 1,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 242560,
+      "ms": 2000.157792,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 121270.43224797737
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 1,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 286880,
+      "ms": 2000.6328550000007,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 143394.6259969823
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 2,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.0634379999992234,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 47290.2676634939
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 2,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.03731900000002497,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 80388.00610943467
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 2,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.3079230000003008,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 142892.86607352167
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 2,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.3365770000000339,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 130727.88693224899
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 2,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 280224,
+      "ms": 2000.7839910000002,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 140057.09824774382
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 2,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 288064,
+      "ms": 2000.152752,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 144021.00025208475
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 3,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.07384799999999814,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 40623.98440039102
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 3,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.025798000000577304,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 116288.08434502158
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 3,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.15103199999975914,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 291328.9898834033
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 3,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.1449609999999666,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 303529.9149427097
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 3,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 289248,
+      "ms": 2001.3513749999984,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 144526.34535502305
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 3,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 254848,
+      "ms": 2000.3501109999997,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 127401.69763212018
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 4,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.053669999999328866,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 55897.14924608747
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 4,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.018814999999449356,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 159447.24953961195
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 4,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.16753199999948265,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 262636.3918543077
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 4,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.15580100000079256,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 282411.53779357113
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 4,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 296896,
+      "ms": 2001.1907169999995,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 148359.67280773673
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 4,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 282272,
+      "ms": 2000.2327189999996,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 141119.57939630127
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 5,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.04732800000056159,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 63387.42393433913
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 5,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.02484599999661441,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 120743.7817116956
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 5,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.1585850000010396,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 277453.7314355807
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 5,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 2.17732800000158,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 20208.255255968816
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 5,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 278112,
+      "ms": 2000.128456999999,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 139047.069215315
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 5,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 286048,
+      "ms": 2000.0509529999981,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 143020.35634189178
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 6,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.05444100000022445,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 55105.52708413937
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 6,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.018664999999600695,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 160728.636488839
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 6,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.18546599999899627,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 237240.24888787232
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 6,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.1456109999999171,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 302174.9730447909
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 6,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 271136,
+      "ms": 2000.1416519999984,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 135558.39894083672
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 6,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 274944,
+      "ms": 2000.0194940000001,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 137470.66007347626
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 7,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.04910100000051898,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 61098.55196367265
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 7,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.018884999997681007,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 158856.2351267348
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 7,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 2.1584920000022976,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 20384.60184237568
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 7,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.1638249999996333,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 268579.2766677765
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 7,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 283712,
+      "ms": 2000.1736919999967,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 141843.68144364157
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 7,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 285856,
+      "ms": 2000.0618530000029,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 142923.57987390683
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 8,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.048831000000063796,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 61436.38262571073
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 8,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.023273999999219086,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 128899.20082927984
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 8,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.16295399999944493,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 270014.85081771464
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 8,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.20953999999983353,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 209983.77398126828
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 8,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 282144,
+      "ms": 2000.0356060000013,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 141069.48853989542
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 8,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 264544,
+      "ms": 2000.0398099999948,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 132269.36717824667
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 9,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.04608600000210572,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 65095.69066230366
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 9,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.017982999997911975,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 166824.2228965319
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 9,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.2541639999981271,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 173116.57040463728
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 9,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.1403619999982766,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 313475.1570976493
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 9,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 280000,
+      "ms": 2000.0464740000025,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 139996.74689559222
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 9,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 278976,
+      "ms": 2000.026788999996,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 139486.13165300986
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 10,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.04428300000290619,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 67746.08765899141
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 10,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.023494000000937376,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 127692.17672087786
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 10,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.15139199999975972,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 290636.2291274957
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 10,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.14169399999809684,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 310528.3215985926
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 10,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 293504,
+      "ms": 2000.162559999997,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 146740.07296686948
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 10,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 272800,
+      "ms": 2000.0598979999995,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 136395.91507873934
+    },
+    {
+      "scenario": "small-win-transfer-false",
+      "iteration": 11,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.05114599999797065,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 58655.613344524165
+    },
+    {
+      "scenario": "small-win-transfer-true",
+      "iteration": 11,
+      "win": true,
+      "value": 1,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♠",
+          "rank": 14
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "depth": 3,
+      "nodes": 3,
+      "ms": 0.02768099999957485,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        }
+      ],
+      "nodesPerSecond": 108377.58751656648
+    },
+    {
+      "scenario": "small-defense-transfer-false",
+      "iteration": 11,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.1551389999949606,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 283616.6276785931
+    },
+    {
+      "scenario": "small-defense-transfer-true",
+      "iteration": 11,
+      "win": false,
+      "value": 0,
+      "action": {
+        "type": "attack",
+        "card": {
+          "suit": "♣",
+          "rank": 7
+        }
+      },
+      "bestActions": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "depth": 6,
+      "nodes": 44,
+      "ms": 0.21935900000244146,
+      "timedOut": false,
+      "solved": true,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 6
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 7
+          }
+        }
+      ],
+      "nodesPerSecond": 200584.43008725552
+    },
+    {
+      "scenario": "audit64-transfer-false",
+      "iteration": 11,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 94,
+      "nodes": 261440,
+      "ms": 2000.1164070000013,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 130712.39208128741
+    },
+    {
+      "scenario": "audit64-transfer-true",
+      "iteration": 11,
+      "win": false,
+      "value": 0,
+      "action": null,
+      "bestActions": [],
+      "depth": 123,
+      "nodes": 284064,
+      "ms": 2002.1405670000022,
+      "timedOut": true,
+      "solved": false,
+      "player": "p0",
+      "legal": [
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 9
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♠",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 14
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♥",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 12
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♦",
+            "rank": 13
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 10
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 11
+          }
+        },
+        {
+          "type": "attack",
+          "card": {
+            "suit": "♣",
+            "rank": 13
+          }
+        }
+      ],
+      "nodesPerSecond": 141880.14801859797
+    }
+  ]
+}

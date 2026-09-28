@@ -82,10 +82,9 @@ function moveWeight(a, trumpSuit) {
 }
 
 function orderMoves(actions, trumpSuit) {
-  return actions
-    .map((a) => ({ a, w: moveWeight(a, trumpSuit) }))
-    .sort((x, y) => x.w - y.w)
-    .map((x) => x.a);
+  // Stable sort keeps the previous tie policy without two temporary arrays
+  // and one wrapper allocation per action (visible in the #71 CPU profile).
+  return actions.slice().sort((a, b) => moveWeight(a, trumpSuit) - moveWeight(b, trumpSuit));
 }
 
 /**
@@ -148,10 +147,11 @@ export function solveEndgame(position, options = {}) {
   let maxDepth = 0;
   let aborted = false;
   let cycleTarget = Infinity; // на какой глубине пути лежит самая «верхняя» позиция, повторённая в поддереве
-  // Таблицу можно передать снаружи и переиспользовать между вызовами: ключ позиции описывает
-  // её полностью, поэтому найденное для одной позиции верно и в следующем ходе той же партии
-  // (и в другой партии с теми же правилами и козырем — вызывающий сам следит за этим).
+  // A supplied Map is scratch storage for THIS solve only, not a cross-turn cache.
+  // positionKey omits rules/trump/root perspective; clearing also rejects legacy
+  // entries and prevents path-dependent bounds leaking into another root.
   const table = options.table instanceof Map ? options.table : new Map();
+  table.clear();
   const path = new Map(); // ключ позиции на текущей ветке → её глубина
 
   const result = (over) => ({
