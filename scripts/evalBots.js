@@ -25,9 +25,14 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { normalizeBotLevel, botLevelLabel, BOT_LEVELS } from '../src/bots/index.js';
 import { seatLevels, playOneGame } from '../src/cli/matchCore.js';
 import { SMART_PROFILE } from '../src/bots/smartBot.js';
+// Парная калибровка (issue #72, этап 7). Второго игрового цикла НЕТ: pairedEval — надстройка
+// над тем же playOneGame из matchCore.js, что и обычная матрица ниже.
+import { runPairedConfig } from '../src/cli/pairedEval.js';
 
 // ---------------------------------------------------------------------------
 // Seeded PRNG
