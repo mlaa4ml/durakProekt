@@ -124,8 +124,16 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
       const state = game.getState(p.id);
       const brain = brains.get(p.id);
       brain.observe(state, p.id);
+      const started = metrics ? performance.now() : 0;
       const decision = brain.decide(state, p.id, legal) || {};
+      if (metrics) metrics.decisionMsBySeat[players.findIndex(x => x.id === p.id)]
+        .push(performance.now() - started);
       const action = decision.action;
+      if (options.verifyLegal && (!action || !legal.some(a => isDeepStrictEqual(a, action)))) {
+        const error = new Error(`${p.id}: action outside legal list: ${JSON.stringify(action)}`);
+        error.code = 'ILLEGAL_ACTION';
+        throw error;
+      }
       if (!action) continue;
       if (decision.decisionTrace) decision.decisionTrace.actionId = safety;
       if (collectTrace) {
