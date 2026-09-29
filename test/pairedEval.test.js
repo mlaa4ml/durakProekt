@@ -18,8 +18,12 @@ import {
 
 test('playOneGame возвращает отпечаток начальной раздачи', () => {
   const rng = mulberry32(hash32('deal-check'));
-  const res = playOneGame(seatLevels('simple', 'simple', 2, 0), 36, 2, false, { rng });
-  assert.ok(res.initialDeal, 'initialDeal обязан присутствовать');
+  const plain = playOneGame(seatLevels('simple', 'simple', 2, 0), 36, 2, false, { rng: mulberry32(hash32('deal-check')) });
+  assert.equal(plain.initialDeal, undefined,
+    'без recordInitialDeal результат не меняется — эталон эквивалентности этапа 6 обязан совпадать');
+
+  const res = playOneGame(seatLevels('simple', 'simple', 2, 0), 36, 2, false, { rng, recordInitialDeal: true });
+  assert.ok(res.initialDeal, 'initialDeal обязан присутствовать при recordInitialDeal');
   assert.equal(res.initialDeal.seats.length, 2);
   for (const s of res.initialDeal.seats) {
     assert.equal(s.hand.length, 6, 'стартовая рука — 6 карт');
