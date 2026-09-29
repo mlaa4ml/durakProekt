@@ -147,6 +147,16 @@ export function runPairedConfig(o) {
   let totalMs = 0;
   let maxMsGame = 0;
 
+  // Задержки и таймауты решателя (issue #72 этап 7 / #71) — считаются ОТДЕЛЬНО от исходов
+  // и не участвуют в durakPct/CI. Единица — одно решение бота (brain.decide), а не партия.
+  const latAcc = {
+    decisions: 0, totalMs: 0, maxMs: 0,
+    solverCalls: 0, solverTimedOut: 0, solverUnusable: 0, solverUsed: 0,
+    solverNodes: 0, solverMs: 0,
+    sideA: { decisions: 0, totalMs: 0, maxMs: 0, solverCalls: 0, solverTimedOut: 0 },
+    sideB: { decisions: 0, totalMs: 0, maxMs: 0, solverCalls: 0, solverTimedOut: 0 },
+  };
+
   for (let i = 0; i < pairs; i++) {
     const seedValue = pairSeed(seed, players, deckSize, throwInPolicy, i);
     const cluster = { pair: i, seed: seedValue, durakA: 0, decided: 0, games: [] };
