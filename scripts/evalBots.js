@@ -598,7 +598,44 @@ async function runPaired(opts) {
     dealMismatch: a.dealMismatch + r.dealMismatch,
   }), { planned: 0, completed: 0, errors: 0, stuck: 0, draws: 0, dealMismatch: 0 });
 
-  const unfinished = totals.planned - totals.completed + totals.stuck;
+    const unfinished = totals.planned - totals.completed + totals.stuck;
+
+  // Сводка задержек/таймаутов решателя по всей матрице — отдельно от исходов (#72 этап 7 / #71).
+  const latencyTotals = rows.reduce((a, r) => {
+    const l = r.latency;
+    if (!l) return a;
+    return {
+      decisions: a.decisions + l.decisions,
+      totalDecisionMs: Math.round((a.totalDecisionMs + l.totalDecisionMs) * 1000) / 1000,
+      maxDecisionMs: Math.max(a.maxDecisionMs, l.maxDecisionMs ?? 0),
+      solverCalls: a.solverCalls + l.solverCalls,
+      solverUsed: a.solverUsed + l.solverUsed,
+      solverUnusable: a.solverUnusable + l.solverUnusable,
+      solverTimedOut: a.solverTimedOut + l.solverTimedOut,
+      solverNodes: a.solverNodes + l.solverNodes,
+      solverMs: Math.round((a.solverMs + l.solverMs) * 1000) / 1000,
+    };
+  }, {
+    decisions: 0, totalDecisionMs: 0, maxDecisionMs: 0, solverCalls: 0,
+    solverUsed: 0, solverUnusable: 0, solverTimedOut: 0, solverNodes: 0, solverMs: 0,
+  });
+  latencyTotals.avgDecisionMs = latencyTotals.decisions
+    ? Math.round((latencyTotals.totalDecisionMs / latencyTotals.decisions) * 1000) / 1000 : null;
+  latencyTotals.solverTimeoutPct = latencyTotals.solverCalls
+    ? Math.round((latencyTotals.solverTimedOut / latencyTotals.solverCalls) * 10000) / 100 : null;
+  // Таймаут здесь = исчерпан фиксированный бюджет решателя (maxNodes), а не wall-clock.
+  latencyTotals.budget = { ...solver };
+  latencyTotals.note = 'Задержки и таймауты бюджета решателя измерены в CLI-прогоне и не являются SLA браузера/worker из #71.';
+
+  console.log(
+    `Задержки (отдельно от исходов): решений ${latencyTotals.decisions}, ` +
+    `сред. ${latencyTotals.avgDecisionMs ?? '—'} мс, макс. ${latencyTotals.maxDecisionMs} мс | ` +
+    `решатель: вызовов ${latencyTotals.solverCalls}, использовано ${latencyTotals.solverUsed}, ` +
+    `таймаутов бюджета ${latencyTotals.solverTimedOut}` +
+    `${latencyTotals.solverTimeoutPct == null ? '' : ` (${latencyTotals.solverTimeoutPct.toFixed(2)} %)`}, ` +
+    `непригодных ${latencyTotals.solverUnusable}, узлов ${latencyTotals.solverNodes}. ` +
+    'Это не SLA клиента #71.',
+  );
   console.log(
     `Итого: запланировано ${totals.planned}, завершено ${totals.completed}, незавершённых ${unfinished}, ` +
     `ничьих ${totals.draws}, ошибок ${totals.errors}, зависаний ${totals.stuck}, разошедшихся раздач ${totals.dealMismatch}.`,
