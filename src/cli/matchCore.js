@@ -77,15 +77,37 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
   }));
   const game = new DurakGame(players, rules, rng);
 
+  // Фабрика «мозга» по месту (issue #72, этап 7). В парной калибровке одно место занимает бот
+  // ИЗ ДРУГОГО checkout (старая версия), поэтому createBotBrain нельзя зашивать намертво.
+  // По умолчанию поведение прежнее — локальный createBotBrain на всех местах.
+  // Движок (DurakGame) всегда локальный: единственный источник правил не раздваивается.
+  const seatFactories = Array.isArray(options.seatBrainFactories) ? options.seatBrainFactories : null;
+
   const brains = new Map();
   players.forEach((p, i) => {
-        const brain = createBotBrain(levels[i], {
+    const factory = (seatFactories && seatFactories[i]) || createBotBrain;
+    const brain = factory(levels[i], {
       explain: collectTrace, trace: collectTrace || !!options.recordDiagnostic,
       ...(options.seatOptions && options.seatOptions[i]),
     });
     brain.reset(game.getState(p.id), p.id);
     brains.set(p.id, brain);
   });
+
+  // Снимок начальной раздачи. Нужен тестам парного режима (#72, этап 7): обе партии пары
+  // обязаны стартовать с одинаковых рук и одинакового козыря — меняются только стороны.
+  // Это отпечаток раздачи, а не канал утечки: он не передаётся ботам и возвращается
+  // только вызвавшему инструменту.
+  const initialDeal = {
+    trumpSuit: game.trumpSuit,
+    trumpCard: game.trumpCard ? cardToString(game.trumpCard) : null,
+    talonCount: game.talon.length,
+    seats: game.players.map((p, i) => ({
+      seat: i,
+      playerId: p.id,
+      hand: p.hand.map(cardToString),
+    })),
+  };
 
   // Opt-in: ordinary benchmarks do not retain an archive of private hands.
   // Callers must store the result in protected storage, never in a public live log.
