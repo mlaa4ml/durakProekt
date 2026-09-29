@@ -314,6 +314,8 @@ export function runPairedConfig(o) {
     // Задержки — отдельно от детерминированных исходов (это не SLA клиента).
     avgMs: completed ? round2(totalMs / completed) : null,
     maxMs: maxMsGame,
+    // Задержки решений и таймауты решателя — отдельным блоком, не смешиваются с исходами.
+    latency: summarizeLatency(latAcc),
     problems,
     clusters,
   };
