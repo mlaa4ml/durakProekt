@@ -571,6 +571,16 @@ async function runPaired(opts) {
       `ничьи ${row.draws} | ошибок ${row.errors} | зависаний ${row.stuck} | ` +
       `раздача разошлась ${row.dealMismatch} | сред. ${row.avgMs ?? '—'} мс`,
     );
+    const lat = row.latency;
+    if (lat) {
+      console.log(
+        `       задержки: решений ${lat.decisions}, сред. ${lat.avgDecisionMs ?? '—'} мс, ` +
+        `макс. ${lat.maxDecisionMs ?? '—'} мс | решатель: вызовов ${lat.solverCalls}, ` +
+        `таймаутов бюджета ${lat.solverTimedOut}` +
+        `${lat.solverTimeoutPct == null ? '' : ` (${lat.solverTimeoutPct.toFixed(2)} %)`}, ` +
+        `узлов ${lat.solverNodes} — отдельно от исходов, это не SLA клиента #71`,
+      );
+    }
     for (const p of row.problems.slice(0, 3)) console.log(`   проблема: ${JSON.stringify(p)}`);
   }
 
