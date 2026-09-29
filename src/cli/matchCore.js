@@ -167,7 +167,7 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
     durakSeat,
     steps: safety,
     stuck: safety >= maxSteps,
-    initialDeal,
+    ...(initialDeal ? { initialDeal } : {}),
     trace,
     log: game.log,
         finishedOrder: game.finishedOrder,
