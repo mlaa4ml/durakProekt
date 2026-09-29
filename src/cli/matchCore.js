@@ -82,7 +82,7 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
   options.onInitialDeal?.(structuredClone({
     rules: game.rules,
     hands: game.players.map(p => p.hand),
-    deck: game.deck,
+    deck: game.talon,
     trumpCard: game.trumpCard,
     attackerIndex: game.attackerIndex,
   }));
