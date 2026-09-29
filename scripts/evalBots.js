@@ -574,4 +574,104 @@ function main() {
   if (failed) process.exitCode = 1;
 }
 
-main();
+// Paired calibration shares the production match loop. Version factories are
+// injected per seat; level names deliberately remain "smart" on both sides.
+export function pairSeed(seed, players, deckSize, throwInPolicy, pairIndex) {
+  return hash32(`${seed}|${players}x${deckSize}|${throwInPolicy}|${pairIndex}`);
+}
+
+// Ratio-of-sums CI with the independent unit = initial deal (two games).
+// Normal approximation, descriptive only: no false precision for tiny samples
+// or degenerate residuals. Report all denominators alongside it.
+export function pairedShare(pairs) {
+  const n = pairs.length;
+  const losses = pairs.reduce((s, p) => s + p.lossesA, 0);
+  const decided = pairs.reduce((s, p) => s + p.decided, 0);
+  if (!decided) return { durakPct: null, ci95: null, se: null, ciWarning: 'no decided games' };
+  const p = losses / decided;
+  const residuals = pairs.map(x => x.lossesA - p * x.decided);
+  const sumSquares = residuals.reduce((s, x) => s + x * x, 0);
+  if (n < 2 || sumSquares === 0) return {
+    durakPct: round2(p * 100), ci95: null, se: null,
+    ciWarning: 'insufficient pairs or degenerate cluster variance',
+  };
+  const se = Math.sqrt(n / (n - 1) * sumSquares / decided ** 2);
+  return {
+    durakPct: round2(100 * p), se: round2(100 * se),
+    ci95: [round2(100 * Math.max(0, p - Z95 * se)), round2(100 * Math.min(1, p + Z95 * se))],
+    ciWarning: n < 30 ? 'small sample; asymptotic paired CI unreliable' : null,
+  };
+}
+
+export function runPairedConfig({
+  players, deckSize, throwInPolicy = 'all', pairs, seed,
+  levelA = 'smart', levelB = 'smart', factoryA, factoryB,
+  brainA = {}, brainB = {}, maxSteps,
+}) {
+  if (!Number.isSafeInteger(pairs) || pairs < 1) throw new Error('pairs must be a positive integer');
+  const records = [];
+  const clusters = [];
+  const measurements = [];
+  const initialDeals = [];
+  for (let pair = 0; pair < pairs; pair++) {
+    const dealSeed = pairSeed(seed, players, deckSize, throwInPolicy, pair);
+    const cluster = { lossesA: 0, decided: 0 };
+    let firstDeal = null;
+    for (const direction of [0, 1]) {
+      const levels = seatLevels(levelA, levelB, players, direction);
+      const record = { pair, seed: dealSeed, direction };
+      const choose = (a, b) => levels.map((_, seat) => seatBelongsToA(seat, direction) ? a : b);
+      try {
+        const result = playOneGame(levels, deckSize, players, false, {
+          rng: mulberry32(dealSeed), throwInPolicy, maxSteps,
+          seatFactories: choose(factoryA, factoryB),
+          seatOptions: choose(brainA, brainB),
+          verifyLegal: true, measure: true,
+          onInitialDeal(deal) {
+            const serialized = JSON.stringify(deal);
+            if (direction === 0) {
+              firstDeal = serialized;
+              initialDeals.push({ pair, seed: dealSeed, deal });
+            } else if (serialized !== firstDeal) {
+              throw new Error('paired initial deal mismatch');
+            }
+            record.dealHash = createHash('sha256').update(serialized).digest('hex');
+          },
+        });
+        record.steps = result.steps;
+        record.status = result.stuck ? 'unfinished' : result.durakSeat < 0 ? 'draw' : 'decided';
+        record.durakSeat = result.durakSeat;
+        record.loser = record.status === 'decided'
+          ? (seatBelongsToA(result.durakSeat, direction) ? 'A' : 'B') : null;
+        record.drawReason = result.drawReason;
+        if (record.status === 'decided') {
+          cluster.decided++;
+          if (record.loser === 'A') cluster.lossesA++;
+        }
+        // Timings are explicitly separate from deterministic outcomes.
+        measurements.push({ pair, direction, ...result.metrics });
+      } catch (e) {
+        record.status = 'error';
+        record.code = e.code ?? null;
+        record.message = e.message;
+      }
+      records.push(record);
+    }
+    clusters.push(cluster);
+  }
+  const count = status => records.filter(r => r.status === status).length;
+  const decided = count('decided');
+  const durakA = records.filter(r => r.loser === 'A').length;
+  return {
+    players, deckSize, throwInPolicy, pairs, planned: pairs * 2,
+    completed: decided + count('draw'), decided, durakA, durakB: decided - durakA,
+    draws: count('draw'), unfinished: count('unfinished'), errors: count('error'),
+    illegal: records.filter(r => r.code === 'ILLEGAL_ACTION').length,
+    lossPctAllPlanned: round2(100 * durakA / (pairs * 2)),
+    ...pairedShare(clusters),
+    records, initialDeals, measurements,
+  };
+}
+
+export { mulberry32, seatBelongsToA, MAIN_MATRIX };
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main();
