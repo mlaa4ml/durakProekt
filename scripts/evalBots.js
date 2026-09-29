@@ -800,4 +800,7 @@ async function main() {
   if (failed) process.exitCode = 1;
 }
 
-main();
+main().catch((e) => {
+  console.error(e.stack || e.message);
+  process.exit(2);
+});
