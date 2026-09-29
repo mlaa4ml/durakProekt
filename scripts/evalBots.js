@@ -27,6 +27,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { normalizeBotLevel, botLevelLabel, BOT_LEVELS } from '../src/bots/index.js';
 import { seatLevels, playOneGame } from '../src/cli/matchCore.js';
 import { SMART_PROFILE } from '../src/bots/smartBot.js';
