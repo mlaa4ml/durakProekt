@@ -1,0 +1,6788 @@
+{
+  "schema": 2,
+  "tool": "scripts/evalBots.js --paired",
+  "toolCommit": "edea32df522c7a6ca2e2504f47691f7678280a36",
+  "toolDirty": false,
+  "engineCommit": "edea32df522c7a6ca2e2504f47691f7678280a36",
+  "group": "simple",
+  "a": {
+    "level": "smart",
+    "commit": "0f9d68ce4ad208cfd8eb937c7714473eb0df1a05",
+    "profiles": {
+      "duel": {
+        "holdTrumpsWhileTalon": true,
+        "holdHighCardsWhileTalon": false,
+        "avoidBurningBigTrump": true,
+        "finishOffWeakOpponent": true,
+        "takeWhenTableUnbeatable": true,
+        "exactEndgame": true,
+        "dumpPairs": false,
+        "safeRoundAttack": false,
+        "exactEndgameSolver": true,
+        "keepTrumpWhenOpponentTakes": true,
+        "useKnownHandAttack": true,
+        "preferTransferWhenCheap": true,
+        "attackByPressure": false,
+        "probabilisticTake": false
+      },
+      "small": {
+        "holdTrumpsWhileTalon": true,
+        "holdHighCardsWhileTalon": false,
+        "avoidBurningBigTrump": false,
+        "finishOffWeakOpponent": true,
+        "takeWhenTableUnbeatable": true,
+        "exactEndgame": true,
+        "dumpPairs": false,
+        "safeRoundAttack": false,
+        "exactEndgameSolver": true,
+        "keepTrumpWhenOpponentTakes": true,
+        "useKnownHandAttack": true,
+        "preferTransferWhenCheap": true,
+        "attackByPressure": false,
+        "probabilisticTake": false
+      },
+      "large": {
+        "holdTrumpsWhileTalon": true,
+        "holdHighCardsWhileTalon": false,
+        "avoidBurningBigTrump": false,
+        "finishOffWeakOpponent": true,
+        "takeWhenTableUnbeatable": true,
+        "exactEndgame": true,
+        "dumpPairs": false,
+        "safeRoundAttack": false,
+        "exactEndgameSolver": true,
+        "keepTrumpWhenOpponentTakes": true,
+        "useKnownHandAttack": true,
+        "preferTransferWhenCheap": true,
+        "attackByPressure": false,
+        "probabilisticTake": false
+      }
+    },
+    "profileOverrides": null
+  },
+  "b": {
+    "level": "simple",
+    "commit": "0f9d68ce4ad208cfd8eb937c7714473eb0df1a05",
+    "profiles": {
+      "duel": {
+        "holdTrumpsWhileTalon": true,
+        "holdHighCardsWhileTalon": false,
+        "avoidBurningBigTrump": true,
+        "finishOffWeakOpponent": true,
+        "takeWhenTableUnbeatable": true,
+        "exactEndgame": true,
+        "dumpPairs": false,
+        "safeRoundAttack": false,
+        "exactEndgameSolver": true,
+        "keepTrumpWhenOpponentTakes": true,
+        "useKnownHandAttack": true,
+        "preferTransferWhenCheap": true,
+        "attackByPressure": false,
+        "probabilisticTake": false
+      },
+      "small": {
+        "holdTrumpsWhileTalon": true,
+        "holdHighCardsWhileTalon": false,
+        "avoidBurningBigTrump": false,
+        "finishOffWeakOpponent": true,
+        "takeWhenTableUnbeatable": true,
+        "exactEndgame": true,
+        "dumpPairs": false,
+        "safeRoundAttack": false,
+        "exactEndgameSolver": true,
+        "keepTrumpWhenOpponentTakes": true,
+        "useKnownHandAttack": true,
+        "preferTransferWhenCheap": true,
+        "attackByPressure": false,
+        "probabilisticTake": false
+      },
+      "large": {
+        "holdTrumpsWhileTalon": true,
+        "holdHighCardsWhileTalon": false,
+        "avoidBurningBigTrump": false,
+        "finishOffWeakOpponent": true,
+        "takeWhenTableUnbeatable": true,
+        "exactEndgame": true,
+        "dumpPairs": false,
+        "safeRoundAttack": false,
+        "exactEndgameSolver": true,
+        "keepTrumpWhenOpponentTakes": true,
+        "useKnownHandAttack": true,
+        "preferTransferWhenCheap": true,
+        "attackByPressure": false,
+        "probabilisticTake": false
+      }
+    },
+    "profileOverrides": null
+  },
+  "solver": {
+    "maxNodes": 500,
+    "maxMs": 9007199254740991
+  },
+  "seed": 720072,
+  "pairsPerConfig": 5,
+  "seedAlgorithm": "FNV1a(master|playersxdeck|throwInPolicy|pairIndex), mulberry32",
+  "pairing": "same initial deck/hands, alternating side membership by seat parity",
+  "ciMethod": "95% normal cluster ratio-of-sums; independent unit=deal pair",
+  "baselineSha256": "1a34382eaeda7c5a506f2e836f4427eb12bb6b4a449e5f7c1d3f5978505587c3",
+  "environment": {
+    "node": "v20.20.2",
+    "platform": "linux",
+    "arch": "x64",
+    "release": "6.8.0-1064-azure",
+    "cpu": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+    "cpuCount": 2
+  },
+  "command": [
+    "node",
+    "/workspaces/durakProekt/scripts/evalBots.js",
+    "--paired",
+    "--old-root=/tmp/issue72-old",
+    "--new-root=/tmp/issue72-new",
+    "--group=simple",
+    "--pairs=5",
+    "--configs=2x36,3x36,4x36",
+    "--seed=720072",
+    "--solver-nodes=500",
+    "--json=bench/issue72-smoke-simple.json"
+  ],
+  "plannedConfigs": [
+    [
+      2,
+      36,
+      "all"
+    ],
+    [
+      3,
+      36,
+      "all"
+    ],
+    [
+      4,
+      36,
+      "all"
+    ]
+  ],
+  "complete": true,
+  "configs": [
+    {
+      "players": 2,
+      "deckSize": 36,
+      "throwInPolicy": "all",
+      "pairs": 5,
+      "planned": 10,
+      "completed": 10,
+      "decided": 10,
+      "durakA": 4,
+      "durakB": 6,
+      "draws": 0,
+      "unfinished": 0,
+      "errors": 0,
+      "illegal": 0,
+      "lossPctAllPlanned": 40,
+      "durakPct": 40,
+      "se": 10,
+      "ci95": [
+        20.4,
+        59.6
+      ],
+      "ciWarning": "small sample; asymptotic paired CI unreliable",
+      "records": [
+        {
+          "pair": 0,
+          "seed": 2251752031,
+          "direction": 0,
+          "dealHash": "0ebde16ed288ef871ff8ba94d6e3c6ef6f573a2594a889f6fcb7aa8d1b3b0b4b",
+          "steps": 52,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 0,
+          "seed": 2251752031,
+          "direction": 1,
+          "dealHash": "0ebde16ed288ef871ff8ba94d6e3c6ef6f573a2594a889f6fcb7aa8d1b3b0b4b",
+          "steps": 42,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "A",
+          "drawReason": null
+        },
+        {
+          "pair": 1,
+          "seed": 2234974412,
+          "direction": 0,
+          "dealHash": "5a07e603ae04d414774baf2272627a262d654db492a887fcdd3f7750f594b20f",
+          "steps": 42,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 1,
+          "seed": 2234974412,
+          "direction": 1,
+          "dealHash": "5a07e603ae04d414774baf2272627a262d654db492a887fcdd3f7750f594b20f",
+          "steps": 54,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "A",
+          "drawReason": null
+        },
+        {
+          "pair": 2,
+          "seed": 2285307269,
+          "direction": 0,
+          "dealHash": "cee0e19bf9e2e06bc30f79d0e3275b9ffccf0c0840f86bdbf0d6fb51fe95d91c",
+          "steps": 40,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "A",
+          "drawReason": null
+        },
+        {
+          "pair": 2,
+          "seed": 2285307269,
+          "direction": 1,
+          "dealHash": "cee0e19bf9e2e06bc30f79d0e3275b9ffccf0c0840f86bdbf0d6fb51fe95d91c",
+          "steps": 52,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 3,
+          "seed": 2268529650,
+          "direction": 0,
+          "dealHash": "842b51986c162e8d9468044f108ba8adef095e661165923b66a21e1d5c6286d7",
+          "steps": 57,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 3,
+          "seed": 2268529650,
+          "direction": 1,
+          "dealHash": "842b51986c162e8d9468044f108ba8adef095e661165923b66a21e1d5c6286d7",
+          "steps": 51,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 4,
+          "seed": 2184641555,
+          "direction": 0,
+          "dealHash": "ace16a479c0902550a2046232a32d93969ddbc880b9aa3c0a104f015f6ccf9af",
+          "steps": 49,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "A",
+          "drawReason": null
+        },
+        {
+          "pair": 4,
+          "seed": 2184641555,
+          "direction": 1,
+          "dealHash": "ace16a479c0902550a2046232a32d93969ddbc880b9aa3c0a104f015f6ccf9af",
+          "steps": 45,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "B",
+          "drawReason": null
+        }
+      ],
+      "initialDeals": [
+        {
+          "pair": 0,
+          "seed": 2251752031,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 2,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♣",
+                  "rank": 7
+                },
+                {
+                  "suit": "♥",
+                  "rank": 10
+                },
+                {
+                  "suit": "♠",
+                  "rank": 8
+                },
+                {
+                  "suit": "♣",
+                  "rank": 9
+                },
+                {
+                  "suit": "♦",
+                  "rank": 14
+                },
+                {
+                  "suit": "♠",
+                  "rank": 10
+                }
+              ],
+              [
+                {
+                  "suit": "♠",
+                  "rank": 11
+                },
+                {
+                  "suit": "♦",
+                  "rank": 12
+                },
+                {
+                  "suit": "♠",
+                  "rank": 14
+                },
+                {
+                  "suit": "♣",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 13
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♣",
+                "rank": 12
+              },
+              {
+                "suit": "♦",
+                "rank": 13
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♣",
+                "rank": 11
+              },
+              {
+                "suit": "♣",
+                "rank": 13
+              },
+              {
+                "suit": "♠",
+                "rank": 9
+              },
+              {
+                "suit": "♥",
+                "rank": 7
+              },
+              {
+                "suit": "♦",
+                "rank": 6
+              },
+              {
+                "suit": "♣",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 13
+              },
+              {
+                "suit": "♦",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 12
+              },
+              {
+                "suit": "♦",
+                "rank": 10
+              },
+              {
+                "suit": "♠",
+                "rank": 6
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 11
+              },
+              {
+                "suit": "♥",
+                "rank": 8
+              },
+              {
+                "suit": "♦",
+                "rank": 9
+              },
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♥",
+                "rank": 6
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♣",
+                "rank": 6
+              }
+            ],
+            "trumpCard": {
+              "suit": "♣",
+              "rank": 6
+            },
+            "attackerIndex": 0
+          }
+        },
+        {
+          "pair": 1,
+          "seed": 2234974412,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 2,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♥",
+                  "rank": 7
+                },
+                {
+                  "suit": "♣",
+                  "rank": 11
+                },
+                {
+                  "suit": "♦",
+                  "rank": 6
+                },
+                {
+                  "suit": "♣",
+                  "rank": 9
+                },
+                {
+                  "suit": "♣",
+                  "rank": 7
+                },
+                {
+                  "suit": "♦",
+                  "rank": 11
+                }
+              ],
+              [
+                {
+                  "suit": "♥",
+                  "rank": 13
+                },
+                {
+                  "suit": "♦",
+                  "rank": 7
+                },
+                {
+                  "suit": "♠",
+                  "rank": 9
+                },
+                {
+                  "suit": "♦",
+                  "rank": 9
+                },
+                {
+                  "suit": "♣",
+                  "rank": 12
+                },
+                {
+                  "suit": "♥",
+                  "rank": 6
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♠",
+                "rank": 10
+              },
+              {
+                "suit": "♥",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 8
+              },
+              {
+                "suit": "♦",
+                "rank": 12
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♦",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 6
+              },
+              {
+                "suit": "♠",
+                "rank": 6
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 14
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♥",
+                "rank": 10
+              },
+              {
+                "suit": "♠",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 12
+              },
+              {
+                "suit": "♠",
+                "rank": 13
+              },
+              {
+                "suit": "♥",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              },
+              {
+                "suit": "♠",
+                "rank": 14
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 13
+              },
+              {
+                "suit": "♥",
+                "rank": 9
+              }
+            ],
+            "trumpCard": {
+              "suit": "♥",
+              "rank": 9
+            },
+            "attackerIndex": 1
+          }
+        },
+        {
+          "pair": 2,
+          "seed": 2285307269,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 2,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♣",
+                  "rank": 9
+                },
+                {
+                  "suit": "♦",
+                  "rank": 6
+                },
+                {
+                  "suit": "♠",
+                  "rank": 7
+                },
+                {
+                  "suit": "♣",
+                  "rank": 14
+                },
+                {
+                  "suit": "♦",
+                  "rank": 14
+                },
+                {
+                  "suit": "♥",
+                  "rank": 6
+                }
+              ],
+              [
+                {
+                  "suit": "♠",
+                  "rank": 6
+                },
+                {
+                  "suit": "♦",
+                  "rank": 11
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                },
+                {
+                  "suit": "♣",
+                  "rank": 6
+                },
+                {
+                  "suit": "♠",
+                  "rank": 11
+                },
+                {
+                  "suit": "♠",
+                  "rank": 10
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♦",
+                "rank": 9
+              },
+              {
+                "suit": "♣",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♥",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 13
+              },
+              {
+                "suit": "♠",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 8
+              },
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 9
+              },
+              {
+                "suit": "♦",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♠",
+                "rank": 8
+              },
+              {
+                "suit": "♣",
+                "rank": 13
+              },
+              {
+                "suit": "♦",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♦",
+                "rank": 12
+              },
+              {
+                "suit": "♥",
+                "rank": 10
+              },
+              {
+                "suit": "♥",
+                "rank": 12
+              },
+              {
+                "suit": "♥",
+                "rank": 8
+              },
+              {
+                "suit": "♥",
+                "rank": 7
+              },
+              {
+                "suit": "♣",
+                "rank": 11
+              },
+              {
+                "suit": "♣",
+                "rank": 12
+              },
+              {
+                "suit": "♥",
+                "rank": 13
+              },
+              {
+                "suit": "♠",
+                "rank": 14
+              }
+            ],
+            "trumpCard": {
+              "suit": "♠",
+              "rank": 14
+            },
+            "attackerIndex": 1
+          }
+        },
+        {
+          "pair": 3,
+          "seed": 2268529650,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 2,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♥",
+                  "rank": 12
+                },
+                {
+                  "suit": "♥",
+                  "rank": 6
+                },
+                {
+                  "suit": "♥",
+                  "rank": 10
+                },
+                {
+                  "suit": "♣",
+                  "rank": 6
+                },
+                {
+                  "suit": "♦",
+                  "rank": 11
+                },
+                {
+                  "suit": "♣",
+                  "rank": 7
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 7
+                },
+                {
+                  "suit": "♦",
+                  "rank": 9
+                },
+                {
+                  "suit": "♥",
+                  "rank": 14
+                },
+                {
+                  "suit": "♦",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                },
+                {
+                  "suit": "♥",
+                  "rank": 8
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♥",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              },
+              {
+                "suit": "♣",
+                "rank": 11
+              },
+              {
+                "suit": "♣",
+                "rank": 12
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 8
+              },
+              {
+                "suit": "♦",
+                "rank": 12
+              },
+              {
+                "suit": "♠",
+                "rank": 6
+              },
+              {
+                "suit": "♥",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 13
+              },
+              {
+                "suit": "♠",
+                "rank": 8
+              },
+              {
+                "suit": "♦",
+                "rank": 6
+              },
+              {
+                "suit": "♦",
+                "rank": 13
+              },
+              {
+                "suit": "♠",
+                "rank": 9
+              },
+              {
+                "suit": "♠",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♣",
+                "rank": 9
+              },
+              {
+                "suit": "♠",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 13
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              }
+            ],
+            "trumpCard": {
+              "suit": "♥",
+              "rank": 11
+            },
+            "attackerIndex": 0
+          }
+        },
+        {
+          "pair": 4,
+          "seed": 2184641555,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 2,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♣",
+                  "rank": 11
+                },
+                {
+                  "suit": "♠",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 13
+                },
+                {
+                  "suit": "♥",
+                  "rank": 11
+                },
+                {
+                  "suit": "♦",
+                  "rank": 11
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 14
+                },
+                {
+                  "suit": "♦",
+                  "rank": 7
+                },
+                {
+                  "suit": "♦",
+                  "rank": 12
+                },
+                {
+                  "suit": "♣",
+                  "rank": 10
+                },
+                {
+                  "suit": "♦",
+                  "rank": 6
+                },
+                {
+                  "suit": "♣",
+                  "rank": 13
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♥",
+                "rank": 10
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♥",
+                "rank": 12
+              },
+              {
+                "suit": "♦",
+                "rank": 10
+              },
+              {
+                "suit": "♠",
+                "rank": 6
+              },
+              {
+                "suit": "♦",
+                "rank": 9
+              },
+              {
+                "suit": "♣",
+                "rank": 12
+              },
+              {
+                "suit": "♠",
+                "rank": 13
+              },
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 14
+              },
+              {
+                "suit": "♣",
+                "rank": 7
+              },
+              {
+                "suit": "♣",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              },
+              {
+                "suit": "♦",
+                "rank": 13
+              },
+              {
+                "suit": "♥",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 9
+              },
+              {
+                "suit": "♣",
+                "rank": 9
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              },
+              {
+                "suit": "♠",
+                "rank": 8
+              },
+              {
+                "suit": "♥",
+                "rank": 14
+              },
+              {
+                "suit": "♣",
+                "rank": 6
+              },
+              {
+                "suit": "♥",
+                "rank": 6
+              },
+              {
+                "suit": "♥",
+                "rank": 7
+              }
+            ],
+            "trumpCard": {
+              "suit": "♥",
+              "rank": 7
+            },
+            "attackerIndex": 0
+          }
+        }
+      ],
+      "measurements": [
+        {
+          "pair": 0,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.9566439999999972,
+              0.03898200000000429,
+              0.6065239999999932,
+              0.06090199999999868,
+              0.4465240000000108,
+              0.08654099999999687,
+              0.05899399999999844,
+              0.08530799999999772,
+              0.11610999999999194,
+              0.054578000000006455,
+              0.10657299999999736,
+              0.07237499999999386,
+              0.04061000000000092,
+              0.16208800000001133,
+              0.058334000000002106,
+              0.04563500000000431,
+              0.030253999999999337,
+              0.01903599999999983,
+              7.805087,
+              1.7310019999999895,
+              1.3901849999999882,
+              0.7485329999999948,
+              0.60123999999999,
+              0.6559249999999963,
+              0.29997299999999427,
+              0.20420200000000932,
+              0.20091399999999737
+            ],
+            [
+              0.12954399999999566,
+              0.0415090000000049,
+              0.009874999999993861,
+              0.01919500000001051,
+              0.01162100000000521,
+              0.005189999999998918,
+              0.009726999999998043,
+              0.01117600000000607,
+              0.0061199999999956844,
+              0.008432999999996582,
+              0.013404999999991674,
+              0.0056690000000116925,
+              0.08054799999999318,
+              0.015440999999995597,
+              0.004849000000007209,
+              0.003982000000007702,
+              0.006923999999997932,
+              0.005603000000007796,
+              0.005971000000002391,
+              0.0043959999999998445,
+              0.004812000000001149,
+              0.006649999999993383,
+              0.0028100000000108594,
+              0.0023989999999969314,
+              0.004058999999998036
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 9,
+              "used": 9,
+              "wins": 9,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 732,
+              "ms": 10.753422999999984
+            },
+            null
+          ]
+        },
+        {
+          "pair": 0,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.007533999999992602,
+              0.0019500000000078899,
+              0.004168000000007055,
+              0.00430800000000886,
+              0.0020349999999922375,
+              0.003971999999990317,
+              0.002765999999994051,
+              0.003687999999996805,
+              0.0039080000000097925,
+              0.004536999999999125,
+              0.0028779999999954953,
+              0.00294199999999023,
+              0.004356000000001359,
+              0.0019750000000016144,
+              0.00307899999999961,
+              0.0066829999999953316,
+              0.00409499999999241,
+              0.0034140000000064674,
+              0.003804000000002361,
+              0.004823000000001798,
+              0.0024049999999959937,
+              0.0028250000000014097
+            ],
+            [
+              0.05906300000000897,
+              0.03346900000001085,
+              0.07112699999998995,
+              0.048384999999996126,
+              0.027910000000005653,
+              0.12847200000000214,
+              0.03784799999999677,
+              0.027150000000006003,
+              0.013188999999997009,
+              0.0890810000000073,
+              0.030101000000001932,
+              0.013626000000002136,
+              0.030210999999994215,
+              0.16575699999999927,
+              0.020539999999996894,
+              0.11342899999999645,
+              0.06639299999999082,
+              4.101771999999997,
+              0.6398679999999928,
+              0.13370199999999954
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 3,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 3,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 285,
+              "ms": 4.121255000000005
+            }
+          ]
+        },
+        {
+          "pair": 1,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.037700000000000955,
+              0.02630399999999611,
+              0.05304399999999987,
+              0.040640000000010446,
+              0.02988200000000063,
+              0.023397000000002777,
+              0.024638999999993416,
+              0.030850000000000932,
+              0.023585999999994556,
+              0.019075999999998317,
+              0.010353999999992425,
+              0.024408999999991465,
+              0.02417799999997783,
+              0.028774999999995998,
+              0.08138199999999074,
+              14.045082000000008,
+              11.293948,
+              0.9224820000000022,
+              0.8024179999999888,
+              0.35178599999997573,
+              0.24110699999999952
+            ],
+            [
+              0.005388999999993871,
+              0.003568999999998823,
+              0.002600000000001046,
+              0.002479999999991378,
+              0.001859000000010269,
+              0.004786999999993213,
+              0.0026110000000016953,
+              0.0019149999999967804,
+              0.002202999999994404,
+              0.0016629999999935308,
+              0.0031330000000053815,
+              0.004505000000008863,
+              0.0019770000000107757,
+              0.0030640000000232703,
+              0.0033240000000205328,
+              0.005318000000016809,
+              0.008346000000017284,
+              0.014758000000000493,
+              0.006439000000000306,
+              0.0043399999999849115,
+              0.006371999999998934
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 6,
+              "used": 5,
+              "wins": 5,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 1,
+              "unusable": 0,
+              "nodes": 939,
+              "ms": 26.467373999999978
+            },
+            null
+          ]
+        },
+        {
+          "pair": 1,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.15880899999999087,
+              0.007460000000008904,
+              0.004019999999997026,
+              0.0035939999999925476,
+              0.006442000000021153,
+              0.006338999999996986,
+              0.00320500000000834,
+              0.0036299999999869215,
+              0.004672999999996819,
+              0.003917999999998756,
+              0.004008999999996377,
+              0.004214999999987867,
+              0.006191000000001168,
+              0.004673999999994294,
+              0.003997999999995727,
+              0.003669999999999618,
+              0.003327999999982012,
+              0.005113000000022794,
+              0.0035139999999955762,
+              0.0035770000000070468,
+              0.0032929999999851134,
+              0.006168000000002394,
+              0.0023880000000247037,
+              0.002743000000009488,
+              0.0018599999999935335,
+              0.003339000000011083
+            ],
+            [
+              0.07844700000001126,
+              0.03444400000000769,
+              0.07629600000001346,
+              0.8330970000000093,
+              0.035260000000022274,
+              0.024373999999994567,
+              0.05402099999997745,
+              0.03104400000000851,
+              0.05131600000001413,
+              0.03907300000000191,
+              0.04099099999999112,
+              0.040816000000006625,
+              0.0297390000000064,
+              0.05882199999999216,
+              0.054233000000010634,
+              0.02811500000001388,
+              0.06586999999998966,
+              0.057507000000015296,
+              3.9248580000000004,
+              1.4216729999999984,
+              0.7716629999999896,
+              1.6270380000000273,
+              0.4737039999999979,
+              0.530586999999997,
+              0.6163959999999804,
+              0.21204500000001758,
+              0.26924100000002227,
+              0.09775899999999638
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 10,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 10,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 509,
+              "ms": 8.899362999999937
+            }
+          ]
+        },
+        {
+          "pair": 2,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.1573190000000011,
+              0.054996999999985974,
+              0.007483000000007678,
+              0.03406900000001656,
+              0.021180000000015298,
+              0.020026999999998907,
+              0.07041900000001533,
+              0.034924999999986994,
+              0.03239700000000312,
+              0.04995800000000372,
+              0.03405300000000011,
+              0.03466599999998721,
+              0.05577300000001628,
+              0.048406999999997424,
+              0.029365000000012742,
+              0.05863500000000954,
+              0.018950000000018008,
+              0.36830000000000496
+            ],
+            [
+              0.006129000000015594,
+              0.004232999999999265,
+              0.003120999999993046,
+              0.0022199999999941156,
+              0.0016599999999868942,
+              0.003102999999981648,
+              0.004412999999999556,
+              0.0023140000000125838,
+              0.0015819999999848733,
+              0.003046999999980926,
+              0.0074070000000006075,
+              0.0038810000000069067,
+              0.005130000000008295,
+              0.005763999999999214,
+              0.00651000000002,
+              0.00733500000001186,
+              0.005329000000017459,
+              0.004327999999986787,
+              0.00413199999999847,
+              0.0035799999999994725,
+              0.00313099999999622,
+              0.003107999999997446
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 1,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 1,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 12,
+              "ms": 0.27251000000001113
+            },
+            null
+          ]
+        },
+        {
+          "pair": 2,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.010796999999996615,
+              0.0028070000000184336,
+              0.006219999999984793,
+              0.003009999999989077,
+              0.002221999999989066,
+              0.004878999999988309,
+              0.006990000000001828,
+              0.0034509999999841057,
+              0.0025650000000041473,
+              0.005350000000021282,
+              0.003502999999994927,
+              0.003719999999987067,
+              0.00408900000002177,
+              0.00716099999999642,
+              0.0029069999999933316,
+              0.007915999999994483,
+              0.005774999999999864,
+              0.007122999999978674,
+              0.008803999999997814,
+              0.004391999999995733,
+              0.005876999999998134,
+              0.0037430000000142627,
+              0.007759000000021388,
+              0.0037440000000401596,
+              0.006612999999958902
+            ],
+            [
+              0.03213199999999006,
+              0.025641000000007352,
+              0.06737699999999336,
+              0.03646499999999264,
+              0.034782000000006974,
+              0.0332080000000019,
+              0.021611000000007152,
+              0.04054600000000619,
+              0.031328999999999496,
+              0.030133000000006405,
+              0.02300699999997846,
+              0.024334999999979345,
+              0.02499399999999241,
+              0.05660000000000309,
+              0.03916399999999953,
+              16.08033899999998,
+              16.44395700000001,
+              15.000396999999992,
+              3.01857099999998,
+              2.6164129999999943,
+              0.45104200000000105,
+              0.39899299999999016,
+              0.4938589999999863,
+              0.3248100000000136,
+              0.25417899999996507,
+              0.29044599999997445,
+              0.15581500000001824
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 12,
+              "used": 9,
+              "wins": 9,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 3,
+              "unusable": 0,
+              "nodes": 1662,
+              "ms": 53.460173999999995
+            }
+          ]
+        },
+        {
+          "pair": 3,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.04291999999998097,
+              2.2675820000000044,
+              0.061940999999990254,
+              0.020648999999991702,
+              0.04076899999995476,
+              0.03047700000001896,
+              0.034904999999980646,
+              0.027058000000010907,
+              0.09673200000003135,
+              0.021630000000016025,
+              0.027932000000021162,
+              0.020398999999997613,
+              0.06593600000002198,
+              0.07482199999998329,
+              0.039851999999996224,
+              0.031879999999944175,
+              0.025183999999967455,
+              0.041798000000028424,
+              0.03425099999998338,
+              0.024510000000020682,
+              0.04466300000001411,
+              7.50311899999997,
+              5.199772999999993,
+              9.990177000000017,
+              2.9545610000000124,
+              0.585915,
+              2.585189000000014,
+              0.19751299999995808,
+              0.18131699999997863
+            ],
+            [
+              0.005827000000010685,
+              0.008300000000019736,
+              0.006006999999954132,
+              0.004009999999993852,
+              0.007070999999996275,
+              0.0025329999999712527,
+              0.00442899999995916,
+              0.004663000000050488,
+              0.003876999999988584,
+              0.0029299999999921056,
+              0.005419999999958236,
+              0.011649999999974625,
+              0.006260999999994965,
+              0.003773000000023785,
+              0.0065389999999752035,
+              0.0032110000000216132,
+              0.01145400000001473,
+              0.007271000000002914,
+              0.0034870000000069012,
+              0.005610999999987598,
+              0.007354000000020733,
+              0.004784000000029209,
+              0.0044100000000071304,
+              0.006384999999966112,
+              0.006887000000006083,
+              0.007997000000045773,
+              0.0038590000000340297,
+              0.0033049999999548163
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 8,
+              "used": 5,
+              "wins": 5,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 3,
+              "unusable": 0,
+              "nodes": 1645,
+              "ms": 25.319457
+            },
+            null
+          ]
+        },
+        {
+          "pair": 3,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.00927799999999479,
+              0.0035120000000006257,
+              0.007175999999958549,
+              0.009218000000032589,
+              0.0031970000000001164,
+              0.005729000000030737,
+              0.006752000000005864,
+              0.002819999999985612,
+              0.005570999999974902,
+              0.006195999999988544,
+              0.0034589999999639076,
+              0.006135999999969499,
+              0.004316000000017084,
+              0.0070200000000113505,
+              0.002858000000003358,
+              0.005312000000003536,
+              0.00478099999997994,
+              0.008177999999986696,
+              0.008460000000013679,
+              0.006545000000016898,
+              0.011700000000018917,
+              0.0072999999999865395,
+              0.0030099999999606553,
+              1.6817340000000058,
+              0.0076620000000389155,
+              0.003406999999981508
+            ],
+            [
+              0.051623000000006414,
+              0.03561199999995779,
+              0.035158000000024,
+              0.04739799999998695,
+              0.03543200000001434,
+              0.07477800000003754,
+              0.037520000000029086,
+              0.03174699999999575,
+              0.019114999999999327,
+              0.034526999999968666,
+              0.02914600000002565,
+              0.025329999999996744,
+              0.040028000000006614,
+              0.034296999999980926,
+              0.03113399999995181,
+              0.8163430000000176,
+              0.023431999999957043,
+              6.344387999999981,
+              5.38784499999997,
+              1.4664479999999571,
+              1.055462000000034,
+              0.4439249999999788,
+              0.8822030000000041,
+              0.190228999999988,
+              0.12427500000001146
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 8,
+              "used": 7,
+              "wins": 7,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 1,
+              "unusable": 0,
+              "nodes": 1018,
+              "ms": 14.35254900000001
+            }
+          ]
+        },
+        {
+          "pair": 4,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.04260300000004236,
+              0.0670830000000251,
+              0.03207899999995334,
+              0.030281999999999698,
+              0.026994999999999436,
+              0.0685060000000135,
+              0.04771899999997231,
+              0.05967499999997017,
+              0.035093999999958214,
+              0.027530999999953565,
+              0.019049999999992906,
+              0.03642600000000584,
+              0.030457000000012613,
+              0.05194099999999935,
+              0.053199000000006436,
+              4.976938999999959,
+              4.542433000000017,
+              6.440996999999982,
+              5.350127000000043,
+              1.290329999999983,
+              1.2605389999999943,
+              2.7535420000000386,
+              0.5780179999999859,
+              0.08475900000001957
+            ],
+            [
+              0.003965999999991254,
+              0.0034049999999865577,
+              0.005542999999988751,
+              0.003773999999964417,
+              0.007656999999994696,
+              0.004162000000007993,
+              0.0026619999999866195,
+              0.006549000000006799,
+              0.0028030000000285327,
+              0.0034390000000144028,
+              0.00646399999999403,
+              0.0032929999999851134,
+              0.004032999999992626,
+              0.0035480000000234213,
+              0.0029329999999845313,
+              0.004515000000026248,
+              0.00719400000002679,
+              0.005245000000002165,
+              0.009777999999982967,
+              0.00776899999999614,
+              0.004428000000018528,
+              0.0053489999999669635,
+              0.0038860000000227046,
+              0.005268999999998414,
+              0.004273000000011962
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 9,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 7,
+              "timedOut": 2,
+              "unusable": 0,
+              "nodes": 2144,
+              "ms": 25.666589999999985
+            },
+            null
+          ]
+        },
+        {
+          "pair": 4,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.009238000000038937,
+              0.005749999999977717,
+              0.004225999999960095,
+              0.006357000000036805,
+              0.004457000000002154,
+              0.006528000000002976,
+              0.007198999999957323,
+              0.0027450000000044383,
+              0.006685000000004493,
+              0.006964999999979682,
+              0.005789999999990414,
+              0.006007000000010976,
+              0.005413000000032753,
+              0.006188000000008742,
+              0.0061019999999984975,
+              0.006751000000008389,
+              0.006863999999950465,
+              0.0050039999999853535,
+              0.004052999999998974,
+              0.012259999999969295,
+              0.009615999999994074
+            ],
+            [
+              0.042564000000027136,
+              0.022056000000020504,
+              0.04108899999999949,
+              0.04248300000000427,
+              0.021285999999975047,
+              0.03347400000001244,
+              0.03635100000002467,
+              0.02156099999996286,
+              0.037180999999975484,
+              0.03614700000002813,
+              0.03811999999999216,
+              0.030863000000010743,
+              0.030329999999992197,
+              0.026859999999999218,
+              0.024319999999988795,
+              0.02081300000003239,
+              8.711303999999984,
+              5.54446999999999,
+              4.438743999999986,
+              4.6140720000000215,
+              0.5702330000000302,
+              0.5160050000000069,
+              4.39164199999999,
+              0.14869099999998525
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 8,
+              "used": 6,
+              "wins": 6,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 2,
+              "unusable": 0,
+              "nodes": 1290,
+              "ms": 19.72810599999991
+            }
+          ]
+        }
+      ],
+      "latencyBySide": {
+        "A": {
+          "decisions": 243,
+          "meanMs": 0.9314672181069945,
+          "p50Ms": 0.05304399999999987,
+          "p95Ms": 5.38784499999997,
+          "p99Ms": 15.000396999999992,
+          "maxMs": 16.44395700000001,
+          "over2000Ms": 0,
+          "solver": {
+            "calls": 74,
+            "used": 41,
+            "wins": 41,
+            "draws": 0,
+            "losses": 21,
+            "timedOut": 12,
+            "unusable": 0,
+            "nodes": 10236,
+            "ms": 189.04080099999982
+          }
+        },
+        "B": {
+          "decisions": 241,
+          "meanMs": 0.013802970954356189,
+          "p50Ms": 0.004663000000050488,
+          "p95Ms": 0.01162100000000521,
+          "p99Ms": 0.12954399999999566,
+          "maxMs": 1.6817340000000058,
+          "over2000Ms": 0,
+          "solver": {}
+        }
+      }
+    },
+    {
+      "players": 3,
+      "deckSize": 36,
+      "throwInPolicy": "all",
+      "pairs": 5,
+      "planned": 10,
+      "completed": 10,
+      "decided": 9,
+      "durakA": 4,
+      "durakB": 5,
+      "draws": 1,
+      "unfinished": 0,
+      "errors": 0,
+      "illegal": 0,
+      "lossPctAllPlanned": 40,
+      "durakPct": 44.44,
+      "se": 13.24,
+      "ci95": [
+        18.5,
+        70.39
+      ],
+      "ciWarning": "small sample; asymptotic paired CI unreliable",
+      "records": [
+        {
+          "pair": 0,
+          "seed": 2149025686,
+          "direction": 0,
+          "dealHash": "acc4a138068ced078e69d3324ce83768ebb25ef4106024c1621abc6f16922332",
+          "steps": 100,
+          "status": "decided",
+          "durakSeat": 2,
+          "loser": "A",
+          "drawReason": null
+        },
+        {
+          "pair": 0,
+          "seed": 2149025686,
+          "direction": 1,
+          "dealHash": "acc4a138068ced078e69d3324ce83768ebb25ef4106024c1621abc6f16922332",
+          "steps": 101,
+          "status": "decided",
+          "durakSeat": 2,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 1,
+          "seed": 2165803305,
+          "direction": 0,
+          "dealHash": "7e6ddae9b47c96cd07e6b4f1a2a05dc335b95a5bbb9ea688c7df2d03b04eaaa5",
+          "steps": 61,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "A",
+          "drawReason": null
+        },
+        {
+          "pair": 1,
+          "seed": 2165803305,
+          "direction": 1,
+          "dealHash": "7e6ddae9b47c96cd07e6b4f1a2a05dc335b95a5bbb9ea688c7df2d03b04eaaa5",
+          "steps": 74,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 2,
+          "seed": 2115470448,
+          "direction": 0,
+          "dealHash": "44697a760b2478f7aa843fbb5ddf167c027009b1fd5f1114f0cdc87e11d5b686",
+          "steps": 84,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "A",
+          "drawReason": null
+        },
+        {
+          "pair": 2,
+          "seed": 2115470448,
+          "direction": 1,
+          "dealHash": "44697a760b2478f7aa843fbb5ddf167c027009b1fd5f1114f0cdc87e11d5b686",
+          "steps": 65,
+          "status": "draw",
+          "durakSeat": -1,
+          "loser": null,
+          "drawReason": "simultaneous"
+        },
+        {
+          "pair": 3,
+          "seed": 2132248067,
+          "direction": 0,
+          "dealHash": "f95f78a11759f3d15117f56f38727fa6663d7daa2212d48ecc623eb99c9dcd4b",
+          "steps": 71,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 3,
+          "seed": 2132248067,
+          "direction": 1,
+          "dealHash": "f95f78a11759f3d15117f56f38727fa6663d7daa2212d48ecc623eb99c9dcd4b",
+          "steps": 81,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "A",
+          "drawReason": null
+        },
+        {
+          "pair": 4,
+          "seed": 2216136162,
+          "direction": 0,
+          "dealHash": "964871a3617530c19124df489e40223607f6e2bf7b7433298695924da606eafa",
+          "steps": 69,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 4,
+          "seed": 2216136162,
+          "direction": 1,
+          "dealHash": "964871a3617530c19124df489e40223607f6e2bf7b7433298695924da606eafa",
+          "steps": 87,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "B",
+          "drawReason": null
+        }
+      ],
+      "initialDeals": [
+        {
+          "pair": 0,
+          "seed": 2149025686,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 3,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♣",
+                  "rank": 6
+                },
+                {
+                  "suit": "♠",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 13
+                },
+                {
+                  "suit": "♣",
+                  "rank": 10
+                },
+                {
+                  "suit": "♠",
+                  "rank": 13
+                },
+                {
+                  "suit": "♣",
+                  "rank": 8
+                }
+              ],
+              [
+                {
+                  "suit": "♠",
+                  "rank": 8
+                },
+                {
+                  "suit": "♥",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                },
+                {
+                  "suit": "♦",
+                  "rank": 8
+                },
+                {
+                  "suit": "♠",
+                  "rank": 9
+                },
+                {
+                  "suit": "♠",
+                  "rank": 7
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 13
+                },
+                {
+                  "suit": "♣",
+                  "rank": 13
+                },
+                {
+                  "suit": "♥",
+                  "rank": 8
+                },
+                {
+                  "suit": "♣",
+                  "rank": 9
+                },
+                {
+                  "suit": "♥",
+                  "rank": 6
+                },
+                {
+                  "suit": "♣",
+                  "rank": 12
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♠",
+                "rank": 6
+              },
+              {
+                "suit": "♥",
+                "rank": 7
+              },
+              {
+                "suit": "♣",
+                "rank": 11
+              },
+              {
+                "suit": "♦",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 14
+              },
+              {
+                "suit": "♥",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 11
+              },
+              {
+                "suit": "♦",
+                "rank": 12
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 6
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♦",
+                "rank": 9
+              },
+              {
+                "suit": "♦",
+                "rank": 10
+              },
+              {
+                "suit": "♥",
+                "rank": 12
+              },
+              {
+                "suit": "♣",
+                "rank": 7
+              },
+              {
+                "suit": "♦",
+                "rank": 14
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              }
+            ],
+            "trumpCard": {
+              "suit": "♠",
+              "rank": 11
+            },
+            "attackerIndex": 1
+          }
+        },
+        {
+          "pair": 1,
+          "seed": 2165803305,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 3,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♦",
+                  "rank": 14
+                },
+                {
+                  "suit": "♠",
+                  "rank": 12
+                },
+                {
+                  "suit": "♠",
+                  "rank": 6
+                },
+                {
+                  "suit": "♠",
+                  "rank": 9
+                },
+                {
+                  "suit": "♥",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 6
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 9
+                },
+                {
+                  "suit": "♠",
+                  "rank": 8
+                },
+                {
+                  "suit": "♠",
+                  "rank": 11
+                },
+                {
+                  "suit": "♥",
+                  "rank": 11
+                },
+                {
+                  "suit": "♦",
+                  "rank": 11
+                },
+                {
+                  "suit": "♠",
+                  "rank": 14
+                }
+              ],
+              [
+                {
+                  "suit": "♥",
+                  "rank": 7
+                },
+                {
+                  "suit": "♣",
+                  "rank": 6
+                },
+                {
+                  "suit": "♠",
+                  "rank": 7
+                },
+                {
+                  "suit": "♣",
+                  "rank": 8
+                },
+                {
+                  "suit": "♦",
+                  "rank": 10
+                },
+                {
+                  "suit": "♣",
+                  "rank": 12
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♦",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 9
+              },
+              {
+                "suit": "♠",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 11
+              },
+              {
+                "suit": "♥",
+                "rank": 14
+              },
+              {
+                "suit": "♥",
+                "rank": 13
+              },
+              {
+                "suit": "♦",
+                "rank": 12
+              },
+              {
+                "suit": "♣",
+                "rank": 9
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♦",
+                "rank": 13
+              },
+              {
+                "suit": "♥",
+                "rank": 8
+              },
+              {
+                "suit": "♣",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 6
+              },
+              {
+                "suit": "♥",
+                "rank": 12
+              },
+              {
+                "suit": "♣",
+                "rank": 13
+              }
+            ],
+            "trumpCard": {
+              "suit": "♣",
+              "rank": 13
+            },
+            "attackerIndex": 2
+          }
+        },
+        {
+          "pair": 2,
+          "seed": 2115470448,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 3,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♦",
+                  "rank": 14
+                },
+                {
+                  "suit": "♣",
+                  "rank": 14
+                },
+                {
+                  "suit": "♥",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 11
+                },
+                {
+                  "suit": "♣",
+                  "rank": 9
+                },
+                {
+                  "suit": "♥",
+                  "rank": 7
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 13
+                },
+                {
+                  "suit": "♥",
+                  "rank": 12
+                },
+                {
+                  "suit": "♠",
+                  "rank": 9
+                },
+                {
+                  "suit": "♦",
+                  "rank": 6
+                },
+                {
+                  "suit": "♦",
+                  "rank": 11
+                },
+                {
+                  "suit": "♥",
+                  "rank": 13
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 12
+                },
+                {
+                  "suit": "♥",
+                  "rank": 6
+                },
+                {
+                  "suit": "♠",
+                  "rank": 6
+                },
+                {
+                  "suit": "♠",
+                  "rank": 10
+                },
+                {
+                  "suit": "♦",
+                  "rank": 7
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♦",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 11
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              },
+              {
+                "suit": "♠",
+                "rank": 8
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 8
+              },
+              {
+                "suit": "♥",
+                "rank": 8
+              },
+              {
+                "suit": "♣",
+                "rank": 12
+              },
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              },
+              {
+                "suit": "♣",
+                "rank": 6
+              },
+              {
+                "suit": "♥",
+                "rank": 14
+              },
+              {
+                "suit": "♣",
+                "rank": 13
+              },
+              {
+                "suit": "♦",
+                "rank": 9
+              },
+              {
+                "suit": "♠",
+                "rank": 14
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              }
+            ],
+            "trumpCard": {
+              "suit": "♠",
+              "rank": 12
+            },
+            "attackerIndex": 2
+          }
+        },
+        {
+          "pair": 3,
+          "seed": 2132248067,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 3,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♣",
+                  "rank": 11
+                },
+                {
+                  "suit": "♣",
+                  "rank": 14
+                },
+                {
+                  "suit": "♦",
+                  "rank": 10
+                },
+                {
+                  "suit": "♦",
+                  "rank": 12
+                },
+                {
+                  "suit": "♥",
+                  "rank": 12
+                },
+                {
+                  "suit": "♥",
+                  "rank": 8
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 7
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                },
+                {
+                  "suit": "♥",
+                  "rank": 10
+                },
+                {
+                  "suit": "♠",
+                  "rank": 13
+                },
+                {
+                  "suit": "♠",
+                  "rank": 10
+                },
+                {
+                  "suit": "♦",
+                  "rank": 14
+                }
+              ],
+              [
+                {
+                  "suit": "♣",
+                  "rank": 6
+                },
+                {
+                  "suit": "♣",
+                  "rank": 13
+                },
+                {
+                  "suit": "♣",
+                  "rank": 7
+                },
+                {
+                  "suit": "♦",
+                  "rank": 13
+                },
+                {
+                  "suit": "♦",
+                  "rank": 9
+                },
+                {
+                  "suit": "♠",
+                  "rank": 14
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♣",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 9
+              },
+              {
+                "suit": "♦",
+                "rank": 6
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♣",
+                "rank": 12
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 14
+              },
+              {
+                "suit": "♥",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 9
+              },
+              {
+                "suit": "♠",
+                "rank": 8
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♦",
+                "rank": 11
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♥",
+                "rank": 6
+              },
+              {
+                "suit": "♥",
+                "rank": 7
+              },
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 6
+              }
+            ],
+            "trumpCard": {
+              "suit": "♠",
+              "rank": 6
+            },
+            "attackerIndex": 1
+          }
+        },
+        {
+          "pair": 4,
+          "seed": 2216136162,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 3,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♦",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 12
+                },
+                {
+                  "suit": "♣",
+                  "rank": 7
+                },
+                {
+                  "suit": "♦",
+                  "rank": 6
+                },
+                {
+                  "suit": "♦",
+                  "rank": 7
+                },
+                {
+                  "suit": "♦",
+                  "rank": 14
+                }
+              ],
+              [
+                {
+                  "suit": "♣",
+                  "rank": 9
+                },
+                {
+                  "suit": "♥",
+                  "rank": 13
+                },
+                {
+                  "suit": "♣",
+                  "rank": 12
+                },
+                {
+                  "suit": "♠",
+                  "rank": 14
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                },
+                {
+                  "suit": "♥",
+                  "rank": 11
+                }
+              ],
+              [
+                {
+                  "suit": "♠",
+                  "rank": 13
+                },
+                {
+                  "suit": "♠",
+                  "rank": 9
+                },
+                {
+                  "suit": "♣",
+                  "rank": 11
+                },
+                {
+                  "suit": "♦",
+                  "rank": 13
+                },
+                {
+                  "suit": "♦",
+                  "rank": 11
+                },
+                {
+                  "suit": "♦",
+                  "rank": 12
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♠",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 6
+              },
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♣",
+                "rank": 8
+              },
+              {
+                "suit": "♥",
+                "rank": 6
+              },
+              {
+                "suit": "♠",
+                "rank": 8
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♥",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 8
+              },
+              {
+                "suit": "♣",
+                "rank": 13
+              },
+              {
+                "suit": "♥",
+                "rank": 10
+              },
+              {
+                "suit": "♥",
+                "rank": 14
+              },
+              {
+                "suit": "♠",
+                "rank": 6
+              },
+              {
+                "suit": "♦",
+                "rank": 9
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              }
+            ],
+            "trumpCard": {
+              "suit": "♠",
+              "rank": 11
+            },
+            "attackerIndex": 2
+          }
+        }
+      ],
+      "measurements": [
+        {
+          "pair": 0,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.07375200000001314,
+              0.02437600000001794,
+              0.060562000000004446,
+              0.06033899999999903,
+              0.03877599999998438,
+              0.031225000000006276,
+              0.022399000000007163,
+              0.018007999999952062,
+              0.011148999999988973,
+              0.032837999999969725,
+              0.03475200000002587,
+              0.03307999999998401,
+              0.02479199999999082,
+              0.06674600000002329,
+              0.07648299999999608,
+              0.023111000000028525,
+              0.020410000000026685,
+              0.038695000000018354,
+              0.029858000000047014,
+              0.038886000000047716,
+              0.04640799999998535,
+              0.013461000000006607,
+              0.022402999999997064,
+              0.012434000000041578,
+              0.01559700000001385,
+              0.00985600000001341,
+              0.017231999999978598,
+              0.005962000000010903,
+              0.010806000000002314
+            ],
+            [
+              0.01764599999995653,
+              0.008540999999979704,
+              0.0032630000000040127,
+              0.007920000000012806,
+              0.00277899999997544,
+              0.0048659999999927095,
+              0.0028160000000525542,
+              0.0020410000000197215,
+              0.005253999999979442,
+              0.003880999999978485,
+              0.005934000000024753,
+              0.0070440000000076,
+              0.00494799999995621,
+              0.0075529999999730535,
+              0.004844999999988886,
+              0.0035189999999829524,
+              0.0034180000000105792,
+              0.003758000000004813,
+              0.005020999999999276,
+              0.0036949999999933425,
+              0.0025499999999851752,
+              0.003275000000030559,
+              0.008606000000042968,
+              0.0037649999999871397,
+              0.0023789999999621614,
+              0.0033730000000105065,
+              0.0045709999999985484,
+              0.0016889999999989413,
+              0.0016099999999710235,
+              0.0015820000000417167,
+              0.0040399999999749525,
+              0.0031060000000024957,
+              0.005490000000008877,
+              0.004005000000006476,
+              0.0014869999999973516,
+              0.0030090000000200234,
+              0.0017809999999940374,
+              0.0015569999999911488,
+              0.0015890000000240434
+            ],
+            [
+              0.10721799999998893,
+              0.03901899999999614,
+              0.05540199999995821,
+              0.0701349999999934,
+              0.050383000000010725,
+              0.010474999999985357,
+              0.01870400000001382,
+              0.035346000000004096,
+              0.017648999999948956,
+              0.07338399999997591,
+              0.06686700000000201,
+              0.02186499999999114,
+              0.015118000000029497,
+              0.03501899999997704,
+              0.03194000000002006,
+              0.03027500000001737,
+              0.04585200000002487,
+              0.01892400000002681,
+              0.016541000000017902,
+              0.0711650000000077,
+              0.010651999999993222,
+              0.04201499999999214,
+              0.031451000000004115,
+              0.014508000000034826,
+              0.026905999999996766,
+              0.020816999999965446,
+              0.028822000000047865,
+              0.005011000000024524,
+              0.42020500000000993,
+              0.1810310000000186,
+              0.09154599999999391,
+              0.05575099999998656
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null,
+            {
+              "calls": 4,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 4,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 32,
+              "ms": 0.4770110000000045
+            }
+          ]
+        },
+        {
+          "pair": 0,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.0059760000000324,
+              0.005122000000028493,
+              0.006616000000008171,
+              0.002705999999989217,
+              0.002751999999986765,
+              0.0052109999999743195,
+              0.0035750000000120963,
+              0.006734999999991942,
+              0.004239999999981592,
+              0.0032800000000179352,
+              0.0027949999999918873,
+              0.005311000000006061,
+              0.0052029999999945176,
+              0.0049309999999991305,
+              0.003221999999993841,
+              0.0028260000000273067,
+              0.003494999999986703,
+              0.006332999999983713,
+              0.004944999999963784,
+              0.003978000000017801,
+              0.008887000000015632,
+              0.003719999999987067,
+              0.002995999999996002,
+              0.014620999999976902,
+              0.0045769999999834,
+              0.005121999999971649,
+              0.004056999999988875,
+              0.004779000000041833,
+              0.004124999999987722,
+              0.004126999999982672,
+              0.0027039999999942665,
+              0.0025019999999926767,
+              0.003421000000003005
+            ],
+            [
+              0.028123999999991156,
+              0.07468399999999065,
+              0.02936499999998432,
+              0.1647130000000061,
+              0.03860700000001316,
+              0.040115000000014334,
+              0.031538000000011834,
+              0.02228700000000572,
+              0.020566999999971358,
+              0.040441999999984546,
+              0.03792599999997037,
+              0.0326610000000187,
+              0.07191299999999501,
+              0.028423999999972693,
+              0.0727059999999824,
+              0.022854999999992742,
+              0.031445999999959895,
+              0.02718299999997953,
+              0.07079900000002226,
+              0.12602500000002692,
+              0.0615619999999808,
+              0.04764299999999366,
+              0.035371999999995296,
+              0.032070000000032906,
+              0.015477000000032604,
+              0.020911000000012336,
+              0.012472000000002481,
+              0.428937000000019,
+              0.37004699999999957,
+              0.31636300000002393,
+              0.30199500000003354,
+              0.2221630000000232,
+              0.08493100000004006,
+              0.044145999999955166
+            ],
+            [
+              0.004292000000020835,
+              0.005736000000013064,
+              0.0029180000000224027,
+              0.0038240000000087093,
+              0.002090000000009695,
+              0.002471000000014101,
+              0.0033450000000243563,
+              0.0050229999999942265,
+              0.00918500000000222,
+              0.004886999999996533,
+              0.004075999999997748,
+              0.005112999999994372,
+              0.004969000000016877,
+              0.005381999999997333,
+              0.0025990000000319924,
+              0.0062590000000000146,
+              0.005123000000025968,
+              0.002823000000034881,
+              0.0025200000000040745,
+              0.0034840000000144755,
+              0.00420600000001059,
+              0.006273000000021511,
+              0.004939999999976408,
+              0.0043640000000095824,
+              0.002801999999974214,
+              0.003378999999995358,
+              0.0047280000000000655,
+              0.006532999999990352,
+              0.002567999999996573,
+              0.002287000000023909,
+              0.005077999999969052,
+              0.004107999999973799,
+              0.0033700000000180808,
+              0.0018750000000409273
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 7,
+              "used": 7,
+              "wins": 7,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 396,
+              "ms": 1.483291999999949
+            },
+            null
+          ]
+        },
+        {
+          "pair": 1,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.029818000000034317,
+              0.015731999999957225,
+              0.013419999999996435,
+              0.01492999999999256,
+              0.021309000000030665,
+              0.016773999999998068,
+              0.012846999999965192,
+              0.02362999999996873,
+              0.014160000000003947,
+              0.008444999999994707,
+              0.009110000000021046,
+              0.047167000000001735,
+              0.027147000000013577,
+              0.017921000000001186,
+              0.018378999999981716,
+              0.027082000000007156,
+              0.024694000000010874,
+              0.010647000000005846,
+              0.4448370000000068,
+              0.14207599999997456,
+              0.08977299999997967
+            ],
+            [
+              0.003708000000017364,
+              0.001959999999996853,
+              0.0035340000000019245,
+              0.001890000000003056,
+              0.004105000000038217,
+              0.0024369999999862557,
+              0.004555999999979576,
+              0.0017430000000331347,
+              0.003329000000007909,
+              0.004643999999984771,
+              0.005484999999964657,
+              0.007434999999986758,
+              0.0031250000000113687,
+              0.0029260000000022046,
+              0.005044999999995525,
+              0.004025000000012824,
+              0.0037209999999845422,
+              0.003122000000018943,
+              0.005285000000014861,
+              0.003589999999974225,
+              0.0030639999999948486
+            ],
+            [
+              0.03526299999998628,
+              0.015209000000027117,
+              0.01345200000002933,
+              0.008976999999958934,
+              0.007443999999964035,
+              0.02615400000001955,
+              0.015782999999998992,
+              0.03838899999999512,
+              0.037082999999995536,
+              0.02122500000001537,
+              0.016828999999972893,
+              0.01710299999996323,
+              0.046067999999991116,
+              0.031591999999989184,
+              0.016951000000005934,
+              0.03926500000000033,
+              0.03296899999998004,
+              0.031565999999997985,
+              0.028215999999986252
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 3,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 3,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 42,
+              "ms": 0.36830100000003085
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            }
+          ]
+        },
+        {
+          "pair": 1,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.003371000000015556,
+              0.004011999999988802,
+              0.003463000000010652,
+              0.002259000000094602,
+              0.0047200000000202635,
+              0.004204000000072483,
+              0.003023999999982152,
+              0.007934999999974934,
+              0.0035330000000612927,
+              0.002559000000019296,
+              0.0021759999999630963,
+              0.016841999999996915,
+              0.006737999999927524,
+              0.003537999999934982,
+              0.0026609999999891443,
+              0.0035319999999501306,
+              0.002254000000107226,
+              0.0018420000000105574,
+              0.003856000000041604,
+              0.0037700000000313594,
+              0.0027289999999311476,
+              0.0068769999999176434,
+              0.002966000000014901,
+              0.002404999999953361,
+              0.003388000000086322,
+              0.004194999999981519,
+              0.002970000000004802,
+              0.0017540000000053624
+            ],
+            [
+              0.0293339999999489,
+              0.03564700000003995,
+              0.016860999999948945,
+              0.022927999999978965,
+              0.020955999999955566,
+              0.03672299999993811,
+              0.03248899999994137,
+              0.029375999999956548,
+              0.07467399999995905,
+              0.06644999999991796,
+              0.035783000000037646,
+              0.03452100000004066,
+              0.030177999999978056,
+              0.037349999999946704,
+              0.01566200000002027,
+              0.021604000000024826,
+              0.02504599999997481,
+              0.016504999999938263,
+              0.032164999999963584,
+              0.025183000000083666
+            ],
+            [
+              0.008150000000000546,
+              0.004473999999959233,
+              0.003480000000081418,
+              0.002668999999968946,
+              0.0023819999998977437,
+              0.0025319999999737774,
+              0.02161999999998443,
+              0.004676000000017666,
+              0.0031349999999292777,
+              0.002636000000052263,
+              0.004094000000009146,
+              0.006764999999973043,
+              0.00357700000006389,
+              0.003993999999920561,
+              0.00620600000002014,
+              0.0029260000000022046,
+              0.0024460000000772197,
+              0.0024779999999964275,
+              0.004387999999948988,
+              0.0023390000000063083,
+              0.0022259999999505453,
+              0.0018619999999600623,
+              0.004729999999995016,
+              0.0025660000000016225,
+              0.0030980000000226937,
+              0.002437999999983731
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null
+          ]
+        },
+        {
+          "pair": 2,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.02868100000000595,
+              0.03977399999996578,
+              0.022557000000006155,
+              0.03018100000008417,
+              0.06964000000004944,
+              0.01880499999992935,
+              0.011352999999985514,
+              0.028096000000005006,
+              0.025811999999973523,
+              0.03414700000007542,
+              0.028355000000033215,
+              0.036146000000030654,
+              0.031886999999983345,
+              0.02756499999998141,
+              0.025102000000060798,
+              0.027849999999943975,
+              0.02597000000002936,
+              0.033699999999953434,
+              0.02825899999993453,
+              0.026216999999974178,
+              0.025719999999978427,
+              0.059503999999947155,
+              0.057496000000014647,
+              0.012133000000062566,
+              0.9353320000000167,
+              0.8341059999999061,
+              0.3753560000000107,
+              0.20771100000001752,
+              0.09389899999996487,
+              0.09948399999996127
+            ],
+            [
+              0.0038829999999734355,
+              0.00322500000004311,
+              0.007309999999961292,
+              0.005714000000011765,
+              0.0038630000000239306,
+              0.0044520000000147775,
+              0.0033849999999802094,
+              0.0035859999999274805,
+              0.007279999999923348,
+              0.0029999999999290594,
+              0.00304900000003272,
+              0.006796000000008462,
+              0.004847999999924468,
+              0.0033549999999422653,
+              0.0027609999999640422,
+              0.005168000000026041,
+              0.003669000000058986,
+              0.007113000000003922,
+              0.005367000000092048,
+              0.006000999999969281,
+              0.006625999999982923,
+              0.0052430000000640575,
+              0.004723999999896478,
+              0.005602000000067164,
+              0.0033469999999624633
+            ],
+            [
+              0.02803700000004028,
+              0.020731999999952677,
+              0.0638250000000653,
+              0.06364500000006501,
+              0.03534799999999905,
+              0.06335300000000643,
+              0.009115000000065265,
+              0.03399400000000696,
+              0.031131000000073072,
+              0.03345200000001114,
+              0.029672000000005028,
+              0.023765000000025793,
+              0.06858199999999215,
+              0.06407100000001265,
+              0.038515999999958694,
+              0.017198000000007596,
+              0.03549499999996897,
+              0.01874499999996715,
+              0.010306000000014137,
+              0.9978459999999814,
+              1.5723669999999856,
+              2.911383999999998,
+              1.1747680000000855,
+              0.3429749999999103,
+              0.3541680000000724,
+              0.21330699999998615,
+              0.1435239999999567,
+              2.0988100000000713,
+              0.09638599999993858
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 6,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 6,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 281,
+              "ms": 1.983161999999993
+            },
+            null,
+            {
+              "calls": 10,
+              "used": 10,
+              "wins": 10,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 527,
+              "ms": 6.50797399999999
+            }
+          ]
+        },
+        {
+          "pair": 2,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.005564999999933207,
+              0.0028499999999667125,
+              0.003206999999974869,
+              0.006863999999950465,
+              0.004555000000095788,
+              0.005225999999993292,
+              0.0060080000000652944,
+              0.002142000000048938,
+              0.03409400000009555,
+              0.0025800000000799628,
+              0.002422000000024127,
+              0.006483000000002903,
+              0.003566999999975451,
+              0.002594000000044616,
+              0.003859999999917818,
+              0.0037510000000793298,
+              0.0045360000000300715,
+              0.0029289999999946303,
+              0.0049579999999878055,
+              0.0028079999999590655,
+              0.002588999999943553,
+              0.002517000000011649
+            ],
+            [
+              0.03921500000001288,
+              0.016847999999981766,
+              0.029074999999920692,
+              0.024395000000026812,
+              0.0715659999999616,
+              0.07561299999997573,
+              0.06879899999989902,
+              0.06420400000001791,
+              0.01159199999995053,
+              0.0734180000000606,
+              0.05534899999997833,
+              0.03625800000008894,
+              0.05390299999999115,
+              0.03207199999997101,
+              0.021083999999973457,
+              0.032566000000088025,
+              0.042778999999995904,
+              0.06666499999994357,
+              0.01571200000000772
+            ],
+            [
+              0.009529000000043197,
+              0.005645999999956075,
+              0.0027260000000524087,
+              0.0027630000000726795,
+              0.0054310000000441505,
+              0.004479999999944084,
+              0.004753000000050633,
+              0.003909000000021479,
+              0.003581000000053791,
+              0.0034640000000081272,
+              0.006421000000045751,
+              0.004113999999958651,
+              0.0035139999999955762,
+              0.003940999999940686,
+              0.00434199999995144,
+              0.004927000000066073,
+              0.0051470000000790606,
+              0.004914999999982683,
+              0.0026110000000016953,
+              0.002033000000096763,
+              0.0018809999999120919,
+              0.0031840000000329383,
+              0.0026540000000068176,
+              0.004517000000078042
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null
+          ]
+        },
+        {
+          "pair": 3,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.03985700000009729,
+              0.026579999999967185,
+              0.028668000000038774,
+              0.02937900000006266,
+              0.01610300000004372,
+              0.020783000000051288,
+              0.02538800000002084,
+              0.019214000000033593,
+              0.017981999999960863,
+              0.037548000000015236,
+              0.035479000000009364,
+              0.01752800000008392,
+              0.0258729999999332,
+              0.028879999999958272,
+              0.07690300000001571,
+              0.13018299999998817,
+              0.06706399999995938,
+              0.013446000000044478,
+              0.04375500000003285,
+              0.03260299999999461,
+              0.004488000000037573,
+              0.22444100000006983,
+              0.10200600000007398,
+              0.06998699999996916,
+              0.05862999999999374,
+              0.05315199999995457,
+              0.06183899999996356,
+              0.035110000000031505
+            ],
+            [
+              0.00780700000007073,
+              0.005211000000031163,
+              0.003306999999949767,
+              0.006173999999987245,
+              0.006693999999924927,
+              0.00516600000003109,
+              0.0038109999999278443,
+              0.0030829999999468782,
+              0.005069000000048618,
+              0.0018599999999651118,
+              0.00644800000009127,
+              0.005627000000004045,
+              0.004848000000038155,
+              0.005182999999988169,
+              0.004708000000050561,
+              0.004035999999928208,
+              0.00605099999995673,
+              0.002300999999988562,
+              0.0016120000000228174,
+              0.001626999999984946,
+              0.0013870000000224536,
+              0.0026829999999335996,
+              0.0017040000000179134,
+              0.0016640000000052169,
+              0.001722999999969943
+            ],
+            [
+              0.04543699999999262,
+              0.024932999999919048,
+              0.015625999999997475,
+              0.02268200000003162,
+              0.029544000000100823,
+              0.08287500000005821,
+              0.016885999999999513,
+              0.027344999999968422,
+              0.01605800000004365,
+              0.012130999999953929,
+              0.02500800000007075,
+              0.026026999999999134,
+              2.0590409999999792,
+              0.016182999999955427,
+              0.030072000000018306,
+              0.014334999999960019,
+              0.013134000000036394,
+              0.011352999999985514
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 7,
+              "used": 7,
+              "wins": 7,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 44,
+              "ms": 0.35694199999988996
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            }
+          ]
+        },
+        {
+          "pair": 3,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.0021240000000943837,
+              0.003789000000097076,
+              0.002831000000014683,
+              0.0026320000000623622,
+              0.002207999999995991,
+              0.0016570000000228902,
+              0.004232999999999265,
+              0.001270999999974265,
+              0.0012009999999236243,
+              0.0013740000000552754,
+              0.001241999999933796,
+              0.0023940000000948203,
+              0.0015089999999418069,
+              0.0011769999999842184,
+              0.002525999999988926,
+              0.00163600000007591,
+              0.0015779999999949723,
+              0.001180000000090331,
+              0.0010389999999915744,
+              0.0013900000000148793
+            ],
+            [
+              0.02118099999995593,
+              0.01431800000000294,
+              0.012940999999955238,
+              0.00776199999995697,
+              0.024717000000009648,
+              0.03915299999994204,
+              0.017168999999967127,
+              0.033428000000071734,
+              0.03715599999998176,
+              0.02407000000005155,
+              0.017388999999980115,
+              0.017320000000040636,
+              0.01439299999992727,
+              0.01890200000002551,
+              0.01292799999998806,
+              0.009173000000032516,
+              0.007629000000065389,
+              0.0075430000000551445,
+              0.01724899999999252,
+              0.01465799999994033,
+              0.010608999999931257,
+              0.00611900000001242,
+              2.564567000000011,
+              2.979155999999989,
+              1.7966689999999517,
+              1.2654360000000224,
+              0.9506819999999152,
+              0.43230800000003455,
+              0.17682200000001558,
+              0.0932990000000018,
+              0.06043299999998908
+            ],
+            [
+              0.004088000000024294,
+              0.0018730000000459768,
+              0.0014529999999695065,
+              0.0025329999999712527,
+              0.0018019999999978609,
+              0.004481999999939035,
+              0.001291999999921245,
+              0.001161999999908403,
+              0.0011429999999563734,
+              0.003165999999964697,
+              0.0023540000000821237,
+              0.001362999999969361,
+              0.0010130000000572181,
+              0.0025939999999309293,
+              0.00196199999993496,
+              0.0011540000000422879,
+              0.0013749999999390639,
+              0.0009720000000470463,
+              0.00461700000005294,
+              0.001115999999910855,
+              0.0028680000000349537,
+              0.005526999999915461,
+              0.003964999999993779,
+              0.005317999999988388,
+              0.002284000000031483,
+              0.002622999999971398,
+              0.0021850000000540604,
+              0.00319200000001274,
+              0.0022280000000591826,
+              0.0016359999999622232
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 9,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 6,
+              "timedOut": 3,
+              "unusable": 0,
+              "nodes": 2108,
+              "ms": 9.591518000000065
+            },
+            null
+          ]
+        },
+        {
+          "pair": 4,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.01620100000002367,
+              0.022403999999937696,
+              0.040786000000025524,
+              0.007783999999901425,
+              0.01845900000000711,
+              0.011488999999983207,
+              0.008513999999991029,
+              0.008335999999985688,
+              0.020416999999952168,
+              0.018045000000029177,
+              0.010906999999974687,
+              0.007495999999946434,
+              0.007476999999994405,
+              0.03257799999994404,
+              0.004917999999975109,
+              0.17009299999995164,
+              0.1397900000000618,
+              0.11588300000005347,
+              0.1007480000000669,
+              0.08168299999999817,
+              0.08641000000000076,
+              0.07503199999996468,
+              0.07626599999991868,
+              0.05624000000000251
+            ],
+            [
+              0.002406000000064523,
+              0.0013690000000678992,
+              0.047052000000007865,
+              0.0031429999999090796,
+              0.004262000000039734,
+              0.0022240000000692817,
+              0.0023479999999835854,
+              0.002443000000084794,
+              0.00415900000007241,
+              0.001542999999969652,
+              0.0016430000000582368,
+              0.0029260000000022046,
+              0.003417000000013104,
+              0.002391999999986183,
+              0.0015750000000025466,
+              0.0014519999999720312,
+              0.003914999999892643,
+              0.002704999999991742,
+              0.0022649999999657666,
+              0.0016339999999672727,
+              0.0015240000000176224,
+              0.0013860000000249784,
+              0.0020389999999679276,
+              0.001991000000089116,
+              0.001856999999972686,
+              0.0017589999999927386
+            ],
+            [
+              0.020553999999947337,
+              0.013097999999899912,
+              0.00976900000000569,
+              0.03865599999994629,
+              0.026370999999926426,
+              0.01760199999989709,
+              0.01333599999998114,
+              0.015353000000004613,
+              0.017557000000010703,
+              0.01329699999996592,
+              0.031771000000048844,
+              0.014754000000039014,
+              0.011646000000041568,
+              0.043012999999973545,
+              0.02213199999994231,
+              0.016346999999996115,
+              0.015543999999977132,
+              0.014885000000049331,
+              0.014049999999997453
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 9,
+              "used": 9,
+              "wins": 9,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 63,
+              "ms": 0.4313920000000735
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            }
+          ]
+        },
+        {
+          "pair": 4,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.001806999999985237,
+              0.002509000000031847,
+              0.001270999999974265,
+              0.004229000000009364,
+              0.0014189999999416614,
+              0.002039999999965403,
+              0.001828000000045904,
+              0.0034710000001041408,
+              0.0011809999999741194,
+              0.0024439999999685824,
+              0.0020100000000411455,
+              0.0029389999999693828,
+              0.001985999999988053,
+              0.0013000000000147338,
+              0.0021530000000211658,
+              0.0045860000000175205,
+              0.0028760000000147556,
+              0.0017749999999523425,
+              0.0023449999999911597,
+              0.0022979999999961365,
+              0.002333000000021457,
+              0.00352999999995518,
+              0.0019469999999728316,
+              0.0017760000000635046,
+              0.0018809999999120919
+            ],
+            [
+              0.01772500000004129,
+              0.008069999999975153,
+              0.016232999999942876,
+              0.012322999999923923,
+              0.011992999999961285,
+              0.01180900000008478,
+              0.03784799999993993,
+              0.007202000000006592,
+              0.007176999999956024,
+              0.02102700000000368,
+              0.013785999999981868,
+              0.03737499999999727,
+              0.012921000000005733,
+              0.008452000000033877,
+              0.019195999999965352,
+              0.014930999999933192,
+              0.01357800000005227,
+              0.03548599999999169,
+              0.00892199999998411,
+              0.024201999999945656,
+              0.01871399999993173,
+              0.01484600000003411,
+              0.01992300000006253,
+              0.018436999999948966,
+              0.03324099999997543,
+              0.026144000000044798,
+              0.013886999999954242
+            ],
+            [
+              0.005693000000064785,
+              0.0020560000000386935,
+              0.0013460000000122818,
+              0.00344099999995251,
+              0.002645999999913329,
+              0.002276000000051681,
+              0.001889999999889369,
+              0.0015160000000378204,
+              0.003847999999948115,
+              0.002416999999923064,
+              0.0031420000000252912,
+              0.0040169999999761785,
+              0.0011060000000497894,
+              0.0011059999999361025,
+              0.000965999999948508,
+              0.005580000000009022,
+              0.0025239999999939755,
+              0.0034100000000307773,
+              0.0013910000000123546,
+              0.0010029999999687789,
+              0.0026540000000068176,
+              0.002964999999903739,
+              0.002175000000079308,
+              0.004423999999971784,
+              0.0030090000000200234,
+              0.004347000000052503,
+              0.0013920000000098298,
+              0.0024769999999989523,
+              0.005000999999992928,
+              0.004412000000002081,
+              0.0038539999999329666,
+              0.003953000000024076,
+              0.0019810000000006767,
+              0.0025409999999510546,
+              0.002258999999980915
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null
+          ]
+        }
+      ],
+      "latencyBySide": {
+        "A": {
+          "decisions": 380,
+          "meanMs": 0.10285804473683936,
+          "p50Ms": 0.028355000000033215,
+          "p95Ms": 0.3541680000000724,
+          "p99Ms": 2.0988100000000713,
+          "maxMs": 2.979155999999989,
+          "over2000Ms": 0,
+          "solver": {
+            "calls": 55,
+            "used": 33,
+            "wins": 33,
+            "draws": 0,
+            "losses": 19,
+            "timedOut": 3,
+            "unusable": 0,
+            "nodes": 3493,
+            "ms": 21.199591999999996
+          }
+        },
+        "B": {
+          "decisions": 413,
+          "meanMs": 0.0038260677966103548,
+          "p50Ms": 0.0032800000000179352,
+          "p95Ms": 0.0070440000000076,
+          "p99Ms": 0.016841999999996915,
+          "maxMs": 0.047052000000007865,
+          "over2000Ms": 0,
+          "solver": {}
+        }
+      }
+    },
+    {
+      "players": 4,
+      "deckSize": 36,
+      "throwInPolicy": "all",
+      "pairs": 5,
+      "planned": 10,
+      "completed": 10,
+      "decided": 8,
+      "durakA": 3,
+      "durakB": 5,
+      "draws": 2,
+      "unfinished": 0,
+      "errors": 0,
+      "illegal": 0,
+      "lossPctAllPlanned": 30,
+      "durakPct": 37.5,
+      "se": 15.43,
+      "ci95": [
+        7.26,
+        67.74
+      ],
+      "ciWarning": "small sample; asymptotic paired CI unreliable",
+      "records": [
+        {
+          "pair": 0,
+          "seed": 3201279741,
+          "direction": 0,
+          "dealHash": "3ee44948bfd0c3295f11ef329d5ef2de276716cbfe984cd56f1016fbba040d25",
+          "steps": 132,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 0,
+          "seed": 3201279741,
+          "direction": 1,
+          "dealHash": "3ee44948bfd0c3295f11ef329d5ef2de276716cbfe984cd56f1016fbba040d25",
+          "steps": 105,
+          "status": "draw",
+          "durakSeat": -1,
+          "loser": null,
+          "drawReason": "simultaneous"
+        },
+        {
+          "pair": 1,
+          "seed": 3184502122,
+          "direction": 0,
+          "dealHash": "f57fc431f3ab1ce631f627db94b7616468904920a2f5e3596b078d05b4d06159",
+          "steps": 118,
+          "status": "decided",
+          "durakSeat": 2,
+          "loser": "A",
+          "drawReason": null
+        },
+        {
+          "pair": 1,
+          "seed": 3184502122,
+          "direction": 1,
+          "dealHash": "f57fc431f3ab1ce631f627db94b7616468904920a2f5e3596b078d05b4d06159",
+          "steps": 136,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 2,
+          "seed": 3167724503,
+          "direction": 0,
+          "dealHash": "6c951bfdaf1e77529a247e78744f9c73b50240b5cb9e579eff899afedcabf726",
+          "steps": 138,
+          "status": "decided",
+          "durakSeat": 3,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 2,
+          "seed": 3167724503,
+          "direction": 1,
+          "dealHash": "6c951bfdaf1e77529a247e78744f9c73b50240b5cb9e579eff899afedcabf726",
+          "steps": 108,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 3,
+          "seed": 3150946884,
+          "direction": 0,
+          "dealHash": "c275f4fdc47c142252b0eb48dd58524cea7d1e10ca4d3dd631d41b0ac6ad4ce0",
+          "steps": 109,
+          "status": "decided",
+          "durakSeat": 0,
+          "loser": "A",
+          "drawReason": null
+        },
+        {
+          "pair": 3,
+          "seed": 3150946884,
+          "direction": 1,
+          "dealHash": "c275f4fdc47c142252b0eb48dd58524cea7d1e10ca4d3dd631d41b0ac6ad4ce0",
+          "steps": 95,
+          "status": "draw",
+          "durakSeat": -1,
+          "loser": null,
+          "drawReason": "simultaneous"
+        },
+        {
+          "pair": 4,
+          "seed": 3134169265,
+          "direction": 0,
+          "dealHash": "7389bb4df4febc295069fc7db642ed8fb8c6d3ca95a3e177386041fc463e8d04",
+          "steps": 142,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "B",
+          "drawReason": null
+        },
+        {
+          "pair": 4,
+          "seed": 3134169265,
+          "direction": 1,
+          "dealHash": "7389bb4df4febc295069fc7db642ed8fb8c6d3ca95a3e177386041fc463e8d04",
+          "steps": 84,
+          "status": "decided",
+          "durakSeat": 1,
+          "loser": "A",
+          "drawReason": null
+        }
+      ],
+      "initialDeals": [
+        {
+          "pair": 0,
+          "seed": 3201279741,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 4,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♠",
+                  "rank": 14
+                },
+                {
+                  "suit": "♦",
+                  "rank": 13
+                },
+                {
+                  "suit": "♦",
+                  "rank": 10
+                },
+                {
+                  "suit": "♠",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 12
+                },
+                {
+                  "suit": "♥",
+                  "rank": 6
+                }
+              ],
+              [
+                {
+                  "suit": "♣",
+                  "rank": 6
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                },
+                {
+                  "suit": "♣",
+                  "rank": 14
+                },
+                {
+                  "suit": "♣",
+                  "rank": 12
+                },
+                {
+                  "suit": "♥",
+                  "rank": 14
+                },
+                {
+                  "suit": "♣",
+                  "rank": 9
+                }
+              ],
+              [
+                {
+                  "suit": "♣",
+                  "rank": 10
+                },
+                {
+                  "suit": "♦",
+                  "rank": 9
+                },
+                {
+                  "suit": "♠",
+                  "rank": 12
+                },
+                {
+                  "suit": "♦",
+                  "rank": 12
+                },
+                {
+                  "suit": "♦",
+                  "rank": 6
+                },
+                {
+                  "suit": "♦",
+                  "rank": 11
+                }
+              ],
+              [
+                {
+                  "suit": "♠",
+                  "rank": 8
+                },
+                {
+                  "suit": "♥",
+                  "rank": 8
+                },
+                {
+                  "suit": "♦",
+                  "rank": 8
+                },
+                {
+                  "suit": "♥",
+                  "rank": 11
+                },
+                {
+                  "suit": "♠",
+                  "rank": 13
+                },
+                {
+                  "suit": "♦",
+                  "rank": 14
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♦",
+                "rank": 7
+              },
+              {
+                "suit": "♣",
+                "rank": 8
+              },
+              {
+                "suit": "♥",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 9
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              },
+              {
+                "suit": "♣",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 11
+              },
+              {
+                "suit": "♥",
+                "rank": 10
+              },
+              {
+                "suit": "♥",
+                "rank": 7
+              },
+              {
+                "suit": "♠",
+                "rank": 6
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              }
+            ],
+            "trumpCard": {
+              "suit": "♠",
+              "rank": 7
+            },
+            "attackerIndex": 3
+          }
+        },
+        {
+          "pair": 1,
+          "seed": 3184502122,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 4,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♣",
+                  "rank": 9
+                },
+                {
+                  "suit": "♣",
+                  "rank": 11
+                },
+                {
+                  "suit": "♠",
+                  "rank": 13
+                },
+                {
+                  "suit": "♣",
+                  "rank": 8
+                },
+                {
+                  "suit": "♦",
+                  "rank": 14
+                },
+                {
+                  "suit": "♣",
+                  "rank": 6
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 11
+                },
+                {
+                  "suit": "♥",
+                  "rank": 8
+                },
+                {
+                  "suit": "♠",
+                  "rank": 8
+                },
+                {
+                  "suit": "♠",
+                  "rank": 6
+                },
+                {
+                  "suit": "♦",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 13
+                }
+              ],
+              [
+                {
+                  "suit": "♥",
+                  "rank": 6
+                },
+                {
+                  "suit": "♣",
+                  "rank": 13
+                },
+                {
+                  "suit": "♦",
+                  "rank": 6
+                },
+                {
+                  "suit": "♣",
+                  "rank": 14
+                },
+                {
+                  "suit": "♥",
+                  "rank": 12
+                },
+                {
+                  "suit": "♣",
+                  "rank": 7
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 13
+                },
+                {
+                  "suit": "♠",
+                  "rank": 9
+                },
+                {
+                  "suit": "♠",
+                  "rank": 12
+                },
+                {
+                  "suit": "♠",
+                  "rank": 10
+                },
+                {
+                  "suit": "♦",
+                  "rank": 9
+                },
+                {
+                  "suit": "♣",
+                  "rank": 12
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♠",
+                "rank": 11
+              },
+              {
+                "suit": "♥",
+                "rank": 10
+              },
+              {
+                "suit": "♦",
+                "rank": 12
+              },
+              {
+                "suit": "♦",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 14
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♥",
+                "rank": 9
+              },
+              {
+                "suit": "♥",
+                "rank": 14
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 7
+              }
+            ],
+            "trumpCard": {
+              "suit": "♥",
+              "rank": 7
+            },
+            "attackerIndex": 2
+          }
+        },
+        {
+          "pair": 2,
+          "seed": 3167724503,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 4,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♦",
+                  "rank": 14
+                },
+                {
+                  "suit": "♠",
+                  "rank": 11
+                },
+                {
+                  "suit": "♥",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 14
+                },
+                {
+                  "suit": "♥",
+                  "rank": 8
+                },
+                {
+                  "suit": "♣",
+                  "rank": 8
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 12
+                },
+                {
+                  "suit": "♦",
+                  "rank": 13
+                },
+                {
+                  "suit": "♦",
+                  "rank": 9
+                },
+                {
+                  "suit": "♦",
+                  "rank": 6
+                },
+                {
+                  "suit": "♥",
+                  "rank": 7
+                },
+                {
+                  "suit": "♠",
+                  "rank": 10
+                }
+              ],
+              [
+                {
+                  "suit": "♣",
+                  "rank": 12
+                },
+                {
+                  "suit": "♥",
+                  "rank": 6
+                },
+                {
+                  "suit": "♥",
+                  "rank": 13
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                },
+                {
+                  "suit": "♣",
+                  "rank": 13
+                },
+                {
+                  "suit": "♠",
+                  "rank": 13
+                }
+              ],
+              [
+                {
+                  "suit": "♥",
+                  "rank": 12
+                },
+                {
+                  "suit": "♠",
+                  "rank": 9
+                },
+                {
+                  "suit": "♦",
+                  "rank": 10
+                },
+                {
+                  "suit": "♣",
+                  "rank": 11
+                },
+                {
+                  "suit": "♣",
+                  "rank": 9
+                },
+                {
+                  "suit": "♠",
+                  "rank": 6
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♠",
+                "rank": 8
+              },
+              {
+                "suit": "♦",
+                "rank": 11
+              },
+              {
+                "suit": "♣",
+                "rank": 6
+              },
+              {
+                "suit": "♦",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♠",
+                "rank": 14
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              },
+              {
+                "suit": "♣",
+                "rank": 7
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              },
+              {
+                "suit": "♦",
+                "rank": 8
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              }
+            ],
+            "trumpCard": {
+              "suit": "♠",
+              "rank": 12
+            },
+            "attackerIndex": 3
+          }
+        },
+        {
+          "pair": 3,
+          "seed": 3150946884,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 4,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♠",
+                  "rank": 9
+                },
+                {
+                  "suit": "♣",
+                  "rank": 13
+                },
+                {
+                  "suit": "♥",
+                  "rank": 13
+                },
+                {
+                  "suit": "♦",
+                  "rank": 10
+                },
+                {
+                  "suit": "♠",
+                  "rank": 10
+                },
+                {
+                  "suit": "♦",
+                  "rank": 14
+                }
+              ],
+              [
+                {
+                  "suit": "♠",
+                  "rank": 13
+                },
+                {
+                  "suit": "♦",
+                  "rank": 6
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                },
+                {
+                  "suit": "♦",
+                  "rank": 8
+                },
+                {
+                  "suit": "♥",
+                  "rank": 7
+                },
+                {
+                  "suit": "♠",
+                  "rank": 6
+                }
+              ],
+              [
+                {
+                  "suit": "♥",
+                  "rank": 8
+                },
+                {
+                  "suit": "♦",
+                  "rank": 11
+                },
+                {
+                  "suit": "♣",
+                  "rank": 6
+                },
+                {
+                  "suit": "♦",
+                  "rank": 9
+                },
+                {
+                  "suit": "♥",
+                  "rank": 14
+                },
+                {
+                  "suit": "♥",
+                  "rank": 10
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 12
+                },
+                {
+                  "suit": "♣",
+                  "rank": 14
+                },
+                {
+                  "suit": "♣",
+                  "rank": 12
+                },
+                {
+                  "suit": "♣",
+                  "rank": 11
+                },
+                {
+                  "suit": "♣",
+                  "rank": 9
+                },
+                {
+                  "suit": "♠",
+                  "rank": 14
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♠",
+                "rank": 7
+              },
+              {
+                "suit": "♦",
+                "rank": 13
+              },
+              {
+                "suit": "♠",
+                "rank": 11
+              },
+              {
+                "suit": "♥",
+                "rank": 6
+              },
+              {
+                "suit": "♠",
+                "rank": 8
+              },
+              {
+                "suit": "♥",
+                "rank": 12
+              },
+              {
+                "suit": "♦",
+                "rank": 7
+              },
+              {
+                "suit": "♣",
+                "rank": 7
+              },
+              {
+                "suit": "♣",
+                "rank": 10
+              },
+              {
+                "suit": "♠",
+                "rank": 12
+              },
+              {
+                "suit": "♣",
+                "rank": 8
+              }
+            ],
+            "trumpCard": {
+              "suit": "♣",
+              "rank": 8
+            },
+            "attackerIndex": 2
+          }
+        },
+        {
+          "pair": 4,
+          "seed": 3134169265,
+          "deal": {
+            "rules": {
+              "deckSize": 36,
+              "numPlayers": 4,
+              "handSize": 6,
+              "allowPerevod": true,
+              "perevodOnlyOnFirstCard": true,
+              "perevodRequiresEnoughCards": true,
+              "maxTableAttacks": 6,
+              "attackLimitByDefenderHand": true,
+              "throwInAfterTake": true,
+              "throwInPolicy": "all",
+              "firstAttackerRule": "lowestTrump",
+              "stallLimit": 250,
+              "stallWarning": 10
+            },
+            "hands": [
+              [
+                {
+                  "suit": "♥",
+                  "rank": 6
+                },
+                {
+                  "suit": "♠",
+                  "rank": 8
+                },
+                {
+                  "suit": "♣",
+                  "rank": 13
+                },
+                {
+                  "suit": "♣",
+                  "rank": 12
+                },
+                {
+                  "suit": "♦",
+                  "rank": 6
+                },
+                {
+                  "suit": "♣",
+                  "rank": 10
+                }
+              ],
+              [
+                {
+                  "suit": "♣",
+                  "rank": 6
+                },
+                {
+                  "suit": "♠",
+                  "rank": 11
+                },
+                {
+                  "suit": "♠",
+                  "rank": 12
+                },
+                {
+                  "suit": "♥",
+                  "rank": 12
+                },
+                {
+                  "suit": "♦",
+                  "rank": 10
+                },
+                {
+                  "suit": "♥",
+                  "rank": 7
+                }
+              ],
+              [
+                {
+                  "suit": "♥",
+                  "rank": 8
+                },
+                {
+                  "suit": "♣",
+                  "rank": 11
+                },
+                {
+                  "suit": "♦",
+                  "rank": 8
+                },
+                {
+                  "suit": "♥",
+                  "rank": 14
+                },
+                {
+                  "suit": "♦",
+                  "rank": 11
+                },
+                {
+                  "suit": "♣",
+                  "rank": 7
+                }
+              ],
+              [
+                {
+                  "suit": "♦",
+                  "rank": 12
+                },
+                {
+                  "suit": "♣",
+                  "rank": 9
+                },
+                {
+                  "suit": "♠",
+                  "rank": 14
+                },
+                {
+                  "suit": "♠",
+                  "rank": 7
+                },
+                {
+                  "suit": "♥",
+                  "rank": 9
+                },
+                {
+                  "suit": "♦",
+                  "rank": 9
+                }
+              ]
+            ],
+            "deck": [
+              {
+                "suit": "♦",
+                "rank": 7
+              },
+              {
+                "suit": "♥",
+                "rank": 11
+              },
+              {
+                "suit": "♥",
+                "rank": 10
+              },
+              {
+                "suit": "♠",
+                "rank": 9
+              },
+              {
+                "suit": "♦",
+                "rank": 14
+              },
+              {
+                "suit": "♠",
+                "rank": 10
+              },
+              {
+                "suit": "♠",
+                "rank": 6
+              },
+              {
+                "suit": "♣",
+                "rank": 8
+              },
+              {
+                "suit": "♦",
+                "rank": 13
+              },
+              {
+                "suit": "♥",
+                "rank": 13
+              },
+              {
+                "suit": "♠",
+                "rank": 13
+              },
+              {
+                "suit": "♣",
+                "rank": 14
+              }
+            ],
+            "trumpCard": {
+              "suit": "♣",
+              "rank": 14
+            },
+            "attackerIndex": 1
+          }
+        }
+      ],
+      "measurements": [
+        {
+          "pair": 0,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.04353000000003249,
+              0.03553800000008778,
+              0.03653599999995549,
+              0.022972999999979038,
+              0.016989000000080523,
+              0.03647200000000339,
+              0.033326999999985674,
+              0.03306199999997261,
+              0.0126070000000027,
+              0.039779000000066844,
+              0.030296000000021195,
+              0.01695299999994404,
+              0.009332999999969616,
+              0.00787399999990157,
+              0.029879000000050837,
+              0.017765999999937776,
+              0.00968399999999292,
+              0.00978999999995267,
+              0.009316000000012536,
+              0.00573199999996632,
+              0.006186000000070635,
+              0.01648899999997866,
+              0.00945400000000518,
+              0.013231000000018867,
+              0.030514000000039232
+            ],
+            [
+              0.0036699999999427746,
+              0.0033690000000206055,
+              0.0017030000000204382,
+              0.0035210000000915898,
+              0.0017690000000811779,
+              0.0036309999999275533,
+              0.0019260000000258515,
+              0.0012479999999186475,
+              0.005482000000029075,
+              0.0029419999999618085,
+              0.0030369999999493302,
+              0.004347000000052503,
+              0.0033720000000130312,
+              0.002729999999928623,
+              0.0016249999999899956,
+              0.0017350000000533328,
+              0.008498000000031425,
+              0.0033889999999701104,
+              0.002341999999998734,
+              0.006151000000045315,
+              0.0024610000000393484,
+              0.001944999999977881,
+              0.0036410000000159926,
+              0.0026649999999790452,
+              0.002029000000106862,
+              0.0034739999999828797,
+              0.003367000000025655,
+              0.001948999999967782,
+              0.004583999999908883,
+              0.0030640000001085355,
+              0.0015700000000151704,
+              0.003091000000040367,
+              0.004641999999989821,
+              0.004135999999903106,
+              0.002521999999999025,
+              0.003061000000002423,
+              0.003545999999914784,
+              0.0019250000000283762
+            ],
+            [
+              0.04075999999997748,
+              0.030858999999964,
+              0.04972599999996419,
+              0.0129380000000765,
+              0.010098999999968328,
+              0.01212600000008024,
+              0.02391899999997804,
+              0.02756099999999151,
+              0.013924999999971988,
+              0.009139000000004671,
+              0.008690000000001419,
+              0.009032000000047447,
+              0.007978000000093743,
+              0.008920999999986634,
+              0.017913000000021384,
+              0.010674999999991996,
+              0.016893000000095526,
+              0.011587000000076841,
+              0.030529999999998836,
+              0.01631499999996322,
+              0.009867999999983113,
+              0.0071120000000064465,
+              0.007874000000015258,
+              0.010526000000027125,
+              0.03302700000006098
+            ],
+            [
+              0.0091579999999567,
+              0.004497999999898639,
+              0.005616000000031818,
+              0.0036409999999023057,
+              0.00377200000002631,
+              0.0020090000000436703,
+              0.006025000000022374,
+              0.003853000000049178,
+              0.0027659999999514184,
+              0.0029220000000123036,
+              0.0015829999999823485,
+              0.0023439999999936845,
+              0.001702000000022963,
+              0.003241000000002714,
+              0.002422000000024127,
+              0.0031219999999620995,
+              0.0026990000000068903,
+              0.004487999999923886,
+              0.002747999999996864,
+              0.0021430000000464133,
+              0.0013709999999491629,
+              0.0024860000000899163,
+              0.002718999999956395,
+              0.009865999999988162,
+              0.002811000000065178,
+              0.005138999999985572,
+              0.004001000000016575,
+              0.00817800000004354,
+              0.0034569999999121137,
+              0.004382999999961612,
+              0.004131999999913205,
+              0.006068999999911284,
+              0.003964999999993779,
+              0.003531000000066342,
+              0.0028330000000096334,
+              0.004347000000052503,
+              0.0017219999999724678,
+              0.004090000000019245,
+              0.0025360000000773653,
+              0.0035900000000310683,
+              0.0034400000000687214,
+              0.004027999999948406,
+              0.0023529999999709617,
+              0.003152999999997519
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null
+          ]
+        },
+        {
+          "pair": 0,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.005493000000001302,
+              0.005353000000013708,
+              0.0046530000000757354,
+              0.0035689999999704014,
+              0.0030769999999620268,
+              0.0045509999999922,
+              0.007061000000021522,
+              0.0035570000000006985,
+              0.0028600000000551518,
+              0.005857999999989261,
+              0.004609000000073138,
+              0.005490000000008877,
+              0.0036860000000160653,
+              0.0030060000000275977,
+              0.006231999999954496,
+              0.006110000000035143,
+              0.0023370000000113578,
+              0.004347999999936292,
+              0.007996999999932086,
+              0.0022650000000794535,
+              0.0019099999999525608,
+              1.8604609999999866,
+              0.006610999999907108,
+              0.0035320000000638174,
+              0.0027579999999716165,
+              0.0021070000000236178,
+              0.00304900000003272,
+              0.003734999999892352,
+              0.0038529999999354914,
+              0.002721999999948821,
+              0.0034200000000055297,
+              0.002162999999995918,
+              0.0021020000000362415
+            ],
+            [
+              0.027235000000018772,
+              0.01796700000011242,
+              0.022649999999998727,
+              0.018432999999959065,
+              0.027317000000039116,
+              0.012248999999997068,
+              0.02548699999999826,
+              0.02317300000004252,
+              0.024577000000022053,
+              0.01625500000000102,
+              0.01679100000001199,
+              0.026631000000065796,
+              0.021031999999991058,
+              0.037057000000004336,
+              0.021659999999997126,
+              0.019476000000054228,
+              0.019884999999931097
+            ],
+            [
+              0.005628000000001521,
+              0.003149000000007618,
+              0.005988999999999578,
+              0.0035020000000258733,
+              0.005129000000010819,
+              0.0032810000000154105,
+              0.003750999999965643,
+              0.018855000000030486,
+              0.005387999999925341,
+              0.0028589999999439897,
+              0.004475999999954183,
+              0.003969000000097367,
+              0.00370599999996557,
+              0.0034980000000359723,
+              0.0023810000000139553,
+              0.002246000000013737,
+              0.005197999999950298,
+              0.005242999999950371,
+              0.005596000000082313,
+              0.0033859999999776846,
+              0.004738999999972293,
+              0.003758999999945445,
+              0.0032820000000128857,
+              0.0038319999999885113,
+              0.002329000000031556,
+              0.007440000000087821,
+              0.0021110000000135187,
+              0.002806000000077802,
+              0.0020020000000613436,
+              0.0018209999999498905
+            ],
+            [
+              0.031493000000068605,
+              0.030834999999910906,
+              0.07545100000004368,
+              0.07176100000003771,
+              0.07453399999997146,
+              0.06538899999998193,
+              0.020951000000081876,
+              0.044533000000001266,
+              0.04133999999999105,
+              0.036558000000013635,
+              0.032195999999999,
+              0.03412700000001223,
+              0.031024999999999636,
+              0.029886000000033164,
+              0.026819999999929678,
+              0.019712999999910608,
+              0.01824500000009266,
+              0.01939900000002126,
+              0.020241000000055465,
+              0.019410000000107175,
+              0.01615100000003622,
+              0.01682400000004236,
+              0.015031999999905565,
+              0.02365199999997003,
+              0.016980999999987034
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            }
+          ]
+        },
+        {
+          "pair": 1,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.031319999999936954,
+              0.020560999999929663,
+              0.013602999999989152,
+              0.01430100000004586,
+              0.029111999999940963,
+              0.019079000000033375,
+              0.03646400000002359,
+              0.03282799999999497,
+              0.036383999999998196,
+              0.03360300000008465,
+              0.032887000000073385,
+              0.031862000000046464,
+              0.010309000000006563,
+              0.025734000000056767,
+              0.021007999999937965,
+              0.01796799999999621,
+              0.0171100000000024,
+              0.013438000000064676,
+              0.011554000000046472,
+              0.011581999999975778,
+              0.03815199999996821,
+              0.03188000000000102,
+              0.005058999999960179,
+              0.02475400000002992,
+              0.010843000000022585,
+              0.009492000000022927,
+              0.013581000000044696,
+              0.006166000000007443,
+              0.006844999999998436,
+              0.011264999999980319,
+              0.005172000000015942
+            ],
+            [
+              0.0033809999999903084,
+              0.0029459999999517095,
+              0.008860999999910746,
+              0.007779000000027736,
+              0.005877000000054977,
+              0.004941000000030726,
+              0.0056019999999534775,
+              0.0029379999999719075,
+              0.002888999999981934,
+              0.0035699999999678766,
+              0.004382999999961612,
+              0.00525300000003881,
+              0.003626000000053864,
+              0.008947000000034677,
+              0.002961000000027525,
+              0.0011640000000170403,
+              0.000987000000009175,
+              0.0017330000000583823,
+              0.003838999999970838,
+              0.0027380000000221116,
+              0.0024789999999939027,
+              0.0024939999999560314,
+              0.0023019999999860374,
+              0.0015789999999924476
+            ],
+            [
+              0.028629000000023552,
+              0.07291800000007242,
+              0.07010999999999967,
+              0.06731500000000779,
+              0.07856200000003355,
+              0.04873999999995249,
+              0.03595599999994192,
+              0.038130000000023756,
+              0.0328429999999571,
+              0.03777500000001055,
+              0.025337999999919703,
+              0.03360700000007455,
+              0.03372999999999138,
+              0.08854599999995116,
+              0.02052600000001803,
+              0.045204000000012456,
+              0.024291000000062013,
+              0.011247000000025764,
+              0.017012000000022454,
+              0.013685000000009495,
+              0.009770000000003165,
+              0.004526000000055319,
+              0.021057999999925414,
+              0.010644999999954052,
+              0.017249999999989996,
+              0.010876999999936743,
+              0.023099999999999454,
+              0.005520000000046821,
+              0.008953000000019529,
+              0.23669699999993554,
+              0.2213809999999512,
+              0.05972800000006373
+            ],
+            [
+              0.004573999999934131,
+              0.00367099999994025,
+              0.0028529999999591382,
+              0.005554000000074666,
+              0.006052000000067892,
+              0.002403999999955886,
+              0.009215000000040163,
+              0.003854999999930442,
+              0.006154999999921529,
+              0.006717999999978019,
+              0.006639000000063788,
+              0.007930999999985033,
+              0.004690999999979795,
+              0.005005999999980304,
+              0.003872000000001208,
+              0.004067999999961103,
+              0.003618000000074062,
+              0.0018509999999878346,
+              0.0018099999999776628,
+              0.0021179999999958454,
+              0.001472000000035223,
+              0.004681000000005042,
+              0.0020190000000184227,
+              0.001389000000017404,
+              0.002333999999905245,
+              0.001333999999928892,
+              0.0014430000001084409,
+              0.0016569999999092033,
+              0.002744000000006963,
+              0.001814999999965039,
+              0.004009999999993852
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null,
+            {
+              "calls": 3,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 3,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 46,
+              "ms": 0.33132000000011885
+            },
+            null
+          ]
+        },
+        {
+          "pair": 1,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.00651299999992716,
+              0.0017219999999724678,
+              0.0012060000000246873,
+              0.004095000000006621,
+              0.003198999999995067,
+              0.00153499999998985,
+              0.00231199999996079,
+              0.004772000000002663,
+              0.0016200000000026193,
+              0.001362999999969361,
+              0.002024000000005799,
+              0.0035199999999804277,
+              0.0025210000000015498,
+              0.0027399999999033753,
+              0.002208999999993466,
+              0.003921999999988657,
+              0.0015399999999772263,
+              0.0015380000000959626,
+              0.00301600000000235,
+              0.0018939999999929569,
+              0.0018759999999247157,
+              0.0012199999999893407,
+              0.002550999999925807,
+              0.0067820000000438085,
+              0.004660000000058062,
+              0.003428999999982807,
+              0.002813999999943917,
+              0.002740000000017062,
+              0.003735000000006039,
+              0.0033770000000004075,
+              0.002071000000000822,
+              0.002529999999978827,
+              0.003242000000000189,
+              0.0016970000000355867,
+              0.002028999999993175,
+              0.0025279999999838765,
+              0.0017850000000407817,
+              0.0029289999999946303,
+              0.0016939999999294741,
+              0.0013719999999466381
+            ],
+            [
+              0.02024699999992663,
+              0.012542000000053122,
+              0.027205999999978303,
+              0.022512000000006083,
+              0.06213199999990593,
+              0.058055999999965024,
+              0.052075000000058935,
+              0.011744000000021515,
+              0.01852299999995921,
+              0.01525600000002214,
+              0.009005999999999403,
+              0.020004000000085398,
+              0.016163000000005923,
+              0.062395000000037726,
+              0.06201899999996385,
+              0.016532999999981257,
+              0.015355999999997039,
+              0.007735000000025138,
+              0.01486499999998614,
+              0.01097099999992679,
+              0.008330999999998312,
+              0.012849999999957618,
+              0.008533000000056745,
+              0.018081000000051972,
+              0.03872599999999693,
+              0.03011700000001838,
+              0.023784999999975298
+            ],
+            [
+              0.1024329999999054,
+              0.003727000000026237,
+              0.003689000000008491,
+              0.0037200000000439104,
+              0.002299999999991087,
+              0.0065480000000661676,
+              0.0022700000000668297,
+              0.002521999999999025,
+              0.004057000000102562,
+              0.004142000000001644,
+              0.0015829999999823485,
+              0.005466999999953259,
+              0.0014610000000629952,
+              0.007054000000039196,
+              0.0022379999999202482,
+              0.004305000000044856,
+              0.003643000000010943,
+              0.0017889999999169959,
+              0.0417889999999943,
+              0.0034910000000536456,
+              0.0016630000000077416,
+              0.002040999999962878,
+              0.0013149999999768625,
+              0.0010620000000471919,
+              0.00327900000002046,
+              0.0018869999998969433,
+              0.008214999999950123,
+              0.003723000000036336,
+              0.0022559999999884894,
+              0.0038010000000667787,
+              0.005195000000071559,
+              0.002082999999970525,
+              0.004985999999917112,
+              0.0027370000000246364,
+              0.001810999999975138,
+              0.0038879999999608117,
+              0.002962000000025,
+              0.002790000000004511,
+              0.003945000000044274,
+              0.003173999999944499,
+              0.0017339999999421707,
+              0.0013840000000300279
+            ],
+            [
+              0.041726999999923464,
+              0.035547000000065054,
+              0.020625999999992928,
+              0.019756000000029417,
+              0.05547199999989516,
+              0.011138999999957377,
+              0.018753000000060638,
+              0.01692600000001221,
+              0.013342000000079679,
+              0.016093999999952757,
+              0.013184000000023843,
+              0.009679000000005544,
+              0.014080999999919186,
+              0.014589999999998327,
+              0.026658999999995103,
+              0.022105000000010477,
+              0.03470099999992726,
+              0.01803199999994831,
+              0.012692000000015469,
+              0.010090000000104737,
+              0.008689000000003944,
+              0.007840999999984888,
+              0.008322999999904823,
+              0.008736999999996442,
+              0.006989000000089618,
+              0.013753999999948974,
+              0.015398000000004686
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            }
+          ]
+        },
+        {
+          "pair": 2,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.037297000000080516,
+              0.028104999999982283,
+              0.048955999999975575,
+              0.1230160000000069,
+              0.09653800000000956,
+              0.02359799999999268,
+              0.03819799999996576,
+              0.032315999999923406,
+              0.3264169999999922,
+              0.02521200000001045,
+              0.0173219999999219,
+              0.013375000000110049,
+              0.018432999999959065,
+              0.013532999999938511,
+              0.014713000000028842,
+              0.010448999999994157,
+              0.006957000000056723,
+              0.020819000000074084,
+              0.01831399999991845,
+              0.01268599999991693,
+              0.019105999999965206,
+              0.009126000000037493,
+              0.008728000000019165,
+              0.007905999999934465,
+              0.00592400000005,
+              0.016317999999955646,
+              0.010715000000004693,
+              0.008885999999961314,
+              0.010983000000010179,
+              0.008878999999978987
+            ],
+            [
+              0.0058070000000043365,
+              0.0028739999999061183,
+              0.007314999999948668,
+              0.0035609999999905995,
+              0.005646000000069762,
+              0.00710700000001907,
+              0.004478000000062821,
+              0.003412000000025728,
+              0.002259000000094602,
+              0.0029369999999744323,
+              0.0013179999999692882,
+              0.002693000000022039,
+              0.001538999999979751,
+              0.001890000000003056,
+              0.0017930000000205837,
+              0.0010939999999663996,
+              0.0029759999999896536,
+              0.00271799999995892,
+              0.003387999999972635,
+              0.002802000000087901,
+              0.003941999999938162,
+              0.00130500000000211,
+              0.002793999999994412,
+              0.0022799999999278953,
+              0.003095000000030268,
+              0.003169999999954598,
+              0.0011140000000295913,
+              0.0022660000000769287,
+              0.003834999999980937,
+              0.0031600000000935324,
+              0.002658999999994194,
+              0.0027959999999893625,
+              0.0016249999999899956,
+              0.0011339999999790962,
+              0.0025689999999940483
+            ],
+            [
+              0.03713100000004488,
+              0.0253779999999324,
+              0.04835800000000745,
+              0.033912999999984095,
+              0.022597000000018852,
+              0.0238409999999476,
+              0.02334799999994175,
+              0.024541999999996733,
+              0.022229000000038468,
+              0.067354000000023,
+              0.020148999999946682,
+              0.011221999999975196,
+              0.021608000000014727,
+              0.0233019999999442,
+              0.008334000000104425,
+              0.00843099999997321,
+              0.00755099999992126,
+              0.007698000000004868,
+              0.5975519999999506,
+              0.013323000000013963,
+              0.013026999999965483,
+              0.0090979999999945,
+              0.014197000000081061,
+              0.007871000000022832,
+              0.00634900000000016,
+              0.015874999999937245,
+              0.01440900000000056,
+              0.016622999999981403,
+              0.02361899999993966,
+              0.01730899999995472,
+              0.01761599999997543,
+              0.006340000000022883,
+              0.012214999999969223,
+              0.025789000000031592,
+              0.016537999999968633,
+              0.007029999999986103
+            ],
+            [
+              0.016000999999960186,
+              0.004871999999977561,
+              0.0033370000001013977,
+              0.006615000000010696,
+              0.010339000000044507,
+              0.004585000000020045,
+              0.004509999999982028,
+              0.00837899999999081,
+              0.0043020000000524306,
+              0.006709999999998217,
+              0.006165000000009968,
+              0.0019260000000258515,
+              0.0040559999999914,
+              0.0028829999999970823,
+              0.001458999999954358,
+              0.002452000000062071,
+              0.0014149999999517604,
+              0.0013880000000199288,
+              0.0028169999999363426,
+              0.002735000000029686,
+              0.001999000000068918,
+              0.0020610000000260698,
+              0.001015999999935957,
+              0.004535000000032596,
+              0.0017859999999245701,
+              0.001540000000090913,
+              0.0013219999999591892,
+              0.000941000000011627,
+              0.004412999999999556,
+              0.003543000000036045,
+              0.002062000000023545,
+              0.0014409999999998035,
+              0.0014039999999795327,
+              0.00245499999994081,
+              0.0018590000000813234,
+              0.0033700000000180808,
+              0.001040999999986525
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null
+          ]
+        },
+        {
+          "pair": 2,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.0021570000000110667,
+              0.002982000000088192,
+              0.001439000000004853,
+              0.002897999999959211,
+              0.0015230000000201471,
+              0.0011549999999260763,
+              0.0013000000000147338,
+              0.005542999999988751,
+              0.0023350000000164073,
+              0.0013109999999869615,
+              0.002836000000002059,
+              0.0020650000000159707,
+              0.0014959999999746287,
+              0.0016880000000583095,
+              0.001196000000049935,
+              0.004838000000063403,
+              0.001163000000019565,
+              0.0032599999999547435,
+              0.0024570000000494474,
+              0.0033589999999321662,
+              0.0018720000000485015,
+              0.0024950000000671935,
+              0.0011379999999689971,
+              0.0023660000000518266,
+              0.003969999999981155,
+              0.0044400000000450746,
+              0.004424999999969259,
+              0.0033139999999320935,
+              0.0021390000000565124
+            ],
+            [
+              0.026840999999990345,
+              0.011068999999906737,
+              0.01756199999999808,
+              0.014317000000005464,
+              0.011882999999897947,
+              0.010747000000037588,
+              0.04648900000006506,
+              0.008242000000109329,
+              0.006714999999985594,
+              0.013129999999932807,
+              0.00965900000005604,
+              0.03934199999991961,
+              0.016411000000061904,
+              0.023496000000022832,
+              0.021428000000014435,
+              0.011532999999985805,
+              0.008053000000018073,
+              0.015127000000006774,
+              0.010915999999951964,
+              0.009251999999946747,
+              0.010505000000080145,
+              0.016661999999996624,
+              0.005981000000019776,
+              0.020963999999935368
+            ],
+            [
+              0.004496000000017375,
+              0.0019459999999753563,
+              0.003499999999917236,
+              0.0024939999999560314,
+              0.002108000000021093,
+              0.0014360000000124273,
+              0.0014690000000427972,
+              0.0013710000000628497,
+              0.001192000000060034,
+              0.005692999999951098,
+              0.003921999999988657,
+              0.0020549999999275315,
+              0.0013090000001056978,
+              0.0027170000000751315,
+              0.002587999999946078,
+              0.002445999999963533,
+              0.005457999999975982,
+              0.004417999999986932,
+              0.0014519999999720312,
+              0.001928000000020802,
+              0.00322500000004311,
+              0.0014179999999441861,
+              0.0008890000000292275,
+              0.001828000000045904,
+              0.0018129999999700885,
+              0.0014170000000603977,
+              0.0022639999999682914,
+              0.003453999999919688,
+              0.0038339999999834617,
+              0.0020130000000335713,
+              0.0037859999999909633,
+              0.0022450000000162618
+            ],
+            [
+              0.021088999999960834,
+              0.023463999999989937,
+              0.07267300000000887,
+              0.04668600000002243,
+              0.011649000000033993,
+              0.006462999999939711,
+              0.015334000000052583,
+              0.012195000000019718,
+              0.011173999999982698,
+              0.008034999999949832,
+              0.0076219999999693755,
+              0.006843000000003485,
+              0.021238000000039392,
+              0.00874999999996362,
+              0.016394999999988613,
+              0.015523000000030152,
+              0.013923999999974512,
+              0.009180000000014843,
+              0.008406000000036329,
+              0.007724000000052911,
+              0.007682999999929052,
+              0.014336999999954969,
+              0.02616699999998673
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            }
+          ]
+        },
+        {
+          "pair": 3,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.014764999999897555,
+              0.03472199999998793,
+              0.00398300000006202,
+              0.02506499999992684,
+              0.017469000000005508,
+              0.013720000000034815,
+              0.03753300000005311,
+              0.012978999999972984,
+              0.04041899999992893,
+              0.013637000000016997,
+              0.007665999999971973,
+              0.016480000000001382,
+              0.012852999999950043,
+              0.011472000000026128,
+              0.011790000000019063,
+              0.048763000000008105,
+              3.8195429999999533,
+              1.988554000000022,
+              2.451053999999999,
+              3.1925089999999727,
+              3.0053210000000945,
+              5.668047999999999,
+              4.25903500000004,
+              3.068072000000029,
+              5.710435999999959,
+              4.092689999999948,
+              0.6981060000000525,
+              2.270538999999985,
+              0.32084100000008675,
+              0.17248700000004646,
+              0.16334199999994325
+            ],
+            [
+              0.0013460000000122818,
+              0.0016640000000052169,
+              0.0012940000000298824,
+              0.0011700000000018917,
+              0.0012299999999640931,
+              0.000994999999988977,
+              0.001330000000052678,
+              0.002353999999968437,
+              0.001552000000060616,
+              0.0010690000000295186,
+              0.001234000000067681,
+              0.001053999999953703,
+              0.0009669999999459833,
+              0.0008890000000292275,
+              0.000873999999953412,
+              0.001435000000014952,
+              0.0013400000000274304
+            ],
+            [
+              0.030418999999938023,
+              0.027133999999932712,
+              0.014540000000010878,
+              0.013960999999994783,
+              0.0411700000000792,
+              0.0075679999999920256,
+              0.005583999999998923,
+              0.019103999999970256,
+              0.0143039999999246,
+              0.009263000000032662,
+              0.01851699999997436,
+              0.014756000000033964,
+              0.011047999999959757,
+              0.014886999999930595,
+              0.013446000000044478,
+              0.008165000000076361,
+              0.013929999999959364,
+              0.014807000000018888,
+              0.0700410000000602,
+              0.061585999999920205,
+              0.013691999999991822,
+              2.096349000000032,
+              4.866571000000022,
+              4.379948000000013,
+              3.2069609999999784,
+              3.246016000000054,
+              3.1861730000000534,
+              1.1331239999999525,
+              0.6939570000000685,
+              0.3794030000000248,
+              0.35140000000001237,
+              0.3371779999999944,
+              0.18496000000004642,
+              0.16324899999995068,
+              0.18241900000009537,
+              0.11083700000006047
+            ],
+            [
+              0.006601999999929831,
+              0.004863999999997759,
+              0.0028029999999716892,
+              0.0025960000000395667,
+              0.002476000000001477,
+              0.002112000000010994,
+              0.004526000000055319,
+              0.0022979999999961365,
+              0.0026359999999385764,
+              0.0017719999999599167,
+              0.0027119999999740685,
+              0.002869000000032429,
+              0.0013139999999793872,
+              0.0010200000000395448,
+              0.0010230000000319706,
+              0.0012759999999616412,
+              0.003240999999889027,
+              0.001682000000073458,
+              0.001180000000090331,
+              0.0012980000000197833,
+              0.0011240000000043437,
+              0.0009770000000344226,
+              0.0051970000000665095,
+              0.004635000000007494,
+              0.003992999999923086
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 15,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 5,
+              "timedOut": 10,
+              "unusable": 0,
+              "nodes": 5436,
+              "ms": 39.40653500000042
+            },
+            null,
+            {
+              "calls": 15,
+              "used": 9,
+              "wins": 9,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 6,
+              "unusable": 0,
+              "nodes": 3520,
+              "ms": 22.74853800000028
+            },
+            null
+          ]
+        },
+        {
+          "pair": 3,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.00225799999998344,
+              0.0011969999999337233,
+              0.002169999999978245,
+              0.001011999999946056,
+              0.0038419999999632637,
+              0.0015530000000580912,
+              0.001142000000072585,
+              0.006805999999983214,
+              0.006306999999992513,
+              0.003265999999939595,
+              0.005319999999983338,
+              0.0049960000000055516,
+              0.004665000000045438,
+              0.00438900000006015,
+              0.004933000000050924,
+              0.0030550000000175714,
+              0.00215000000002874,
+              0.005254999999920074,
+              0.002728000000047359,
+              0.0021510000000262153,
+              0.0025660000000016225,
+              0.0017709999999624415,
+              0.001404999999977008
+            ],
+            [
+              0.018882000000076005,
+              0.04931999999996606,
+              0.0031550000001061562,
+              0.011392000000000735,
+              0.009043999999903463,
+              0.0055059999999684806,
+              0.015605000000050495,
+              0.06938800000000356,
+              0.020168000000012398,
+              0.0145270000000437,
+              0.015737000000058288,
+              0.013544000000024425,
+              0.012886999999977888,
+              0.013833000000090578,
+              0.013247999999975946,
+              0.02644400000008318,
+              0.007979999999975007,
+              0.03609700000004068,
+              0.011557000000038897,
+              0.009447000000022854,
+              0.00573199999996632,
+              0.15947200000005068,
+              0.11807199999998375
+            ],
+            [
+              0.008564999999975953,
+              0.004962999999975182,
+              0.0028029999999716892,
+              0.001924000000030901,
+              0.003977999999960957,
+              0.0016339999999672727,
+              0.001421999999934087,
+              0.0027949999999918873,
+              0.0013219999999591892,
+              0.0029120000000375512,
+              0.0033819999999877837,
+              0.005423000000064349,
+              0.002537999999958629,
+              0.003700999999978194,
+              0.004017999999973654,
+              0.002957000000037624,
+              0.002062000000023545,
+              0.006313000000091051,
+              0.00317100000006576,
+              0.004670999999916603,
+              0.00275099999998929,
+              0.0023660000000518266,
+              0.0027589999999690917,
+              0.0021810000000641594,
+              0.0019549999999526335,
+              0.0012729999999692154,
+              0.0026670000000876826
+            ],
+            [
+              0.03503200000000106,
+              0.02754699999991317,
+              0.019395999999915148,
+              0.024066999999945438,
+              0.013811000000032436,
+              0.013342000000079679,
+              0.016091999999957807,
+              0.011746000000016465,
+              0.00854299999991781,
+              0.005829999999946267,
+              0.007412000000044827,
+              0.005758000000014363,
+              0.014096999999992477,
+              0.012910000000033506,
+              0.011863999999945918,
+              0.023661000000060994,
+              0.019658999999933258,
+              0.01635399999997844,
+              0.017038000000070497,
+              0.030679999999961183,
+              0.016799999999989268,
+              0.033171000000038475
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 2,
+              "used": 2,
+              "wins": 0,
+              "draws": 2,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 10,
+              "ms": 0.17687499999988177
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            }
+          ]
+        },
+        {
+          "pair": 4,
+          "direction": 0,
+          "decisionMsBySeat": [
+            [
+              0.014065000000073269,
+              0.0066429999999400025,
+              0.017618999999967855,
+              0.08376500000008491,
+              0.022540999999932865,
+              0.06807800000001407,
+              0.048373000000083266,
+              0.006096999999954278,
+              0.029836999999929503,
+              0.004641999999989821,
+              0.024136999999996078,
+              0.009786999999960244,
+              0.011626999999975851,
+              0.004959999999982756,
+              0.003483999999957632,
+              0.005226999999990767,
+              0.01319300000000112,
+              0.008611999999970976,
+              0.0054810000000315995,
+              0.08768899999995483,
+              0.018636999999898762,
+              0.01819799999998395
+            ],
+            [
+              0.004439999999931388,
+              0.0015059999999493812,
+              0.0013040000000046348,
+              0.0022030000000086147,
+              0.001159000000029664,
+              0.002659999999991669,
+              0.0018420000000105574,
+              0.0038749999999936335,
+              0.0037869999999884385,
+              0.005620000000021719,
+              0.0022930000000087603,
+              0.0012829999999439679,
+              0.006859999999960564,
+              0.0020600000000285945,
+              0.0015210000000251966,
+              0.0023059999999759384,
+              0.0016750000000911314,
+              0.0021280000000842847,
+              0.007026999999993677,
+              0.0036999999999807187,
+              0.0018249999999397915,
+              0.0014190000000553482,
+              0.004269000000022061,
+              0.0030349999999543797,
+              0.0021110000000135187,
+              0.0014619999999467836,
+              0.0010889999999790234,
+              0.0026990000000068903,
+              0.00550199999997858,
+              0.004935999999929663,
+              0.003941000000054373,
+              0.002066000000013446,
+              0.00164299999994455,
+              0.00107500000001437,
+              0.0018919999999980064,
+              0.0012000000000398359,
+              0.000979000000029373,
+              0.0010090000000673172,
+              0.001694000000043161,
+              0.0013109999999869615,
+              0.002253999999993539,
+              0.0037290000000211876,
+              0.0018830000000207292
+            ],
+            [
+              0.023646999999982654,
+              0.014856000000008862,
+              0.01668100000006234,
+              0.011354999999980464,
+              0.02244400000006408,
+              0.039095999999972264,
+              0.007106000000021595,
+              0.014400999999907071,
+              0.011256000000003041,
+              0.010505999999963933,
+              0.016452000000072076,
+              0.04039799999998195,
+              0.030548999999950865,
+              0.0076719999999568245,
+              0.007806000000073254,
+              0.004334000000085325,
+              0.003287000000000262,
+              0.003341999999975087,
+              0.016391999999996187,
+              0.011861000000067179,
+              0.007800000000088403,
+              0.006582999999977801,
+              0.006215999999994892,
+              0.023192999999992026,
+              0.005170000000020991,
+              0.018799000000058186,
+              0.012520999999992455,
+              0.01740000000006603,
+              0.019731999999976324,
+              0.00463799999999992,
+              0.00943999999992684,
+              0.01851400000009562,
+              0.012641000000030544,
+              0.013620000000059918,
+              0.004293999999958942,
+              0.00500400000009904,
+              0.009701999999947475,
+              0.0034650000000056025
+            ],
+            [
+              0.0014829999998937637,
+              0.000941000000011627,
+              0.0013040000000046348,
+              0.0035240000000840155,
+              0.0015359999999873253,
+              0.003298999999969965,
+              0.002104000000031192,
+              0.0024480000000721702,
+              0.00253500000007989,
+              0.0018029999999953361,
+              0.0019180000000460495,
+              0.002979000000095766,
+              0.0031440000000202417,
+              0.0020919999999478023,
+              0.0016590000000178406,
+              0.0030639999999948486,
+              0.001380000000040127,
+              0.0031690000000708096,
+              0.0009890000000041255,
+              0.005332999999950516,
+              0.0017040000000179134,
+              0.0010260000000243963,
+              0.0019499999999652573,
+              0.003955000000019027,
+              0.002220999999963169,
+              0.004031000000054519,
+              0.004785999999967316,
+              0.0010700000000269938,
+              0.0028829999999970823,
+              0.0033779999999978827,
+              0.0020110000000386208,
+              0.00215000000002874,
+              0.0012570000000096115,
+              0.0028039999999691645,
+              0.002510000000029322,
+              0.001341999999908694,
+              0.0010399999999890497,
+              0.0016019999999343781,
+              0.002602000000024418
+            ]
+          ],
+          "solverBySeat": [
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            },
+            null
+          ]
+        },
+        {
+          "pair": 4,
+          "direction": 1,
+          "decisionMsBySeat": [
+            [
+              0.0020140000000310465,
+              0.00112899999999172,
+              0.004270000000019536,
+              0.0037839999999960128,
+              0.004397000000039952,
+              0.004818999999997686,
+              0.003483999999957632,
+              0.002731000000039785,
+              0.0013880000000199288,
+              0.0012990000000172586,
+              0.001996000000076492,
+              0.0008840000000418513,
+              0.005642999999963649,
+              0.0015879999999697247,
+              0.0018610000000762739,
+              0.0009860000000116997,
+              0.002976999999987129,
+              0.0011070000000472646,
+              0.0026760000000649597,
+              0.002417000000036751,
+              0.0042140000000472355,
+              0.0033519999999498395,
+              0.002191000000038912
+            ],
+            [
+              0.019735999999966225,
+              0.009413999999992484,
+              0.0071659999999837964,
+              0.009482999999931963,
+              0.006622999999990498,
+              0.022500999999920168,
+              0.012863999999922271,
+              0.0291180000000395,
+              0.026838999999995394,
+              0.02879900000004909,
+              0.021931999999992513,
+              0.015038000000004104,
+              0.01254299999993691,
+              0.004405000000019754,
+              0.01511599999992086,
+              0.004356999999913569,
+              0.025954999999953543,
+              0.039392000000020744,
+              0.027748999999971602,
+              0.0029050000000552245,
+              1.4489059999999654,
+              1.3643050000000585,
+              0.2686069999999745,
+              0.17081599999994523,
+              0.041067999999995664
+            ],
+            [
+              0.004401999999913642,
+              0.0026079999998955827,
+              0.0015029999999569554,
+              0.0015300000000024738,
+              0.005192999999962922,
+              0.005244000000061533,
+              0.0025699999999915235,
+              0.0047569999999268475,
+              0.0025570000000243454,
+              0.0028550000000677755,
+              0.0024449999999660577,
+              0.0029550000000426735,
+              0.002463000000034299,
+              0.0012980000000197833,
+              0.004585999999903834,
+              0.001090999999973974,
+              0.003501000000028398,
+              0.0017529999998942003,
+              0.0029039999999440624,
+              0.0020440000000689906,
+              0.002182999999945423,
+              0.0015409999999747015
+            ],
+            [
+              0.011716999999975997,
+              0.005470000000059372,
+              0.0066100000000233194,
+              0.012944000000061351,
+              0.013948000000027605,
+              0.021297000000004118,
+              0.020257999999898857,
+              0.015997000000083972,
+              0.016011999999932414,
+              0.013088000000038846,
+              0.010943999999994958,
+              0.013916999999992186,
+              0.016785999999910928,
+              0.019135000000005675
+            ]
+          ],
+          "solverBySeat": [
+            null,
+            {
+              "calls": 5,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 5,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 759,
+              "ms": 2.9058619999999564
+            },
+            null,
+            {
+              "calls": 0,
+              "used": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "timedOut": 0,
+              "unusable": 0,
+              "nodes": 0,
+              "ms": 0
+            }
+          ]
+        }
+      ],
+      "latencyBySide": {
+        "A": {
+          "decisions": 533,
+          "meanMs": 0.1511787992495312,
+          "p50Ms": 0.01692600000001221,
+          "p95Ms": 0.3264169999999922,
+          "p99Ms": 4.092689999999948,
+          "maxMs": 5.710435999999959,
+          "over2000Ms": 0,
+          "solver": {
+            "calls": 40,
+            "used": 11,
+            "wins": 9,
+            "draws": 2,
+            "losses": 13,
+            "timedOut": 16,
+            "unusable": 0,
+            "nodes": 9771,
+            "ms": 65.56913000000065
+          }
+        },
+        "B": {
+          "decisions": 634,
+          "meanMs": 0.006262906940063463,
+          "p50Ms": 0.0027380000000221116,
+          "p95Ms": 0.006615000000010696,
+          "p99Ms": 0.009865999999988162,
+          "maxMs": 1.8604609999999866,
+          "over2000Ms": 0,
+          "solver": {}
+        }
+      }
+    }
+  ],
+  "technicalAccepted": true,
+  "releaseDecision": "deferred; baseline and #70 unchanged; no strength claim"
+}
