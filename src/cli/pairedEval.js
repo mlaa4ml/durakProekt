@@ -175,7 +175,9 @@ export function runPairedConfig(o) {
         const res = playOneGame(levels, deckSize, players, false, {
                     rng, throwInPolicy, seatOptions, seatBrainFactories, maxSteps,
           recordInitialDeal: true, // нужен отпечаток раздачи для проверки парности
+          recordDecisionTiming: true, // задержки решений + solverStats по местам (#71)
         });
+        accumulateTiming(latAcc, res.timing, direction);
         const ms = Date.now() - startedAt;
         totalMs += ms;
         if (ms > maxMsGame) maxMsGame = ms;
