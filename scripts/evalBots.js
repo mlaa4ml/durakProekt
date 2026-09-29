@@ -457,6 +457,32 @@ function pairedMarkdown(rows) {
       String(r.dealMismatch),
     ].join(' | ')} |`);
   }
+
+  // Задержки и бюджет решателя — ОТДЕЛЬНАЯ таблица (issue #72 этап 7, пункт «отдельно —
+  // задержки/таймауты из #71»). Это измерение CLI-прогона, а НЕ SLA браузера/worker из #71.
+  const lat = ['конфигурация', 'решений', 'сред. мс/решение', 'макс. мс/решение',
+    'вызовов решателя', 'таймаутов решателя', '% таймаутов', 'узлов решателя',
+    'таймаутов A', 'таймаутов B'];
+  lines.push('');
+  lines.push('Задержки решений и бюджет решателя (отдельно от исходов; не SLA клиента #71):');
+  lines.push('');
+  lines.push(`| ${lat.join(' | ')} |`);
+  lines.push(`|${lat.map(() => '---').join('|')}|`);
+  for (const r of rows) {
+    const l = r.latency || {};
+    lines.push(`| ${[
+      `${r.players}×${r.deckSize} ${r.throwInPolicy}`,
+      String(l.decisions ?? '—'),
+      String(l.avgDecisionMs ?? '—'),
+      String(l.maxDecisionMs ?? '—'),
+      String(l.solverCalls ?? '—'),
+      String(l.solverTimedOut ?? '—'),
+      l.solverTimeoutPct == null ? '—' : `${l.solverTimeoutPct.toFixed(2)} %`,
+      String(l.solverNodes ?? '—'),
+      String(l.sideA?.solverTimedOut ?? '—'),
+      String(l.sideB?.solverTimedOut ?? '—'),
+    ].join(' | ')} |`);
+  }
   return lines.join('\n');
 }
 
