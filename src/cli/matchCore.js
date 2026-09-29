@@ -121,6 +121,15 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
     })),
   }) : null;
   const trace = [];
+
+  // Задержки принятия решений и таймауты решателя (issue #72 этап 7, пункт «отдельно —
+  // задержки/таймауты из #71»). Opt-in: по умолчанию НЕ собирается, чтобы результат
+  // playOneGame побайтово совпадал с дорефакторинговым эталоном этапа 6.
+  // Это измерение обвязки, а не SLA браузера/worker из #71: там свой бюджет и своя среда.
+  const timing = options.recordDecisionTiming
+    ? players.map((p, i) => ({ seat: i, playerId: p.id, level: levels[i], samples: [] }))
+    : null;
+
   let safety = 0;
   while (game.phase !== 'finished' && safety < maxSteps) {
     safety++;
@@ -132,7 +141,9 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
       const state = game.getState(p.id);
       const brain = brains.get(p.id);
       brain.observe(state, p.id);
+      const decidedAt = timing ? performanceNow() : 0;
       const decision = brain.decide(state, p.id, legal) || {};
+      if (timing) timing[game.players.indexOf(p)].samples.push(performanceNow() - decidedAt);
       const action = decision.action;
       if (!action) continue;
       if (decision.decisionTrace) decision.decisionTrace.actionId = safety;
