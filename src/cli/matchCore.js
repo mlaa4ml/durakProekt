@@ -98,7 +98,9 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
   // обязаны стартовать с одинаковых рук и одинакового козыря — меняются только стороны.
   // Это отпечаток раздачи, а не канал утечки: он не передаётся ботам и возвращается
   // только вызвавшему инструменту.
-  const initialDeal = {
+    // Opt-in: по умолчанию НЕ собирается, чтобы результат playOneGame побайтово совпадал
+  // с дорефакторинговым эталоном bench/issue72-equivalence.json (проверка этапа 6).
+  const initialDeal = !options.recordInitialDeal ? null : {
     trumpSuit: game.trumpSuit,
     trumpCard: game.trumpCard ? cardToString(game.trumpCard) : null,
     talonCount: game.talon.length,
