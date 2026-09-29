@@ -607,6 +607,12 @@ async function main() {
     return;
   }
 
+  // Парная калибровка этапа 7 — тот же игровой цикл, другая схема выборки и статистики.
+  if (opts.paired) {
+    await runPaired(opts);
+    return;
+  }
+
   const levelA = normalizeBotLevel(opts.a);
   const levelB = normalizeBotLevel(opts.b);
   for (const [raw, norm] of [[opts.a, levelA], [opts.b, levelB]]) {
