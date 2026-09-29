@@ -17,7 +17,7 @@
   "versions": {
     "new": {
       "root": "/workspaces/durakProekt",
-      "commit": "90d0b4d780f5ea91dded02101f4bf388c889ceb0"
+      "commit": "15ab0c937e9b72edc98ef723a44e8289c448056b"
     },
     "old": null
   },
@@ -36,6 +36,24 @@
     "draws": 3,
     "dealMismatch": 0,
     "unfinished": 0
+  },
+  "latencyTotals": {
+    "decisions": 2444,
+    "totalDecisionMs": 377.029,
+    "maxDecisionMs": 26.455,
+    "solverCalls": 169,
+    "solverUsed": 85,
+    "solverUnusable": 0,
+    "solverTimedOut": 31,
+    "solverNodes": 23500,
+    "solverMs": 312.242,
+    "avgDecisionMs": 0.154,
+    "solverTimeoutPct": 18.34,
+    "budget": {
+      "maxNodes": 500,
+      "maxMs": 9007199254740991
+    },
+    "note": "Задержки и таймауты бюджета решателя измерены в CLI-прогоне и не являются SLA браузера/worker из #71."
   },
   "configs": [
     {
@@ -60,8 +78,38 @@
       "pairsUsed": 5,
       "durakPctOfPlanned": 40,
       "avgSteps": 48.4,
-      "avgMs": 45,
-      "maxMs": 91,
+      "avgMs": 34,
+      "maxMs": 76,
+      "latency": {
+        "decisions": 484,
+        "avgDecisionMs": 0.474,
+        "maxDecisionMs": 26.455,
+        "totalDecisionMs": 229.524,
+        "solverCalls": 74,
+        "solverUsed": 41,
+        "solverUnusable": 0,
+        "solverTimedOut": 12,
+        "solverTimeoutPct": 16.22,
+        "solverNodes": 10236,
+        "solverMs": 199.8,
+        "avgSolverMsPerCall": 2.7,
+        "sideA": {
+          "decisions": 243,
+          "avgMs": 0.938,
+          "maxMs": 26.455,
+          "solverCalls": 74,
+          "solverTimedOut": 12,
+          "solverTimeoutPct": 16.22
+        },
+        "sideB": {
+          "decisions": 241,
+          "avgMs": 0.006,
+          "maxMs": 0.125,
+          "solverCalls": 0,
+          "solverTimedOut": 0,
+          "solverTimeoutPct": null
+        }
+      },
       "problems": [],
       "clusters": [
         {
@@ -74,13 +122,13 @@
               "direction": 0,
               "outcome": "durakB",
               "steps": 52,
-              "ms": 74
+              "ms": 27
             },
             {
               "direction": 1,
               "outcome": "durakA",
               "steps": 42,
-              "ms": 15
+              "ms": 10
             }
           ],
           "fingerprint": "6♣#24#0:7♣,10♥,8♠,9♣,A♦,10♠|1:J♠,Q♦,A♠,10♣,K♥,9♥"
@@ -95,13 +143,13 @@
               "direction": 0,
               "outcome": "durakB",
               "steps": 42,
-              "ms": 27
+              "ms": 21
             },
             {
               "direction": 1,
               "outcome": "durakA",
               "steps": 54,
-              "ms": 39
+              "ms": 36
             }
           ],
           "fingerprint": "9♥#24#0:7♥,J♣,6♦,9♣,7♣,J♦|1:K♥,7♦,9♠,9♦,Q♣,6♥"
@@ -116,13 +164,13 @@
               "direction": 0,
               "outcome": "durakA",
               "steps": 40,
-              "ms": 16
+              "ms": 8
             },
             {
               "direction": 1,
               "outcome": "durakB",
               "steps": 52,
-              "ms": 91
+              "ms": 76
             }
           ],
           "fingerprint": "A♠#24#0:9♣,6♦,7♠,A♣,A♦,6♥|1:6♠,J♦,9♥,6♣,J♠,10♠"
@@ -137,13 +185,13 @@
               "direction": 0,
               "outcome": "durakB",
               "steps": 57,
-              "ms": 78
+              "ms": 61
             },
             {
               "direction": 1,
               "outcome": "durakB",
               "steps": 51,
-              "ms": 38
+              "ms": 27
             }
           ],
           "fingerprint": "J♥#24#0:Q♥,6♥,10♥,6♣,J♦,7♣|1:7♦,9♦,A♥,10♦,9♥,8♥"
@@ -158,13 +206,13 @@
               "direction": 0,
               "outcome": "durakA",
               "steps": 49,
-              "ms": 49
+              "ms": 43
             },
             {
               "direction": 1,
               "outcome": "durakB",
               "steps": 45,
-              "ms": 23
+              "ms": 31
             }
           ],
           "fingerprint": "7♥#24#0:J♣,10♠,K♥,J♥,J♦,9♥|1:A♦,7♦,Q♦,10♣,6♦,K♣"
@@ -193,8 +241,38 @@
       "pairsUsed": 5,
       "durakPctOfPlanned": 40,
       "avgSteps": 79.3,
-      "avgMs": 19,
-      "maxMs": 45,
+      "avgMs": 17.4,
+      "maxMs": 38,
+      "latency": {
+        "decisions": 793,
+        "avgDecisionMs": 0.066,
+        "maxDecisionMs": 8.131,
+        "totalDecisionMs": 52.603,
+        "solverCalls": 55,
+        "solverUsed": 33,
+        "solverUnusable": 0,
+        "solverTimedOut": 3,
+        "solverTimeoutPct": 5.45,
+        "solverNodes": 3493,
+        "solverMs": 35.652,
+        "avgSolverMsPerCall": 0.648,
+        "sideA": {
+          "decisions": 380,
+          "avgMs": 0.134,
+          "maxMs": 8.131,
+          "solverCalls": 55,
+          "solverTimedOut": 3,
+          "solverTimeoutPct": 5.45
+        },
+        "sideB": {
+          "decisions": 413,
+          "avgMs": 0.004,
+          "maxMs": 0.046,
+          "solverCalls": 0,
+          "solverTimedOut": 0,
+          "solverTimeoutPct": null
+        }
+      },
       "problems": [],
       "clusters": [
         {
@@ -207,13 +285,13 @@
               "direction": 0,
               "outcome": "durakA",
               "steps": 100,
-              "ms": 26
+              "ms": 27
             },
             {
               "direction": 1,
               "outcome": "durakB",
               "steps": 101,
-              "ms": 26
+              "ms": 23
             }
           ],
           "fingerprint": "J♠#18#0:6♣,10♠,K♥,10♣,K♠,8♣|1:8♠,10♥,9♥,8♦,9♠,7♠|2:K♦,K♣,8♥,9♣,6♥,Q♣"
@@ -228,13 +306,13 @@
               "direction": 0,
               "outcome": "durakA",
               "steps": 61,
-              "ms": 11
+              "ms": 13
             },
             {
               "direction": 1,
               "outcome": "durakB",
               "steps": 74,
-              "ms": 14
+              "ms": 12
             }
           ],
           "fingerprint": "K♣#18#0:A♦,Q♠,6♠,9♠,10♥,6♥|1:9♦,8♠,J♠,J♥,J♦,A♠|2:7♥,6♣,7♠,8♣,10♦,Q♣"
@@ -249,13 +327,13 @@
               "direction": 0,
               "outcome": "durakA",
               "steps": 84,
-              "ms": 22
+              "ms": 21
             },
             {
               "direction": 1,
               "outcome": "draw",
               "steps": 65,
-              "ms": 10
+              "ms": 9
             }
           ],
           "fingerprint": "Q♠#18#0:A♦,A♣,10♥,J♥,9♣,7♥|1:K♦,Q♥,9♠,6♦,J♦,K♥|2:Q♦,6♥,6♠,10♠,7♦,9♥"
@@ -270,13 +348,13 @@
               "direction": 0,
               "outcome": "durakB",
               "steps": 71,
-              "ms": 12
+              "ms": 11
             },
             {
               "direction": 1,
               "outcome": "durakA",
               "steps": 81,
-              "ms": 45
+              "ms": 38
             }
           ],
           "fingerprint": "6♠#18#0:J♣,A♣,10♦,Q♦,Q♥,8♥|1:7♦,9♥,10♥,K♠,10♠,A♦|2:6♣,K♣,7♣,K♦,9♦,A♠"
@@ -291,13 +369,13 @@
               "direction": 0,
               "outcome": "durakB",
               "steps": 69,
-              "ms": 14
+              "ms": 11
             },
             {
               "direction": 1,
               "outcome": "durakB",
               "steps": 87,
-              "ms": 10
+              "ms": 9
             }
           ],
           "fingerprint": "J♠#18#0:10♦,Q♥,7♣,6♦,7♦,A♦|1:9♣,K♥,Q♣,A♠,9♥,J♥|2:K♠,9♠,J♣,K♦,J♦,Q♦"
@@ -326,8 +404,38 @@
       "pairsUsed": 5,
       "durakPctOfPlanned": 30,
       "avgSteps": 116.7,
-      "avgMs": 32.4,
-      "maxMs": 107,
+      "avgMs": 28.9,
+      "maxMs": 92,
+      "latency": {
+        "decisions": 1167,
+        "avgDecisionMs": 0.081,
+        "maxDecisionMs": 10.637,
+        "totalDecisionMs": 94.902,
+        "solverCalls": 40,
+        "solverUsed": 11,
+        "solverUnusable": 0,
+        "solverTimedOut": 16,
+        "solverTimeoutPct": 40,
+        "solverNodes": 9771,
+        "solverMs": 76.79,
+        "avgSolverMsPerCall": 1.92,
+        "sideA": {
+          "decisions": 533,
+          "avgMs": 0.172,
+          "maxMs": 10.637,
+          "solverCalls": 40,
+          "solverTimedOut": 16,
+          "solverTimeoutPct": 40
+        },
+        "sideB": {
+          "decisions": 634,
+          "avgMs": 0.005,
+          "maxMs": 1.012,
+          "solverCalls": 0,
+          "solverTimedOut": 0,
+          "solverTimeoutPct": null
+        }
+      },
       "problems": [],
       "clusters": [
         {
@@ -346,7 +454,7 @@
               "direction": 1,
               "outcome": "draw",
               "steps": 105,
-              "ms": 18
+              "ms": 29
             }
           ],
           "fingerprint": "7♠#12#0:A♠,K♦,10♦,10♠,Q♥,6♥|1:6♣,9♥,A♣,Q♣,A♥,9♣|2:10♣,9♦,Q♠,Q♦,6♦,J♦|3:8♠,8♥,8♦,J♥,K♠,A♦"
@@ -361,13 +469,13 @@
               "direction": 0,
               "outcome": "durakA",
               "steps": 118,
-              "ms": 36
+              "ms": 47
             },
             {
               "direction": 1,
               "outcome": "durakB",
               "steps": 136,
-              "ms": 35
+              "ms": 24
             }
           ],
           "fingerprint": "7♥#12#0:9♣,J♣,K♠,8♣,A♦,6♣|1:J♦,8♥,8♠,6♠,10♦,K♥|2:6♥,K♣,6♦,A♣,Q♥,7♣|3:K♦,9♠,Q♠,10♠,9♦,Q♣"
@@ -382,13 +490,13 @@
               "direction": 0,
               "outcome": "durakB",
               "steps": 138,
-              "ms": 34
+              "ms": 18
             },
             {
               "direction": 1,
               "outcome": "durakB",
               "steps": 108,
-              "ms": 24
+              "ms": 13
             }
           ],
           "fingerprint": "Q♠#12#0:A♦,J♠,10♥,A♥,8♥,8♣|1:Q♦,K♦,9♦,6♦,7♥,10♠|2:Q♣,6♥,K♥,9♥,K♣,K♠|3:Q♥,9♠,10♦,J♣,9♣,6♠"
@@ -403,7 +511,7 @@
               "direction": 0,
               "outcome": "durakA",
               "steps": 109,
-              "ms": 107
+              "ms": 92
             },
             {
               "direction": 1,
@@ -424,13 +532,13 @@
               "direction": 0,
               "outcome": "durakB",
               "steps": 142,
-              "ms": 21
+              "ms": 19
             },
             {
               "direction": 1,
               "outcome": "durakA",
               "steps": 84,
-              "ms": 17
+              "ms": 15
             }
           ],
           "fingerprint": "A♣#12#0:6♥,8♠,K♣,Q♣,6♦,10♣|1:6♣,J♠,Q♠,Q♥,10♦,7♥|2:8♥,J♣,8♦,A♥,J♦,7♣|3:Q♦,9♣,A♠,7♠,9♥,9♦"
