@@ -19,6 +19,8 @@ import { DurakGame } from '../game.js';
 import { cardToString } from '../deck.js';
 import { createBotBrain, botLevelLabel, applyObservedAction } from '../bots/index.js';
 import { GameRecorder } from '../diagnostics/replay.js';
+import { isDeepStrictEqual } from 'node:util';
+import { performance } from 'node:perf_hooks';
 
 export const MAX_STEPS = 5000;
 
@@ -76,10 +78,24 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
     name: `p${i + 1} (${botLevelLabel(levels[i])})`,
   }));
   const game = new DurakGame(players, rules, rng);
+  // Privileged benchmark callback, never passed to a brain.
+  options.onInitialDeal?.(structuredClone({
+    rules: game.rules,
+    hands: game.players.map(p => p.hand),
+    deck: game.talon,
+    trumpCard: game.trumpCard,
+    attackerIndex: game.attackerIndex,
+  }));
+  const metrics = options.measure ? {
+    decisionMsBySeat: players.map(() => []),
+    solverBySeat: [],
+  } : null;
 
   const brains = new Map();
   players.forEach((p, i) => {
-        const brain = createBotBrain(levels[i], {
+            // Version factories vary by SIDE, not by level name (both may be "smart").
+    const factory = options.seatFactories?.[i] ?? createBotBrain;
+    const brain = factory(levels[i], {
       explain: collectTrace, trace: collectTrace || !!options.recordDiagnostic,
       ...(options.seatOptions && options.seatOptions[i]),
     });
@@ -108,8 +124,16 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
       const state = game.getState(p.id);
       const brain = brains.get(p.id);
       brain.observe(state, p.id);
+      const started = metrics ? performance.now() : 0;
       const decision = brain.decide(state, p.id, legal) || {};
+      if (metrics) metrics.decisionMsBySeat[players.findIndex(x => x.id === p.id)]
+        .push(performance.now() - started);
       const action = decision.action;
+      if (options.verifyLegal && (!action || !legal.some(a => isDeepStrictEqual(a, action)))) {
+        const error = new Error(`${p.id}: action outside legal list: ${JSON.stringify(action)}`);
+        error.code = 'ILLEGAL_ACTION';
+        throw error;
+      }
       if (!action) continue;
       if (decision.decisionTrace) decision.decisionTrace.actionId = safety;
       if (collectTrace) {
@@ -139,13 +163,22 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
     ? game.players.findIndex((p) => p.id === game.durak)
     : -1;
 
+  if (metrics) metrics.solverBySeat = players.map(p =>
+    structuredClone(brains.get(p.id).solverStats ?? null));
   return {
     durakSeat,
     steps: safety,
-    stuck: safety >= maxSteps,
+    // A deadlock before maxSteps is also unfinished; finishing on the last
+    // permitted step is not a hang.
+    stuck: game.phase !== 'finished',
     trace,
     log: game.log,
-        finishedOrder: game.finishedOrder,
+    finishedOrder: game.finishedOrder,
+    ...(options.measure ? {
+      finished: game.phase === 'finished',
+      drawReason: game.drawReason,
+      metrics,
+    } : {}),
     ...(recorder ? { diagnostic: recorder.exportArtifact({ protectedDiagnostic: true }) } : {}),
   };
 }
