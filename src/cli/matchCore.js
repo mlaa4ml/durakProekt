@@ -19,6 +19,8 @@ import { DurakGame } from '../game.js';
 import { cardToString } from '../deck.js';
 import { createBotBrain, botLevelLabel, applyObservedAction } from '../bots/index.js';
 import { GameRecorder } from '../diagnostics/replay.js';
+import { isDeepStrictEqual } from 'node:util';
+import { performance } from 'node:perf_hooks';
 
 export const MAX_STEPS = 5000;
 
