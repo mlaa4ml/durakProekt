@@ -79,7 +79,9 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
 
   const brains = new Map();
   players.forEach((p, i) => {
-        const brain = createBotBrain(levels[i], {
+            // Version factories vary by SIDE, not by level name (both may be "smart").
+    const factory = options.seatFactories?.[i] ?? createBotBrain;
+    const brain = factory(levels[i], {
       explain: collectTrace, trace: collectTrace || !!options.recordDiagnostic,
       ...(options.seatOptions && options.seatOptions[i]),
     });
