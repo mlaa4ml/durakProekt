@@ -22,6 +22,64 @@ import { GameRecorder } from '../diagnostics/replay.js';
 
 export const MAX_STEPS = 5000;
 
+// Монотонный таймер с суб-миллисекундным разрешением: обычный Date.now() слишком груб
+// для одного решения бота (типичное решение — доли миллисекунды).
+const performanceNow = (typeof performance === 'object' && typeof performance.now === 'function')
+  ? () => performance.now()
+  : () => Number(process.hrtime.bigint()) / 1e6;
+
+function round3(x) {
+  return Math.round(x * 1000) / 1000;
+}
+
+/** Сводка задержек по местам + агрегат таймаутов решателя (issue #72, этап 7 / #71). */
+function summarizeTiming(timing, brains) {
+  if (!timing) return null;
+  let decisions = 0;
+  let totalMs = 0;
+  let maxMs = 0;
+  const seats = timing.map((t) => {
+    const n = t.samples.length;
+    const sum = t.samples.reduce((a, b) => a + b, 0);
+    const mx = n ? Math.max(...t.samples) : 0;
+    const sorted = [...t.samples].sort((a, b) => a - b);
+    decisions += n;
+    totalMs += sum;
+    if (mx > maxMs) maxMs = mx;
+    const brain = brains.get(t.playerId);
+    // Таймауты решателя — не wall-clock прогонщика, а счётчик исчерпанного бюджета
+    // (maxNodes/maxMs) самого бота: solverStats.timedOut. У simpleBot решателя нет.
+    const s = brain && brain.solverStats ? brain.solverStats : null;
+    return {
+      seat: t.seat,
+      playerId: t.playerId,
+      level: t.level,
+      decisions: n,
+      avgMs: n ? round3(sum / n) : null,
+      maxMs: round3(mx),
+      p95Ms: n ? round3(sorted[Math.min(n - 1, Math.floor(0.95 * n))]) : null,
+      totalMs: round3(sum),
+      solver: s ? {
+        calls: s.calls, used: s.used, timedOut: s.timedOut, unusable: s.unusable,
+        wins: s.wins, draws: s.draws, losses: s.losses,
+        nodes: s.nodes, ms: round3(s.ms),
+      } : null,
+    };
+  });
+  const solverTimedOut = seats.reduce((a, s) => a + (s.solver ? s.solver.timedOut : 0), 0);
+  const solverCalls = seats.reduce((a, s) => a + (s.solver ? s.solver.calls : 0), 0);
+  return {
+    decisions,
+    avgMs: decisions ? round3(totalMs / decisions) : null,
+    maxMs: round3(maxMs),
+    totalMs: round3(totalMs),
+    solverCalls,
+    solverTimedOut,
+    solverTimeoutPct: solverCalls ? Math.round((solverTimedOut / solverCalls) * 10000) / 100 : null,
+    seats,
+  };
+}
+
 export function actionToString(action) {
   if (!action) return '—';
   switch (action.type) {
