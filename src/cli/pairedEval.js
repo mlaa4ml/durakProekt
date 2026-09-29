@@ -163,7 +163,8 @@ export function runPairedConfig(o) {
       const startedAt = Date.now();
       try {
         const res = playOneGame(levels, deckSize, players, false, {
-          rng, throwInPolicy, seatOptions, seatBrainFactories, maxSteps,
+                    rng, throwInPolicy, seatOptions, seatBrainFactories, maxSteps,
+          recordInitialDeal: true, // нужен отпечаток раздачи для проверки парности
         });
         const ms = Date.now() - startedAt;
         totalMs += ms;
