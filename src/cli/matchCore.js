@@ -163,13 +163,22 @@ export function playOneGame(levels, deckSize, numPlayers, collectTrace, options 
     ? game.players.findIndex((p) => p.id === game.durak)
     : -1;
 
+  if (metrics) metrics.solverBySeat = players.map(p =>
+    structuredClone(brains.get(p.id).solverStats ?? null));
   return {
     durakSeat,
     steps: safety,
-    stuck: safety >= maxSteps,
+    // A deadlock before maxSteps is also unfinished; finishing on the last
+    // permitted step is not a hang.
+    stuck: game.phase !== 'finished',
     trace,
     log: game.log,
-        finishedOrder: game.finishedOrder,
+    finishedOrder: game.finishedOrder,
+    ...(options.measure ? {
+      finished: game.phase === 'finished',
+      drawReason: game.drawReason,
+      metrics,
+    } : {}),
     ...(recorder ? { diagnostic: recorder.exportArtifact({ protectedDiagnostic: true }) } : {}),
   };
 }
