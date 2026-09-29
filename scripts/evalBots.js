@@ -667,7 +667,9 @@ async function runPaired(opts) {
       baselineTouched: false,
       complete: unfinished === 0,
       technicalAccepted,
-      totals: { ...totals, unfinished },
+            totals: { ...totals, unfinished },
+      // Задержки и таймауты бюджета решателя — отдельный раздел, не смешан с исходами (#71).
+      latencyTotals,
       configs: rows.map((r) => ({ ...r, clusters: r.clusters.map((c) => ({ ...c, fingerprint: c.fingerprint })) })),
     };
     const dir = path.dirname(opts.json);
