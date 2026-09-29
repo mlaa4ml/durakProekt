@@ -16,6 +16,85 @@ import {
   clusterShare, runPairedConfig,
 } from '../src/cli/pairedEval.js';
 
+test('задержки решений и статистика решателя собираются только по opt-in', () => {
+  const levels = seatLevels('smart', 'smart', 2, 0);
+  const plain = playOneGame(levels, 36, 2, false, { rng: mulberry32(hash32('timing-off')) });
+  assert.equal(plain.timing, undefined,
+    'без recordDecisionTiming результат обязан совпадать с эталоном эквивалентности этапа 6');
+
+  const res = playOneGame(levels, 36, 2, false, {
+    rng: mulberry32(hash32('timing-off')),
+    recordDecisionTiming: true,
+    seatOptions: levels.map(() => ({ solver: { maxNodes: 500, maxMs: Number.MAX_SAFE_INTEGER } })),
+  });
+  assert.ok(res.timing, 'timing обязан присутствовать при recordDecisionTiming');
+  assert.equal(res.timing.seats.length, 2);
+  assert.ok(res.timing.decisions > 0, 'решения должны быть посчитаны');
+  assert.equal(
+    res.timing.decisions,
+    res.timing.seats.reduce((a, s) => a + s.decisions, 0),
+    'сумма решений по местам равна общему числу решений',
+  );
+  for (const s of res.timing.seats) {
+    assert.ok(s.avgMs === null || s.avgMs >= 0, 'средняя задержка неотрицательна');
+    assert.ok(s.maxMs >= 0);
+    assert.ok(s.solver, 'у smart-места обязана быть статистика решателя');
+    assert.ok(s.solver.timedOut <= s.solver.calls, 'таймаутов не больше, чем вызовов решателя');
+  }
+  assert.equal(res.timing.solverTimedOut,
+    res.timing.seats.reduce((a, s) => a + (s.solver ? s.solver.timedOut : 0), 0));
+  // Задержки — это измерение прогонщика, а не исход партии: сами исходы не затронуты.
+  assert.equal(typeof res.durakSeat, 'number');
+});
+
+test('у simple-места статистики решателя нет, но задержки считаются', () => {
+  const levels = seatLevels('smart', 'simple', 2, 0);
+  const res = playOneGame(levels, 36, 2, false, {
+    rng: mulberry32(hash32('timing-simple')), recordDecisionTiming: true,
+  });
+  const simpleSeat = res.timing.seats.find((s) => s.level === 'simple');
+  assert.ok(simpleSeat, 'место simple должно быть в сводке');
+  assert.equal(simpleSeat.solver, null, 'у simpleBot решателя нет — null, а не выдуманные нули');
+  assert.ok(simpleSeat.decisions > 0);
+});
+
+test('runPairedConfig публикует задержки и таймауты бюджета решателя отдельно от исходов', () => {
+  const row = runPairedConfig({
+    players: 2, deckSize: 36, pairs: 2, seed: 4242,
+    levelA: 'smart', levelB: 'smart',
+    brainA: { solver: { maxNodes: 500, maxMs: Number.MAX_SAFE_INTEGER } },
+    brainB: { solver: { maxNodes: 500, maxMs: Number.MAX_SAFE_INTEGER } },
+  });
+  const lat = row.latency;
+  assert.ok(lat, 'блок latency обязателен в результате конфигурации');
+  assert.ok(lat.decisions > 0);
+  assert.equal(lat.decisions, lat.sideA.decisions + lat.sideB.decisions,
+    'решения разнесены по сторонам через seatBelongsToA, а не по именам уровней');
+  assert.ok(lat.sideA.decisions > 0 && lat.sideB.decisions > 0);
+  assert.equal(lat.solverTimedOut, lat.sideA.solverTimedOut + lat.sideB.solverTimedOut);
+  assert.ok(lat.solverTimedOut <= lat.solverCalls);
+  assert.ok(lat.solverNodes >= 0 && lat.maxDecisionMs >= 0);
+  if (lat.solverCalls > 0) {
+    assert.ok(lat.solverTimeoutPct !== null && lat.solverTimeoutPct >= 0 && lat.solverTimeoutPct <= 100);
+  }
+  // Исходы считаются по партиям и не зависят от измерения задержек.
+  assert.equal(row.planned, 4);
+  assert.equal(row.decided + row.draws + row.stuck + row.errors, row.planned);
+});
+
+test('крошечный бюджет узлов даёт ненулевые таймауты решателя и они видны в latency', () => {
+  const tiny = { solver: { maxNodes: 1, maxMs: Number.MAX_SAFE_INTEGER } };
+  const row = runPairedConfig({
+    players: 2, deckSize: 24, pairs: 3, seed: 99,
+    levelA: 'smart', levelB: 'smart', brainA: tiny, brainB: tiny,
+  });
+  assert.ok(row.latency.solverCalls > 0, 'в дуэли 2×24 решатель обязан вызываться');
+  assert.ok(row.latency.solverTimedOut > 0,
+    'при maxNodes=1 бюджет исчерпывается — таймауты обязаны быть учтены, а не потеряны');
+  assert.ok(row.latency.solverTimeoutPct > 0);
+  assert.equal(row.errors, 0, 'исчерпание бюджета — не ошибка прогона');
+});
+
 test('playOneGame возвращает отпечаток начальной раздачи', () => {
   const rng = mulberry32(hash32('deal-check'));
   const plain = playOneGame(seatLevels('simple', 'simple', 2, 0), 36, 2, false, { rng: mulberry32(hash32('deal-check')) });
