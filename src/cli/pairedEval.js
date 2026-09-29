@@ -105,6 +105,76 @@ export function clusterShare(clusters) {
 }
 
 // ---------------------------------------------------------------------------
+// Задержки решений и бюджет решателя (#71) — отдельно от исходов
+// ---------------------------------------------------------------------------
+
+/** Складывает сводку timing одной партии в накопитель конфигурации. */
+export function accumulateTiming(acc, timing, direction) {
+  if (!acc || !timing) return acc;
+  acc.decisions += timing.decisions;
+  acc.totalMs += timing.totalMs;
+  if (timing.maxMs > acc.maxMs) acc.maxMs = timing.maxMs;
+  for (const s of timing.seats) {
+    const side = seatBelongsToA(s.seat, direction) ? acc.sideA : acc.sideB;
+    side.decisions += s.decisions;
+    side.totalMs += s.totalMs;
+    if (s.maxMs > side.maxMs) side.maxMs = s.maxMs;
+    if (s.solver) {
+      side.solverCalls += s.solver.calls;
+      side.solverTimedOut += s.solver.timedOut;
+      acc.solverCalls += s.solver.calls;
+      acc.solverTimedOut += s.solver.timedOut;
+      acc.solverUnusable += s.solver.unusable;
+      acc.solverUsed += s.solver.used;
+      acc.solverNodes += s.solver.nodes;
+      acc.solverMs += s.solver.ms;
+    }
+  }
+  return acc;
+}
+
+function sideLatency(side) {
+  return {
+    decisions: side.decisions,
+    avgMs: side.decisions ? round3(side.totalMs / side.decisions) : null,
+    maxMs: round3(side.maxMs),
+    solverCalls: side.solverCalls,
+    solverTimedOut: side.solverTimedOut,
+    solverTimeoutPct: side.solverCalls
+      ? round2((side.solverTimedOut / side.solverCalls) * 100) : null,
+  };
+}
+
+/** Итоговый блок latency конфигурации. Это НЕ SLA браузера/worker из #71. */
+export function summarizeLatency(acc) {
+  return {
+    decisions: acc.decisions,
+    avgDecisionMs: acc.decisions ? round3(acc.totalMs / acc.decisions) : null,
+    maxDecisionMs: round3(acc.maxMs),
+    totalDecisionMs: round3(acc.totalMs),
+    solverCalls: acc.solverCalls,
+    solverUsed: acc.solverUsed,
+    solverUnusable: acc.solverUnusable,
+    // Таймаут решателя = исчерпан детерминированный бюджет (maxNodes/maxMs) самого бота,
+    // а не wall-clock прогонщика. При maxMs=MAX_SAFE_INTEGER это чисто узловой бюджет.
+    solverTimedOut: acc.solverTimedOut,
+    solverTimeoutPct: acc.solverCalls
+      ? round2((acc.solverTimedOut / acc.solverCalls) * 100) : null,
+    solverNodes: acc.solverNodes,
+    solverMs: round3(acc.solverMs),
+    avgSolverMsPerCall: acc.solverCalls ? round3(acc.solverMs / acc.solverCalls) : null,
+    sideA: sideLatency(acc.sideA),
+    sideB: sideLatency(acc.sideB),
+  };
+}
+
+function round3(x) {
+  if (x == null || !Number.isFinite(x)) return null;
+  const v = Math.round(x * 1000) / 1000;
+  return Object.is(v, -0) ? 0 : v;
+}
+
+// ---------------------------------------------------------------------------
 // Прогон одной конфигурации парами
 // ---------------------------------------------------------------------------
 
