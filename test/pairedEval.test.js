@@ -40,6 +40,7 @@ test('обе партии пары стартуют с одинаковой ра
     const res = playOneGame(levels, 36, 3, false, {
       rng: mulberry32(seed),
       throwInPolicy: 'all',
+      recordInitialDeal: true,
       seatOptions: levels.map(() => ({ solver: { maxNodes: 200, maxMs: Number.MAX_SAFE_INTEGER } })),
     });
     fps.push(dealFingerprint(res.initialDeal));
