@@ -155,6 +155,12 @@ function parseArgs(argv) {
     bFlags: [],
     solverNodes: null,
     solverMs: null,
+    // --- парный режим (issue #72, этап 7) ---
+    paired: false,
+    pairs: 200,
+    group: 'old',      // old | self | simple
+    oldRoot: null,     // checkout старой версии бота (фабрика мозга оттуда)
+    newRoot: null,     // checkout новой версии (по умолчанию — текущий репозиторий)
   };
   for (const arg of argv) {
     const m = /^--([a-z0-9-]+)(?:=(.*))?$/i.exec(arg);
