@@ -121,3 +121,52 @@ Node v20.20.2, linux/x64 (Codespaces). Профили — действующие
 До прогона добавить тесты одинаковой раздачи и атрибуции одинакового уровня
 `smart` при разных фабриках версий. Команды матрицы, фактические результаты,
 время и итоговую таблицу добавить после реализации и измерения.
+
+### Реализация (этап 7)
+
+Второго прогонщика нет: `src/cli/pairedEval.js` — надстройка над тем же
+`playOneGame` из `src/cli/matchCore.js`, а вход — существующий
+`scripts/evalBots.js --paired`. Добавлено:
+
+- `options.seatBrainFactories` в `playOneGame`: место может обслуживаться
+  фабрикой мозга из другого checkout (старая версия бота). Движок `DurakGame`
+  всегда локальный — единственный источник правил не раздваивается.
+- `options.recordInitialDeal` (opt-in): снимок начальной раздачи. По умолчанию
+  выключен, поэтому результат `playOneGame` побайтово совпадает с эталоном
+  эквивалентности этапа 6 (`node scripts/equivalence72.mjs`, exit=0).
+- Кластерный 95 % ДИ: единица наблюдения — **пара**, дисперсия отношения сумм
+  по кластерам; при нулевой дисперсии пар или < 2 парах ДИ помечается неточным.
+- Сторона определяется местом и направлением (`seatBelongsToA`), а не именем
+  уровня: при `smart` с обеих сторон сравнение по имени дало бы 100 % вместо ~50 %.
+
+Тесты — `test/pairedEval.test.js` (написаны ДО прогона): одинаковая раздача
+в паре, симметричная пара, честная атрибуция при одинаковом имени `smart`,
+поведение кластерного ДИ, детерминизм `pairSeed`, отсутствие `initialDeal`
+без opt-in. Полный набор: 179/179 тестов проходит.
+
+### Команды сокращённого прогона (воспроизводимы)
+
+```sh
+git worktree add --detach /tmp/issue72-old 08d6b4a2f4d36585617ddf8147cd6da8f04c2b25
+for g in self simple old; do
+  node scripts/evalBots.js --paired --group=$g --pairs=5 \
+    --configs=2x36,3x36,4x36 --seed=720072 --solver-nodes=500 \
+    --old-root=/tmp/issue72-old --json=bench/issue72-stage7-$g.json
+done
+```
+
+### Команда полной матрицы (для человека, вне лимита агента)
+
+```sh
+for g in old self simple; do
+  node scripts/evalBots.js --paired --group=$g --pairs=200 --seed=720072 \
+    --solver-nodes=500 --old-root=/tmp/issue72-old \
+    --json=bench/issue72-full-$g.json || exit $?
+done
+```
+
+Без `--configs` гоняются 13 допустимых конфигураций плюс 4×36 `neighbors`
+и `attackerOnly` — 15 строк × 400 партий × 3 группы = 18000 партий.
+Смотреть: exit=0, `complete=true`, `technicalAccepted=true`,
+`errors/stuck/unfinished/dealMismatch = 0`, ничьи отдельно,
+ДИ по парам (а не по партиям), задержки отдельно от исходов.
