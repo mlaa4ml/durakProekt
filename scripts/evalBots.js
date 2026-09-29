@@ -185,6 +185,11 @@ function parseArgs(argv) {
       case 'b-flag': opts.bFlags = parseFlagList(value); break;
       case 'solver-nodes': opts.solverNodes = Number(value); break;
       case 'solver-ms': opts.solverMs = Number(value); break;
+      case 'paired': opts.paired = value !== 'false'; break;
+      case 'pairs': opts.pairs = Number(value); break;
+      case 'group': opts.group = String(value); break;
+      case 'old-root': opts.oldRoot = value; break;
+      case 'new-root': opts.newRoot = value; break;
       case 'help': opts.help = true; break;
       default: throw new Error(`Неизвестный флаг "--${name}". Смотри шапку файла.`);
     }
