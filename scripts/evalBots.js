@@ -388,7 +388,213 @@ const HELP = `Прогонщик матрицы конфигураций (issue 
              с одним --seed давали побайтово одинаковый файл.
 `;
 
-function main() {
+// ---------------------------------------------------------------------------
+// Парный режим (issue #72, этап 7)
+// ---------------------------------------------------------------------------
+
+// Строки парной матрицы: 13 допустимых конфигураций (throwInPolicy по умолчанию)
+// плюс 4×36 с neighbors и attackerOnly — ровно то, что требует приёмка этапа 7.
+function pairedMatrix(defaultThrowIn) {
+  return [
+    ...MAIN_MATRIX.map(([p, d]) => ({ players: p, deckSize: d, throwInPolicy: defaultThrowIn })),
+    { players: 4, deckSize: 36, throwInPolicy: 'neighbors' },
+    { players: 4, deckSize: 36, throwInPolicy: 'attackerOnly' },
+  ];
+}
+
+// Фабрика «мозга» из произвольного checkout. Движок при этом ВСЕГДА локальный:
+// DurakGame остаётся единственным источником правил, меняется только код бота.
+async function loadBrainFactory(root) {
+  if (!root) return null;
+  const file = path.resolve(root, 'src/bots/index.js');
+  if (!fs.existsSync(file)) throw new Error(`Не нашёл ${file} — это не checkout репозитория.`);
+  const mod = await import(pathToFileURL(file).href);
+  if (typeof mod.createBotBrain !== 'function') {
+    throw new Error(`В ${file} нет экспорта createBotBrain.`);
+  }
+  return mod.createBotBrain;
+}
+
+function gitDescribe(root) {
+  try {
+    const sha = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    return { root: path.resolve(root), commit: sha };
+  } catch {
+    return { root: path.resolve(root), commit: null };
+  }
+}
+
+function pairedMarkdown(rows) {
+  const head = ['конфигурация', 'throwIn', 'пар', 'запланировано', 'завершено',
+    'результативных', 'дурак A', '95 % ДИ (по парам)', 'ничьи', 'ошибки', 'зависания', 'разошлась раздача'];
+  const lines = [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`];
+  for (const r of rows) {
+    lines.push(`| ${[
+      `${r.players}×${r.deckSize}`,
+      r.throwInPolicy,
+      String(r.pairs),
+      String(r.planned),
+      String(r.completed),
+      String(r.decided),
+      fmtPct(r.durakPct),
+      r.ci95 == null ? '—' : `± ${r.ci95.toFixed(2)}${r.ciExact ? '' : ' (не точный)'}`,
+      String(r.draws),
+      String(r.errors),
+      String(r.stuck),
+      String(r.dealMismatch),
+    ].join(' | ')} |`);
+  }
+  return lines.join('\n');
+}
+
+async function runPaired(opts) {
+  const groups = {
+    // new-smart против старой версии SmartBot (нужен --old-root)
+    old: { levelA: 'smart', levelB: 'smart', needOldRoot: true,
+      title: 'new-smart (A) vs old-smart (B)' },
+    // контроль атрибуции сторон: одинаковый уровень и одинаковый код с обеих сторон
+    self: { levelA: 'smart', levelB: 'smart', needOldRoot: false,
+      title: 'new-smart (A) vs new-smart (B) — контроль атрибуции' },
+    // описательное сравнение с неизменным эталоном
+    simple: { levelA: 'smart', levelB: 'simple', needOldRoot: false,
+      title: 'new-smart (A) vs simple (B)' },
+  };
+  const group = groups[opts.group];
+  if (!group) {
+    console.error(`--group должен быть одним из: ${Object.keys(groups).join(', ')}.`);
+    process.exit(2);
+  }
+  if (!Number.isFinite(opts.pairs) || opts.pairs < 1) {
+    console.error('--pairs должно быть положительным числом.');
+    process.exit(2);
+  }
+
+  // Решатель: фиксированный ДЕТЕРМИНИРОВАННЫЙ бюджет узлов; wall-clock практически отключён,
+  // чтобы результат не зависел от скорости машины (требование приёмки).
+  const solver = {
+    maxNodes: opts.solverNodes != null ? opts.solverNodes : 500,
+    maxMs: opts.solverMs != null ? opts.solverMs : Number.MAX_SAFE_INTEGER,
+  };
+  const brainA = { solver };
+  const brainB = { solver };
+
+  let factoryB = null;
+  if (group.needOldRoot) {
+    if (!opts.oldRoot) {
+      console.error('--group=old требует --old-root=<путь к checkout старой версии>.');
+      process.exit(2);
+    }
+    factoryB = await loadBrainFactory(opts.oldRoot);
+  }
+  const factoryA = opts.newRoot ? await loadBrainFactory(opts.newRoot) : null;
+
+  const configs = opts.configs
+    ? opts.configs.map(([p, d]) => ({ players: p, deckSize: d, throwInPolicy: opts.throwIn }))
+    : pairedMatrix(opts.throwIn);
+
+  const versions = {
+    new: gitDescribe(opts.newRoot || process.cwd()),
+    old: group.needOldRoot ? gitDescribe(opts.oldRoot) : null,
+  };
+
+  console.log('=== Парная калибровка (issue #72, этап 7) ===');
+  console.log(`Группа: ${opts.group} — ${group.title}`);
+  console.log(`Пар на строку: ${opts.pairs} (партий вдвое больше) | seed: ${opts.seed} | строк: ${configs.length}`);
+  console.log(`Решатель: maxNodes=${solver.maxNodes}, maxMs=${solver.maxMs}`);
+  console.log(`Версия new: ${versions.new.commit || 'не определена'}${versions.old ? ` | old: ${versions.old.commit || 'не определена'}` : ''}`);
+  console.log('Профили: действующие значения по умолчанию, без overrides; флаг #70 не включается.');
+  console.log('');
+
+  const rows = [];
+  for (const cfg of configs) {
+    if (!isPlayableConfig(cfg.players, cfg.deckSize)) {
+      console.warn(`Предупреждение: конфигурация ${cfg.players}x${cfg.deckSize} невозможна — пропускаю.`);
+      continue;
+    }
+    const row = runPairedConfig({
+      players: cfg.players,
+      deckSize: cfg.deckSize,
+      throwInPolicy: cfg.throwInPolicy,
+      pairs: opts.pairs,
+      seed: opts.seed,
+      levelA: group.levelA,
+      levelB: group.levelB,
+      brainA,
+      brainB,
+      factoryA,
+      factoryB,
+    });
+    rows.push(row);
+    console.log(
+      `${String(`${row.players}×${row.deckSize}`).padEnd(6)} ${row.throwInPolicy.padEnd(13)} ` +
+      `партий ${String(row.completed).padStart(5)}/${String(row.planned).padStart(5)} | ` +
+      `дурак A ${fmtPct(row.durakPct).padStart(8)} ± ${row.ci95 == null ? '—' : row.ci95.toFixed(2)}${row.ciExact ? '' : ' (не точный)'} | ` +
+      `ничьи ${row.draws} | ошибок ${row.errors} | зависаний ${row.stuck} | ` +
+      `раздача разошлась ${row.dealMismatch} | сред. ${row.avgMs ?? '—'} мс`,
+    );
+    for (const p of row.problems.slice(0, 3)) console.log(`   проблема: ${JSON.stringify(p)}`);
+  }
+
+  console.log('');
+  console.log('--- Таблица для PR (Markdown) ---');
+  console.log(pairedMarkdown(rows));
+  console.log('');
+
+  const totals = rows.reduce((a, r) => ({
+    planned: a.planned + r.planned,
+    completed: a.completed + r.completed,
+    errors: a.errors + r.errors,
+    stuck: a.stuck + r.stuck,
+    draws: a.draws + r.draws,
+    dealMismatch: a.dealMismatch + r.dealMismatch,
+  }), { planned: 0, completed: 0, errors: 0, stuck: 0, draws: 0, dealMismatch: 0 });
+
+  const unfinished = totals.planned - totals.completed + totals.stuck;
+  console.log(
+    `Итого: запланировано ${totals.planned}, завершено ${totals.completed}, незавершённых ${unfinished}, ` +
+    `ничьих ${totals.draws}, ошибок ${totals.errors}, зависаний ${totals.stuck}, разошедшихся раздач ${totals.dealMismatch}.`,
+  );
+  const technicalAccepted = totals.errors === 0 && totals.stuck === 0 && totals.dealMismatch === 0 && unfinished === 0;
+  console.log(technicalAccepted
+    ? 'ТЕХНИЧЕСКАЯ ПРИЁМКА: пройдена (0 ошибок, 0 нелегальных/зависших, 0 незавершённых). Сила НЕ заявляется.'
+    : 'ТЕХНИЧЕСКАЯ ПРИЁМКА: НЕ пройдена — разбирать каждую причину, не исключать молча.');
+
+  if (opts.json) {
+    const snapshot = {
+      version: 1,
+      tool: 'scripts/evalBots.js --paired',
+      issue: 72,
+      stage: 7,
+      date: opts.date || null,
+      group: opts.group,
+      groupTitle: group.title,
+      levelA: group.levelA,
+      levelB: group.levelB,
+      seed: opts.seed,
+      pairsPerConfig: opts.pairs,
+      solver,
+      versions,
+      node: process.version,
+      platform: `${process.platform}/${process.arch}`,
+      profileOverrides: null,
+      issue70FlagEnabled: false,
+      baselineTouched: false,
+      complete: unfinished === 0,
+      technicalAccepted,
+      totals: { ...totals, unfinished },
+      configs: rows.map((r) => ({ ...r, clusters: r.clusters.map((c) => ({ ...c, fingerprint: c.fingerprint })) })),
+    };
+    const dir = path.dirname(opts.json);
+    if (dir && dir !== '.') fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(opts.json, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
+    fs.writeFileSync(`${opts.json}.md`, `${pairedMarkdown(rows)}\n`, 'utf8');
+    console.log(`JSON прогона сохранён: ${opts.json} (таблица: ${opts.json}.md)`);
+  }
+
+  if (!technicalAccepted) process.exitCode = 1;
+}
+
+async function main() {
   let opts;
   try {
     opts = parseArgs(process.argv.slice(2));
