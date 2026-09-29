@@ -675,5 +675,160 @@ export function runPairedConfig({
   };
 }
 
+// Load complete bot dependency trees from clean, pinned checkouts, not a lone
+// smartBot.js copied onto today's dependencies. The ENGINE stays the common one.
+async function loadVersion(root) {
+  root = path.resolve(root);
+  const git = (...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8' }).trim();
+  const commit = git('rev-parse', 'HEAD');
+  if (git('status', '--porcelain', '--untracked-files=no')) {
+    throw new Error(`Version checkout must have no tracked modifications: ${root}`);
+  }
+  const bots = await import(pathToFileURL(path.join(root, 'src/bots/index.js')).href);
+  const policy = await import(pathToFileURL(path.join(root, 'src/bots/smartBot.js')).href);
+  if (!policy.SMART_PROFILES || Object.values(policy.SMART_PROFILES).some(p => p.safeRoundAttack)) {
+    throw new Error('Calibration requires existing profiles with safeRoundAttack=false (#70 unchanged)');
+  }
+  return {
+    factory: bots.createBotBrain,
+    metadata: { commit, profiles: policy.SMART_PROFILES, profileOverrides: null },
+  };
+}
+
+function summarizeMeasurements(row) {
+  const sides = Object.fromEntries(['A', 'B'].map(side => [side, { times: [], solver: {} }]));
+  for (const m of row.measurements) {
+    m.decisionMsBySeat.forEach((times, seat) => {
+      const side = sides[seatBelongsToA(seat, m.direction) ? 'A' : 'B'];
+      side.times.push(...times);
+      for (const [key, value] of Object.entries(m.solverBySeat[seat] || {})) {
+        side.solver[key] = (side.solver[key] || 0) + value;
+      }
+    });
+  }
+  return Object.fromEntries(Object.entries(sides).map(([side, { times, solver }]) => {
+    times.sort((a, b) => a - b);
+    const percentile = p => times.length ? times[Math.ceil(p * times.length) - 1] : null;
+    return [side, {
+      decisions: times.length,
+      meanMs: times.length ? times.reduce((a, b) => a + b, 0) / times.length : null,
+      p50Ms: percentile(0.5), p95Ms: percentile(0.95), p99Ms: percentile(0.99),
+      maxMs: times.at(-1) ?? null, over2000Ms: times.filter(t => t > 2000).length,
+      // timedOut is the solver's combined budget status, NOT a wall-clock timeout count.
+      solver,
+    }];
+  }));
+}
+
+export function pairedMarkdown(rows) {
+  return [
+    '| config/policy | pairs | completed/planned | loss A/decided | loss A % | paired 95% CI | draws | errors/illegal/unfinished |',
+    '|---|---:|---:|---:|---:|---|---:|---|',
+    ...rows.map(r => `| ${r.players}x${r.deckSize}/${r.throwInPolicy} | ${r.pairs} | ${r.completed}/${r.planned} | ${r.durakA}/${r.decided} | ${r.durakPct ?? '—'} | ${r.ci95?.join('–') ?? 'unavailable'}${r.ciWarning ? ' *' : ''} | ${r.draws} | ${r.errors}/${r.illegal}/${r.unfinished} |`),
+    '',
+    '* CI uses independent deal pairs; tiny samples/degenerate variance are not evidence of strength.',
+  ].join('\n');
+}
+
+async function pairedMain(argv) {
+  const opts = { pairs: 200, seed: 720072, group: 'old', newRoot: '.', oldRoot: null,
+    configs: null, throwIn: 'all', solverNodes: 500, json: null };
+  for (const arg of argv) {
+    if (arg === '--paired') continue;
+    if (arg === '--help') {
+      console.log(`Paired calibration (existing matchCore engine):
+  node scripts/evalBots.js --paired --old-root=/tmp/old --new-root=/tmp/new
+    --group=old|self|simple --pairs=200 --seed=720072 --solver-nodes=500
+    --json=bench/result.json [--configs=2x36,3x36,4x36]
+    [--throw-in=all|neighbors|attackerOnly]
+Default: 13 valid configs + 4x36 neighbors/attackerOnly (15 rows).
+--pairs counts DEALS; each deal is played twice with exchanged sides.
+No strength gate/baseline update. Technical errors produce exit 1.
+Both checkouts must be clean; new-root defaults to current checkout.
+Node budget deterministic, maxMs=Number.MAX_SAFE_INTEGER. Do not enable #70.`);
+      return;
+    }
+    const m = /^--([^=]+)=(.+)$/.exec(arg);
+    if (!m) throw new Error(`Expected --option=value, got ${arg}`);
+    const [, name, value] = m;
+    switch (name) {
+      case 'pairs': opts.pairs = Number(value); break;
+      case 'seed': opts.seed = Number(value); break;
+      case 'solver-nodes': opts.solverNodes = Number(value); break;
+      case 'group': opts.group = value; break;
+      case 'old-root': opts.oldRoot = value; break;
+      case 'new-root': opts.newRoot = value; break;
+      case 'configs': opts.configs = parseConfigList(value); break;
+      case 'throw-in': opts.throwIn = value; break;
+      case 'json': opts.json = value; break;
+      default: throw new Error(`Unknown paired option --${name}`);
+    }
+  }
+  for (const key of ['pairs', 'solverNodes']) {
+    if (!Number.isSafeInteger(opts[key]) || opts[key] < 1) throw new Error(`${key} must be a positive integer`);
+  }
+  if (!Number.isSafeInteger(opts.seed) || opts.seed < 0) throw new Error('seed must be a nonnegative integer');
+  if (!['old', 'self', 'simple'].includes(opts.group)) throw new Error('group must be old|self|simple');
+  if (!['all', 'neighbors', 'attackerOnly'].includes(opts.throwIn)) throw new Error('Invalid throw-in policy');
+  if (!opts.json) throw new Error('--json is required (preserve all outcomes, including errors)');
+  if (opts.group === 'old' && !opts.oldRoot) throw new Error('--old-root is required for group=old');
+  if (opts.configs?.some(([p, d]) => !isPlayableConfig(p, d))) throw new Error('Invalid config; none silently skipped');
+  const configs = opts.configs
+    ? opts.configs.map(([p, d]) => [p, d, opts.throwIn])
+    : [...MAIN_MATRIX.map(([p, d]) => [p, d, opts.throwIn]),
+      ...(opts.throwIn === 'all' ? [[4, 36, 'neighbors'], [4, 36, 'attackerOnly']] : [])];
+  const newVersion = await loadVersion(opts.newRoot);
+  const opponent = opts.group === 'old' ? await loadVersion(opts.oldRoot) : newVersion;
+  const solver = { maxNodes: opts.solverNodes, maxMs: Number.MAX_SAFE_INTEGER };
+  const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+  const snapshot = {
+    schema: 2, tool: 'scripts/evalBots.js --paired',
+    toolCommit: git('rev-parse', 'HEAD'), toolDirty: !!git('status', '--porcelain', '--untracked-files=no'),
+    engineCommit: git('rev-parse', 'HEAD'), group: opts.group,
+    a: { level: 'smart', ...newVersion.metadata },
+    b: { level: opts.group === 'simple' ? 'simple' : 'smart', ...opponent.metadata },
+    solver, seed: opts.seed, pairsPerConfig: opts.pairs,
+    seedAlgorithm: 'FNV1a(master|playersxdeck|throwInPolicy|pairIndex), mulberry32',
+    pairing: 'same initial deck/hands, alternating side membership by seat parity',
+    ciMethod: '95% normal cluster ratio-of-sums; independent unit=deal pair',
+    baselineSha256: createHash('sha256').update(fs.readFileSync('bench/baseline.json')).digest('hex'),
+    environment: { node: process.version, platform: process.platform, arch: process.arch,
+      release: os.release(), cpu: os.cpus()[0]?.model, cpuCount: os.cpus().length },
+    command: ['node', ...process.argv.slice(1)],
+    plannedConfigs: configs, complete: false, configs: [],
+  };
+  if (snapshot.toolDirty) throw new Error('Commit runner/engine tracked changes before calibration');
+  fs.mkdirSync(path.dirname(opts.json), { recursive: true });
+  const save = () => {
+    // Checkpoint after EVERY row; partial files explicitly marked incomplete.
+    fs.writeFileSync(opts.json, JSON.stringify(snapshot, null, 2) + '\n');
+    fs.writeFileSync(opts.json + '.md', pairedMarkdown(snapshot.configs) + '\n');
+  };
+  save();
+  for (const [players, deckSize, throwInPolicy] of configs) {
+    const row = runPairedConfig({
+      players, deckSize, throwInPolicy, pairs: opts.pairs, seed: opts.seed,
+      levelA: 'smart', levelB: snapshot.b.level,
+      factoryA: newVersion.factory, factoryB: opponent.factory,
+      brainA: { solver }, brainB: { solver },
+    });
+    row.latencyBySide = summarizeMeasurements(row);
+    snapshot.configs.push(row);
+    save();
+    console.log(pairedMarkdown([row]));
+  }
+  snapshot.complete = true;
+  snapshot.technicalAccepted = snapshot.configs.every(r => !r.errors && !r.illegal && !r.unfinished);
+  snapshot.releaseDecision = 'deferred; baseline and #70 unchanged; no strength claim';
+  save();
+  if (!snapshot.technicalAccepted) process.exitCode = 1;
+}
+
 export { mulberry32, seatBelongsToA, MAIN_MATRIX };
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  if (process.argv.includes('--paired')) pairedMain(process.argv.slice(2)).catch(e => {
+    console.error(e.stack);
+    process.exitCode = 2;
+  });
+  else main();
+}
