@@ -1,0 +1,441 @@
+{
+  "version": 1,
+  "tool": "scripts/evalBots.js --paired",
+  "issue": 72,
+  "stage": 7,
+  "date": null,
+  "group": "simple",
+  "groupTitle": "new-smart (A) vs simple (B)",
+  "levelA": "smart",
+  "levelB": "simple",
+  "seed": 720072,
+  "pairsPerConfig": 5,
+  "solver": {
+    "maxNodes": 500,
+    "maxMs": 9007199254740991
+  },
+  "versions": {
+    "new": {
+      "root": "/workspaces/durakProekt",
+      "commit": "90d0b4d780f5ea91dded02101f4bf388c889ceb0"
+    },
+    "old": null
+  },
+  "node": "v20.20.2",
+  "platform": "linux/x64",
+  "profileOverrides": null,
+  "issue70FlagEnabled": false,
+  "baselineTouched": false,
+  "complete": true,
+  "technicalAccepted": true,
+  "totals": {
+    "planned": 30,
+    "completed": 30,
+    "errors": 0,
+    "stuck": 0,
+    "draws": 3,
+    "dealMismatch": 0,
+    "unfinished": 0
+  },
+  "configs": [
+    {
+      "players": 2,
+      "deckSize": 36,
+      "throwInPolicy": "all",
+      "pairs": 5,
+      "planned": 10,
+      "completed": 10,
+      "unfinished": 0,
+      "decided": 10,
+      "durakA": 4,
+      "durakB": 6,
+      "draws": 0,
+      "errors": 0,
+      "stuck": 0,
+      "dealMismatch": 0,
+      "durakPct": 40,
+      "se": 10,
+      "ci95": 19.6,
+      "ciExact": true,
+      "pairsUsed": 5,
+      "durakPctOfPlanned": 40,
+      "avgSteps": 48.4,
+      "avgMs": 45,
+      "maxMs": 91,
+      "problems": [],
+      "clusters": [
+        {
+          "pair": 0,
+          "seed": 2251752031,
+          "durakA": 1,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakB",
+              "steps": 52,
+              "ms": 74
+            },
+            {
+              "direction": 1,
+              "outcome": "durakA",
+              "steps": 42,
+              "ms": 15
+            }
+          ],
+          "fingerprint": "6♣#24#0:7♣,10♥,8♠,9♣,A♦,10♠|1:J♠,Q♦,A♠,10♣,K♥,9♥"
+        },
+        {
+          "pair": 1,
+          "seed": 2234974412,
+          "durakA": 1,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakB",
+              "steps": 42,
+              "ms": 27
+            },
+            {
+              "direction": 1,
+              "outcome": "durakA",
+              "steps": 54,
+              "ms": 39
+            }
+          ],
+          "fingerprint": "9♥#24#0:7♥,J♣,6♦,9♣,7♣,J♦|1:K♥,7♦,9♠,9♦,Q♣,6♥"
+        },
+        {
+          "pair": 2,
+          "seed": 2285307269,
+          "durakA": 1,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakA",
+              "steps": 40,
+              "ms": 16
+            },
+            {
+              "direction": 1,
+              "outcome": "durakB",
+              "steps": 52,
+              "ms": 91
+            }
+          ],
+          "fingerprint": "A♠#24#0:9♣,6♦,7♠,A♣,A♦,6♥|1:6♠,J♦,9♥,6♣,J♠,10♠"
+        },
+        {
+          "pair": 3,
+          "seed": 2268529650,
+          "durakA": 0,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakB",
+              "steps": 57,
+              "ms": 78
+            },
+            {
+              "direction": 1,
+              "outcome": "durakB",
+              "steps": 51,
+              "ms": 38
+            }
+          ],
+          "fingerprint": "J♥#24#0:Q♥,6♥,10♥,6♣,J♦,7♣|1:7♦,9♦,A♥,10♦,9♥,8♥"
+        },
+        {
+          "pair": 4,
+          "seed": 2184641555,
+          "durakA": 1,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakA",
+              "steps": 49,
+              "ms": 49
+            },
+            {
+              "direction": 1,
+              "outcome": "durakB",
+              "steps": 45,
+              "ms": 23
+            }
+          ],
+          "fingerprint": "7♥#24#0:J♣,10♠,K♥,J♥,J♦,9♥|1:A♦,7♦,Q♦,10♣,6♦,K♣"
+        }
+      ]
+    },
+    {
+      "players": 3,
+      "deckSize": 36,
+      "throwInPolicy": "all",
+      "pairs": 5,
+      "planned": 10,
+      "completed": 10,
+      "unfinished": 0,
+      "decided": 9,
+      "durakA": 4,
+      "durakB": 5,
+      "draws": 1,
+      "errors": 0,
+      "stuck": 0,
+      "dealMismatch": 0,
+      "durakPct": 44.44,
+      "se": 13.24,
+      "ci95": 25.95,
+      "ciExact": true,
+      "pairsUsed": 5,
+      "durakPctOfPlanned": 40,
+      "avgSteps": 79.3,
+      "avgMs": 19,
+      "maxMs": 45,
+      "problems": [],
+      "clusters": [
+        {
+          "pair": 0,
+          "seed": 2149025686,
+          "durakA": 1,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakA",
+              "steps": 100,
+              "ms": 26
+            },
+            {
+              "direction": 1,
+              "outcome": "durakB",
+              "steps": 101,
+              "ms": 26
+            }
+          ],
+          "fingerprint": "J♠#18#0:6♣,10♠,K♥,10♣,K♠,8♣|1:8♠,10♥,9♥,8♦,9♠,7♠|2:K♦,K♣,8♥,9♣,6♥,Q♣"
+        },
+        {
+          "pair": 1,
+          "seed": 2165803305,
+          "durakA": 1,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakA",
+              "steps": 61,
+              "ms": 11
+            },
+            {
+              "direction": 1,
+              "outcome": "durakB",
+              "steps": 74,
+              "ms": 14
+            }
+          ],
+          "fingerprint": "K♣#18#0:A♦,Q♠,6♠,9♠,10♥,6♥|1:9♦,8♠,J♠,J♥,J♦,A♠|2:7♥,6♣,7♠,8♣,10♦,Q♣"
+        },
+        {
+          "pair": 2,
+          "seed": 2115470448,
+          "durakA": 1,
+          "decided": 1,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakA",
+              "steps": 84,
+              "ms": 22
+            },
+            {
+              "direction": 1,
+              "outcome": "draw",
+              "steps": 65,
+              "ms": 10
+            }
+          ],
+          "fingerprint": "Q♠#18#0:A♦,A♣,10♥,J♥,9♣,7♥|1:K♦,Q♥,9♠,6♦,J♦,K♥|2:Q♦,6♥,6♠,10♠,7♦,9♥"
+        },
+        {
+          "pair": 3,
+          "seed": 2132248067,
+          "durakA": 1,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakB",
+              "steps": 71,
+              "ms": 12
+            },
+            {
+              "direction": 1,
+              "outcome": "durakA",
+              "steps": 81,
+              "ms": 45
+            }
+          ],
+          "fingerprint": "6♠#18#0:J♣,A♣,10♦,Q♦,Q♥,8♥|1:7♦,9♥,10♥,K♠,10♠,A♦|2:6♣,K♣,7♣,K♦,9♦,A♠"
+        },
+        {
+          "pair": 4,
+          "seed": 2216136162,
+          "durakA": 0,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakB",
+              "steps": 69,
+              "ms": 14
+            },
+            {
+              "direction": 1,
+              "outcome": "durakB",
+              "steps": 87,
+              "ms": 10
+            }
+          ],
+          "fingerprint": "J♠#18#0:10♦,Q♥,7♣,6♦,7♦,A♦|1:9♣,K♥,Q♣,A♠,9♥,J♥|2:K♠,9♠,J♣,K♦,J♦,Q♦"
+        }
+      ]
+    },
+    {
+      "players": 4,
+      "deckSize": 36,
+      "throwInPolicy": "all",
+      "pairs": 5,
+      "planned": 10,
+      "completed": 10,
+      "unfinished": 0,
+      "decided": 8,
+      "durakA": 3,
+      "durakB": 5,
+      "draws": 2,
+      "errors": 0,
+      "stuck": 0,
+      "dealMismatch": 0,
+      "durakPct": 37.5,
+      "se": 15.43,
+      "ci95": 30.24,
+      "ciExact": true,
+      "pairsUsed": 5,
+      "durakPctOfPlanned": 30,
+      "avgSteps": 116.7,
+      "avgMs": 32.4,
+      "maxMs": 107,
+      "problems": [],
+      "clusters": [
+        {
+          "pair": 0,
+          "seed": 3201279741,
+          "durakA": 0,
+          "decided": 1,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakB",
+              "steps": 132,
+              "ms": 17
+            },
+            {
+              "direction": 1,
+              "outcome": "draw",
+              "steps": 105,
+              "ms": 18
+            }
+          ],
+          "fingerprint": "7♠#12#0:A♠,K♦,10♦,10♠,Q♥,6♥|1:6♣,9♥,A♣,Q♣,A♥,9♣|2:10♣,9♦,Q♠,Q♦,6♦,J♦|3:8♠,8♥,8♦,J♥,K♠,A♦"
+        },
+        {
+          "pair": 1,
+          "seed": 3184502122,
+          "durakA": 1,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakA",
+              "steps": 118,
+              "ms": 36
+            },
+            {
+              "direction": 1,
+              "outcome": "durakB",
+              "steps": 136,
+              "ms": 35
+            }
+          ],
+          "fingerprint": "7♥#12#0:9♣,J♣,K♠,8♣,A♦,6♣|1:J♦,8♥,8♠,6♠,10♦,K♥|2:6♥,K♣,6♦,A♣,Q♥,7♣|3:K♦,9♠,Q♠,10♠,9♦,Q♣"
+        },
+        {
+          "pair": 2,
+          "seed": 3167724503,
+          "durakA": 0,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakB",
+              "steps": 138,
+              "ms": 34
+            },
+            {
+              "direction": 1,
+              "outcome": "durakB",
+              "steps": 108,
+              "ms": 24
+            }
+          ],
+          "fingerprint": "Q♠#12#0:A♦,J♠,10♥,A♥,8♥,8♣|1:Q♦,K♦,9♦,6♦,7♥,10♠|2:Q♣,6♥,K♥,9♥,K♣,K♠|3:Q♥,9♠,10♦,J♣,9♣,6♠"
+        },
+        {
+          "pair": 3,
+          "seed": 3150946884,
+          "durakA": 1,
+          "decided": 1,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakA",
+              "steps": 109,
+              "ms": 107
+            },
+            {
+              "direction": 1,
+              "outcome": "draw",
+              "steps": 95,
+              "ms": 15
+            }
+          ],
+          "fingerprint": "8♣#12#0:9♠,K♣,K♥,10♦,10♠,A♦|1:K♠,6♦,9♥,8♦,7♥,6♠|2:8♥,J♦,6♣,9♦,A♥,10♥|3:Q♦,A♣,Q♣,J♣,9♣,A♠"
+        },
+        {
+          "pair": 4,
+          "seed": 3134169265,
+          "durakA": 1,
+          "decided": 2,
+          "games": [
+            {
+              "direction": 0,
+              "outcome": "durakB",
+              "steps": 142,
+              "ms": 21
+            },
+            {
+              "direction": 1,
+              "outcome": "durakA",
+              "steps": 84,
+              "ms": 17
+            }
+          ],
+          "fingerprint": "A♣#12#0:6♥,8♠,K♣,Q♣,6♦,10♣|1:6♣,J♠,Q♠,Q♥,10♦,7♥|2:8♥,J♣,8♦,A♥,J♦,7♣|3:Q♦,9♣,A♠,7♠,9♥,9♦"
+        }
+      ]
+    }
+  ]
+}
