@@ -222,7 +222,8 @@
 
   .mid-row{
     display:flex; align-items:flex-start; justify-content:center; gap:28px;
-    min-height:130px; margin-bottom:22px; flex-wrap:wrap;
+    height:calc(var(--card-h) * 2 + 50px); max-height:calc(var(--card-h) * 2 + 50px);
+    overflow-y:auto; margin-bottom:22px; flex-wrap:wrap;
   }
 
   .talon-area{ text-align:center; }
