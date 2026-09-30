@@ -562,13 +562,11 @@
       flex-wrap:wrap; justify-content:center; row-gap:16px;
     }
 
-    /* Карты в руке игрока — крупнее на телефоне (было 60x84, стало ~112x158,
-       т.е. почти вдвое; на широких экранах тянется до ~150x212). Рука уже
-       скроллится по горизонтали, так что увеличение размера карт не ломает
-       раскладку — просто больше скролла при большой руке. */
+    /* Карты в руке игрока — крупнее на телефоне (было 60x84, стало ~120x170,
+       оптимизировано для лучшей читаемости и эргономики на мобильных устройствах). */
     :root{
-      --hand-card-w: calc(clamp(112px, 28vw, 150px) * var(--hand-scale));
-      --hand-card-h: calc(clamp(158px, 39.5vw, 212px) * var(--hand-scale));
+      --hand-card-w: calc(clamp(120px, 30vw, 160px) * var(--hand-scale));
+      --hand-card-h: calc(clamp(170px, 42.5vw, 226px) * var(--hand-scale));
     }
     .my-hand .card{ margin-left:clamp(-52px, -13vw, -38px); }
 
