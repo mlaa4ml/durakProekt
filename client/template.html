@@ -554,6 +554,11 @@
     /* Два варианта поведения зоны карт на столе, переключаемые из настроек
        партии (#tableLayoutMobile) через класс на #tableBoard — колода и
        "бито" в обоих случаях остаются на месте, т.к. они absolute. */
+    #tableBoard .mid-row{
+      height:calc(var(--card-h) * 2 + 60px);
+      max-height:calc(var(--card-h) * 2 + 60px);
+      overflow-y:auto;
+    }
     #tableBoard.layout-scroll .trick-area{
       flex-wrap:nowrap; justify-content:flex-start;
       overflow-x:auto; padding-bottom:4px;
