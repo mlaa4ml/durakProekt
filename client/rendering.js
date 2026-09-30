@@ -15,8 +15,9 @@ function layoutHandArc(container){
   // фиксирует два разных состояния стиля и на КАЖДОЙ перерисовке руки
   // проигрывает transition с нуля до дуги, из-за чего карты «мерцают».
   cards.forEach(el=>{ el.style.transition='none'; });
-  const w = cards[0].getBoundingClientRect().width || 60;
-  const h = cards[0].getBoundingClientRect().height || 84;
+  // offsetWidth/Height не учитывают поворот предыдущего веера при ресайзе.
+  const w = cards[0].offsetWidth || 60;
+  const h = cards[0].offsetHeight || 84;
   const avail = container.clientWidth || w*n;
   if(window.matchMedia('(max-width:680px)').matches){
     // Не сжимаем индексы до нечитаемой полоски: большая рука прокручивается.
