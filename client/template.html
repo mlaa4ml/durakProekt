@@ -561,7 +561,8 @@
     }
     #tableBoard.layout-scroll .trick-pair{ scroll-snap-align:center; }
     #tableBoard.layout-wrap .trick-area{
-      flex-wrap:wrap; justify-content:center; row-gap:20px; align-content:flex-start;
+      flex-wrap:wrap; justify-content:flex-start; row-gap:10px; column-gap:8px;
+      max-height:calc(var(--card-h) * 2 + 30px); overflow-y:auto;
     }
 
     /* Карты в руке игрока — крупнее на телефоне (было 60x84, стало ~120x170,
