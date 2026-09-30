@@ -237,7 +237,7 @@
 
   .trick-area{
     display:flex; gap:clamp(8px,2vw,14px); flex-wrap:wrap; justify-content:center;
-    min-width:0; flex:1 1 auto;
+    min-width:0; flex:1 1 auto; max-height:calc(var(--card-h) * 2 + 30px); overflow-y:auto;
   }
   .trick-pair{ position:relative; width:var(--card-w); height:calc(var(--card-h) * 2 + 10px); min-height:calc(var(--card-h) * 2 + 10px); }
   .trick-pair .attack-card{ position:absolute; top:0; left:0; }
