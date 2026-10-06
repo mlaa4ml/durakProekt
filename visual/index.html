@@ -592,6 +592,118 @@
     .network-lobby input, .network-lobby select{ width:100%; margin:3px 0; }
     .network-lobby table{ display:block; overflow-x:auto; white-space:nowrap; }
   }
+  /* Issue #80: постоянная игровая зона, а не растущий с каждым ходом стол.
+     Пары учитывают сдвиг защитной карты; переполнение остаётся внутри лотка. */
+  .mid-row{
+    display:grid; grid-template-columns:var(--card-w) minmax(0,1fr) var(--card-w);
+    gap:20px; align-items:start; min-height:0;
+  }
+  .trick-area{
+    height:calc(2 * (var(--card-h) + 36px) + 32px);
+    align-content:start; justify-content:flex-start;
+    overflow:auto; padding:12px 8px; gap:12px;
+    border:1px solid var(--slot-border); border-radius:12px;
+    background:#00000012;
+  }
+  .trick-pair{
+    flex:none; width:calc(var(--card-w) * 1.42);
+    height:calc(var(--card-h) + 24px);
+  }
+  .taking-label{ flex:0 0 100%; margin:0; }
+  .action-bar{
+    height:112px; min-height:112px; overflow-y:auto;
+    align-content:start; align-items:start;
+  }
+  .action-bar button{ min-height:44px; }
+  .turn-hint{ min-height:36px; line-height:1.5; }
+  .event-desc{ height:48px; overflow-y:auto; margin-top:8px; }
+  button:focus-visible, select:focus-visible, input:focus-visible,
+  [tabindex]:focus-visible{ outline:3px solid var(--gold); outline-offset:3px; }
+
+  @media (max-width:680px){
+    :root{
+      --card-w:56px; --card-h:79px;
+      --hand-card-w:calc(112px * var(--hand-scale));
+      --hand-card-h:calc(158px * var(--hand-scale));
+    }
+    .wrap{ padding:0 6px; }
+    .table{
+      margin-top:8px; border:2px solid var(--rail-hi); border-image:none;
+      padding:10px 8px; border-radius:16px;
+    }
+    .game-topbar{ margin-bottom:4px; }
+    .status-line{
+      display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+      grid-auto-rows:minmax(28px,auto); min-height:106px;
+      gap:4px; padding:6px; color:var(--text-strong);
+    }
+    .hud-chip{ white-space:normal; padding:3px 6px; font-size:11px; min-width:0; }
+    .hud-chip b{ overflow-wrap:anywhere; }
+    .hud-chip.finished, .hud-chip.stall-warning{ grid-column:1 / -1; }
+    .opponents, .opponents[data-count="4"], .opponents[data-count="5"]{
+      display:flex; justify-content:space-around; gap:6px;
+      height:112px; margin-bottom:8px; overflow-x:auto; padding:5px 3px 22px;
+    }
+    #opponents .opp, #opponents .opp.vertical{
+      position:relative; inset:auto; transform:none;
+      flex:1 0 48px; min-width:0; max-width:120px;
+    }
+    .opp .label{ font-size:11px; height:26px; margin:0 0 4px; overflow:auto; }
+    .role-row{ top:80px; margin:0; }
+    .role-tag{ font-size:9px; padding:2px 3px; letter-spacing:0; }
+    .hand-count{ width:28px; height:36px; }
+    .finish-badge{ font-size:10px; }
+    .opp .fan, .opp.vertical .fan{
+      flex-direction:row; justify-content:flex-start; overflow-x:auto;
+      height:48px; padding:2px;
+      --card-w:30px; --card-h:42px;
+    }
+    .opp .fan .card{ margin-right:3px; }
+    /* Счётчики и козырь уже крупно показаны в HUD — не дублируем по бокам. */
+    .talon-area, .discard-area{ display:none; }
+    #tableBoard .mid-row,
+    #tableBoard.layout-scroll .mid-row,
+    #tableBoard.layout-wrap .mid-row{
+      display:block; padding:0; min-height:0; margin-bottom:8px;
+    }
+    #tableBoard .trick-area,
+    #tableBoard.layout-scroll .trick-area{
+      height:143px; flex-wrap:nowrap; align-items:flex-start;
+      justify-content:flex-start; padding:24px 10px 10px; gap:12px;
+      overflow:auto; position:relative;
+    }
+    #tableBoard.layout-wrap .trick-area{
+      height:270px; flex-wrap:wrap; align-content:start; row-gap:12px;
+    }
+    .taking-label{
+      position:absolute; top:3px; left:10px; width:auto;
+      white-space:nowrap; font-size:11px;
+    }
+    .my-hand-wrap{
+      position:relative; bottom:auto; margin:0 -4px; padding:8px 4px;
+      background:var(--felt-2); border-radius:12px;
+    }
+    .my-hand-label{ font-size:12px; margin-bottom:2px; }
+    /* Видна верхняя часть крупных карт. Шаг >=44px: угол можно нажать,
+       даже с большой рукой; остальные карты доступны свайпом, не сжатием. */
+    .my-hand{
+      min-height:0; overflow-x:auto; overflow-y:hidden;
+      overscroll-behavior-x:contain; touch-action:pan-x;
+      scrollbar-width:thin;
+    }
+    .my-hand .card{ left:0; top:8px; bottom:auto; margin-left:0; }
+    .my-hand .card .corner.br{ display:none; }
+    .my-hand .card.unplayable{ opacity:.65; }
+    .action-bar{ margin-top:6px; height:112px; min-height:112px; gap:6px; }
+    .action-bar button{ flex:1 1 auto; padding:10px 8px; font-size:12px; }
+    .action-bar .choice-label{ flex:0 0 100%; text-align:left; }
+    .turn-hint{ font-size:12px; min-height:40px; }
+    .event-desc{ font-size:13px; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .my-hand .card, .turn-hint{ transition:none; }
+    .hud-chip.stall-warning{ animation:none; }
+  }
 </style>
 </head>
 <body>
@@ -5764,9 +5876,28 @@ function layoutHandArc(container){
   // фиксирует два разных состояния стиля и на КАЖДОЙ перерисовке руки
   // проигрывает transition с нуля до дуги, из-за чего карты «мерцают».
   cards.forEach(el=>{ el.style.transition='none'; });
-  const w = cards[0].getBoundingClientRect().width || 60;
-  const h = cards[0].getBoundingClientRect().height || 84;
+  // offsetWidth/Height не учитывают поворот предыдущего веера при ресайзе.
+  const w = cards[0].offsetWidth || 60;
+  const h = cards[0].offsetHeight || 84;
   const avail = container.clientWidth || w*n;
+  if(window.matchMedia('(max-width:680px)').matches){
+    // Не сжимаем индексы до нечитаемой полоски: большая рука прокручивается.
+    // Высота не зависит от количества карт; нижняя часть скрыта лотком.
+    const step = Math.max(44, w * 0.48);
+    const total = w + step * (n - 1);
+    const start = Math.max(4, (avail - total) / 2);
+    cards.forEach((el,i)=>{
+      el.style.setProperty('--tr', '0deg');
+      el.style.setProperty('--tx', (start + i * step).toFixed(1)+'px');
+      el.style.setProperty('--ty', '0px');
+      el.style.marginLeft='0px';
+      el.style.setProperty('--zi', String(i+1));
+    });
+    container.style.height = (h * 0.64 + 24) + 'px';
+    void container.offsetHeight;
+    cards.forEach(el=>{ el.style.transition=''; });
+    return;
+  }
   const stepDeg = n>1 ? Math.min(9, 56/(n-1)) : 0;
   const stepX = n>1 ? Math.max(w*0.22, Math.min(w*0.62, (avail - w) / (n-1))) : 0;
   const mid = (n-1)/2;

@@ -15,9 +15,28 @@ function layoutHandArc(container){
   // фиксирует два разных состояния стиля и на КАЖДОЙ перерисовке руки
   // проигрывает transition с нуля до дуги, из-за чего карты «мерцают».
   cards.forEach(el=>{ el.style.transition='none'; });
-  const w = cards[0].getBoundingClientRect().width || 60;
-  const h = cards[0].getBoundingClientRect().height || 84;
+  // offsetWidth/Height не учитывают поворот предыдущего веера при ресайзе.
+  const w = cards[0].offsetWidth || 60;
+  const h = cards[0].offsetHeight || 84;
   const avail = container.clientWidth || w*n;
+  if(window.matchMedia('(max-width:680px)').matches){
+    // Не сжимаем индексы до нечитаемой полоски: большая рука прокручивается.
+    // Высота не зависит от количества карт; нижняя часть скрыта лотком.
+    const step = Math.max(44, w * 0.48);
+    const total = w + step * (n - 1);
+    const start = Math.max(4, (avail - total) / 2);
+    cards.forEach((el,i)=>{
+      el.style.setProperty('--tr', '0deg');
+      el.style.setProperty('--tx', (start + i * step).toFixed(1)+'px');
+      el.style.setProperty('--ty', '0px');
+      el.style.marginLeft='0px';
+      el.style.setProperty('--zi', String(i+1));
+    });
+    container.style.height = (h * 0.64 + 24) + 'px';
+    void container.offsetHeight;
+    cards.forEach(el=>{ el.style.transition=''; });
+    return;
+  }
   const stepDeg = n>1 ? Math.min(9, 56/(n-1)) : 0;
   const stepX = n>1 ? Math.max(w*0.22, Math.min(w*0.62, (avail - w) / (n-1))) : 0;
   const mid = (n-1)/2;
